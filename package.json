@@ -1,0 +1,24 @@
+{
+  "name": "forgeon",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @forgeon/api --filter @forgeon/web dev",
+    "build": "pnpm -r build",
+    "postinstall": "pnpm --filter @forgeon/api prisma:generate",
+    "create:forgeon": "node scripts/create-forgeon.mjs",
+    "docker:up": "docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build",
+    "docker:down": "docker compose -f infra/docker/compose.yml down -v"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}
+
