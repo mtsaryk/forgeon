@@ -45,22 +45,3 @@ API container starts with:
 
 This keeps container startup production-like while still simple.
 
-## Generator Command
-
-Use:
-```bash
-npx create-forgeon@latest my-app --frontend react --db prisma --i18n true --docker true --proxy nginx
-```
-
-Or locally from this repo:
-```bash
-pnpm create:forgeon -- my-app --frontend react --db prisma --i18n true --docker true
-```
-
-If flags are omitted, the CLI asks questions interactively.
-
-Implemented presets today:
-- frontend: `react`
-- db: `prisma`
-- proxy (docker mode): `nginx` or `caddy`
-

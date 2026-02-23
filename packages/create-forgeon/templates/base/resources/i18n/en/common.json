@@ -1,0 +1,5 @@
+{
+  "errors.accessDenied": "Access denied",
+  "errors.notFound": "Resource not found",
+  "common.ok": "OK"
+}
