@@ -23,6 +23,14 @@ export async function promptSelect({
 
   const canSetRawMode = typeof inputStream.setRawMode === 'function';
   const wasRawModeEnabled = Boolean(inputStream.isRaw);
+  const canResume = typeof inputStream.resume === 'function';
+  const canPause = typeof inputStream.pause === 'function';
+  const wasPaused = typeof inputStream.isPaused === 'function' ? inputStream.isPaused() : false;
+
+  if (canResume && wasPaused) {
+    inputStream.resume();
+  }
+
   if (canSetRawMode && !wasRawModeEnabled) {
     inputStream.setRawMode(true);
   }
@@ -51,6 +59,9 @@ export async function promptSelect({
       inputStream.off('keypress', onKeypress);
       if (canSetRawMode && !wasRawModeEnabled) {
         inputStream.setRawMode(false);
+      }
+      if (canPause && wasPaused) {
+        inputStream.pause();
       }
       outputStream.write('\n');
     };
