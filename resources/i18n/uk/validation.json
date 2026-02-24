@@ -1,3 +1,5 @@
 {
-  "validation.required": "Поле є обов'язковим"
+  "validation": {
+    "required": "Поле є обов'язковим"
+  }
 }

@@ -125,6 +125,12 @@ describe('addModule', () => {
       );
       assert.match(i18nWebSource, /@forgeon\/i18n-contracts\/src\/index/);
 
+      const enCommon = JSON.parse(
+        fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'common.json'), 'utf8'),
+      );
+      assert.equal(enCommon.common.checkApiHealth, 'Check API health');
+      assert.equal(enCommon.languages.english, 'English');
+
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),
         'utf8',
