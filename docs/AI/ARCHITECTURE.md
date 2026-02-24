@@ -36,3 +36,12 @@ Reusable features should be added as fullstack add-modules:
 - `web` package (React integration)
 
 Reference: `docs/AI/MODULE_SPEC.md`.
+
+## TypeScript Module Format Policy
+
+- `apps/api`, `packages/core`, and backend runtime packages use Node-oriented config:
+  - `tsconfig.base.node.json`
+- Frontend-consumed shared packages (especially contracts/web helpers) use ESM config:
+  - `tsconfig.base.esm.json`
+- Contracts packages are ESM-first and imported via package entrypoints only.
+- Cross-package imports from `/src/*` are disallowed.

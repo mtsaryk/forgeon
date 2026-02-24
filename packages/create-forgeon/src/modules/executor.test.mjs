@@ -94,10 +94,15 @@ describe('addModule', () => {
         fs.existsSync(path.join(projectRoot, 'packages', 'i18n-web', 'package.json')),
         true,
       );
+      assert.equal(fs.existsSync(path.join(projectRoot, 'tsconfig.base.node.json')), true);
+      assert.equal(fs.existsSync(path.join(projectRoot, 'tsconfig.base.esm.json')), true);
 
       const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
       assert.match(apiPackage, /@forgeon\/i18n/);
       assert.match(apiPackage, /@forgeon\/i18n-contracts/);
+
+      const apiTsconfig = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'tsconfig.json'), 'utf8');
+      assert.match(apiTsconfig, /tsconfig\.base\.node\.json/);
 
       const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
       assert.match(compose, /I18N_ENABLED/);
@@ -123,13 +128,13 @@ describe('addModule', () => {
         path.join(projectRoot, 'packages', 'i18n-web', 'tsconfig.json'),
         'utf8',
       );
-      assert.match(i18nWebTsconfig, /"module": "ESNext"/);
+      assert.match(i18nWebTsconfig, /tsconfig\.base\.esm\.json/);
 
       const i18nContractsTsconfig = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-contracts', 'tsconfig.json'),
         'utf8',
       );
-      assert.match(i18nContractsTsconfig, /"module": "ESNext"/);
+      assert.match(i18nContractsTsconfig, /tsconfig\.base\.esm\.json/);
 
       const i18nWebSource = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-web', 'src', 'index.ts'),
@@ -167,6 +172,8 @@ describe('addModule', () => {
         'utf8',
       );
       assert.match(caddyDockerfile, /COPY tsconfig\.base\.json \.\//);
+      assert.match(caddyDockerfile, /COPY tsconfig\.base\.node\.json \.\//);
+      assert.match(caddyDockerfile, /COPY tsconfig\.base\.esm\.json \.\//);
       assert.match(
         caddyDockerfile,
         /COPY packages\/i18n-contracts\/package\.json packages\/i18n-contracts\/package\.json/,

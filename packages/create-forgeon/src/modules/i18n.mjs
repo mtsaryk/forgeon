@@ -94,6 +94,10 @@ function patchApiDockerfile(targetRoot) {
   }
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
+  content = content.replace(
+    /^COPY package\.json pnpm-workspace\.yaml tsconfig\.base\.json \.\/$/m,
+    'COPY package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.base.node.json tsconfig.base.esm.json ./',
+  );
 
   content = ensureLineAfter(
     content,
@@ -145,6 +149,16 @@ function patchProxyDockerfile(filePath) {
     content,
     'COPY package.json pnpm-workspace.yaml ./',
     'COPY tsconfig.base.json ./',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY tsconfig.base.json ./',
+    'COPY tsconfig.base.node.json ./',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY tsconfig.base.node.json ./',
+    'COPY tsconfig.base.esm.json ./',
   );
   content = ensureLineAfter(
     content,

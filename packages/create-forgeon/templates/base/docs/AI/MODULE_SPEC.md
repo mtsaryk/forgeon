@@ -20,10 +20,18 @@ Must contain:
 - route constants (`API.<feature>.*`)
 - error codes (`<FEATURE>_*`)
 - shared constants (header/cookie names)
+- package entrypoint exports only (`@forgeon/<feature>-contracts`)
 
 Should contain:
 
 - zod schemas + inferred TS types
+
+Build/runtime rules:
+
+- ESM-first package (`"type": "module"`, `module: "ESNext"`)
+- extends `tsconfig.base.esm.json`
+- no NestJS or browser-only runtime dependencies
+- no imports from sibling package `/src/*` paths
 
 ## 2) API Package
 
@@ -53,4 +61,5 @@ Must contain:
 - No duplicate route strings across api/web.
 - No duplicate error-code enums across api/web.
 - Contracts package can be imported from both sides without circular dependencies.
+- Contracts package exports are stable from `dist/index` entrypoint.
 - Module has docs under `docs/AI/MODULES/<module-id>.md`.

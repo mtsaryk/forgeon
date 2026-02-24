@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /app
 RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.base.node.json tsconfig.base.esm.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/api/prisma apps/api/prisma
 COPY packages/core/package.json packages/core/package.json

@@ -96,6 +96,7 @@ export function generateDocs(targetRoot, options, packageRoot) {
   if (options.i18nEnabled) {
     aiArchitectureFragments.push('21_env_i18n');
   }
+  aiArchitectureFragments.push('22_ts_module_policy');
   aiArchitectureFragments.push('30_default_db', '31_docker_runtime', '32_scope_freeze');
   aiArchitectureFragments.push('40_docs_generation', '50_extension_points');
 

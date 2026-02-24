@@ -49,6 +49,8 @@ describe('generateDocs', () => {
 
       assert.match(architectureDoc, /infra\/\*/);
       assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
+      assert.match(architectureDoc, /TypeScript Module Policy/);
+      assert.match(architectureDoc, /tsconfig\.base\.esm\.json/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -84,6 +86,8 @@ describe('generateDocs', () => {
       assert.match(architectureDoc, /infra\/\*/);
       assert.match(architectureDoc, /I18N_ENABLED/);
       assert.match(architectureDoc, /Active reverse proxy preset: `caddy`/);
+      assert.match(architectureDoc, /TypeScript Module Policy/);
+      assert.match(architectureDoc, /tsconfig\.base\.node\.json/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

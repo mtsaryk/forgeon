@@ -36,3 +36,10 @@ Reusable features should be added as workspace packages and imported by apps as 
 
 - `packages/core` for shared backend primitives
 - Additional packages for auth presets, guards, queues, mailers, etc.
+
+## TypeScript Module Format Policy
+
+- `apps/api`, `packages/core`, and backend runtime packages use `tsconfig.base.node.json`.
+- Frontend-consumed shared packages (contracts/web helpers) use `tsconfig.base.esm.json`.
+- Contracts packages are ESM-first and imported only via package entrypoints.
+- Cross-package imports from `/src/*` are disallowed.
