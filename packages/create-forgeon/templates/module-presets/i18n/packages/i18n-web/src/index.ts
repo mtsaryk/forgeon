@@ -3,7 +3,7 @@ import {
   I18N_LOCALES,
   LANG_QUERY_PARAM,
   type I18nLocale,
-} from '@forgeon/i18n-contracts';
+} from '@forgeon/i18n-contracts/src/index';
 
 const LOCALE_STORAGE_KEY = 'forgeon.locale';
 

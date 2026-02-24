@@ -118,6 +118,12 @@ describe('addModule', () => {
       );
       assert.match(i18nWebTsconfig, /"module": "ESNext"/);
 
+      const i18nWebSource = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-web', 'src', 'index.ts'),
+        'utf8',
+      );
+      assert.match(i18nWebSource, /@forgeon\/i18n-contracts\/src\/index/);
+
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),
         'utf8',
