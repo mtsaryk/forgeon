@@ -134,6 +134,42 @@ function patchApiDockerfile(targetRoot) {
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
+function patchProxyDockerfile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+
+  content = ensureLineAfter(
+    content,
+    'COPY apps/web/package.json apps/web/package.json',
+    'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
+    'COPY packages/i18n-web/package.json packages/i18n-web/package.json',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY apps/web apps/web',
+    'COPY packages/i18n-contracts packages/i18n-contracts',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY packages/i18n-contracts packages/i18n-contracts',
+    'COPY packages/i18n-web packages/i18n-web',
+  );
+
+  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
+function patchProxyDockerfiles(targetRoot) {
+  patchProxyDockerfile(path.join(targetRoot, 'infra', 'docker', 'caddy.Dockerfile'));
+  patchProxyDockerfile(path.join(targetRoot, 'infra', 'docker', 'nginx.Dockerfile'));
+}
+
 function patchCompose(targetRoot) {
   const composePath = path.join(targetRoot, 'infra', 'docker', 'compose.yml');
   if (!fs.existsSync(composePath)) {
@@ -230,6 +266,7 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   patchApiPackage(targetRoot);
   patchWebPackage(targetRoot);
   patchApiDockerfile(targetRoot);
+  patchProxyDockerfiles(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'I18N_ENABLED=true',

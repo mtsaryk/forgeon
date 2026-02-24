@@ -41,6 +41,28 @@ export function applyI18nDisabled(targetRoot) {
     fs.writeFileSync(apiDockerfile, content, 'utf8');
   }
 
+  const proxyDockerfiles = [
+    path.join(targetRoot, 'infra', 'docker', 'caddy.Dockerfile'),
+    path.join(targetRoot, 'infra', 'docker', 'nginx.Dockerfile'),
+  ];
+  for (const dockerfilePath of proxyDockerfiles) {
+    if (!fs.existsSync(dockerfilePath)) {
+      continue;
+    }
+
+    const content = fs
+      .readFileSync(dockerfilePath, 'utf8')
+      .replace(
+        /^COPY packages\/i18n-contracts\/package\.json packages\/i18n-contracts\/package\.json\r?\n/gm,
+        '',
+      )
+      .replace(/^COPY packages\/i18n-web\/package\.json packages\/i18n-web\/package\.json\r?\n/gm, '')
+      .replace(/^COPY packages\/i18n-contracts packages\/i18n-contracts\r?\n/gm, '')
+      .replace(/^COPY packages\/i18n-web packages\/i18n-web\r?\n/gm, '');
+
+    fs.writeFileSync(dockerfilePath, content, 'utf8');
+  }
+
   const webPackagePath = path.join(targetRoot, 'apps', 'web', 'package.json');
   if (fs.existsSync(webPackagePath)) {
     const webPackage = JSON.parse(fs.readFileSync(webPackagePath, 'utf8'));
