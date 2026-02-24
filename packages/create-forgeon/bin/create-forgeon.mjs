@@ -10,6 +10,12 @@ const task =
     ? runAddModule(args.slice(1))
     : runCreateForgeon(args);
 
+task.then(() => {
+  if (typeof process.stdin.pause === 'function') {
+    process.stdin.pause();
+  }
+});
+
 task.catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);

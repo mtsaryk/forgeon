@@ -25,11 +25,7 @@ export async function promptSelect({
   const wasRawModeEnabled = Boolean(inputStream.isRaw);
   const canResume = typeof inputStream.resume === 'function';
   const canPause = typeof inputStream.pause === 'function';
-  const wasPaused = typeof inputStream.isPaused === 'function' ? inputStream.isPaused() : false;
-
-  if (canResume && wasPaused) {
-    inputStream.resume();
-  }
+  if (canResume) inputStream.resume();
 
   if (canSetRawMode && !wasRawModeEnabled) {
     inputStream.setRawMode(true);
@@ -60,9 +56,7 @@ export async function promptSelect({
       if (canSetRawMode && !wasRawModeEnabled) {
         inputStream.setRawMode(false);
       }
-      if (canPause && wasPaused) {
-        inputStream.pause();
-      }
+      if (canPause) inputStream.pause();
       outputStream.write('\n');
     };
 
