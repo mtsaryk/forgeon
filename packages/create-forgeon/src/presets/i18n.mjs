@@ -75,9 +75,20 @@ export function applyI18nDisabled(targetRoot) {
     if (webPackage.dependencies) {
       delete webPackage.dependencies['@forgeon/i18n-contracts'];
       delete webPackage.dependencies['@forgeon/i18n-web'];
+      delete webPackage.dependencies.i18next;
+      delete webPackage.dependencies['react-i18next'];
     }
 
     writeJson(webPackagePath, webPackage);
+  }
+
+  const rootPackagePath = path.join(targetRoot, 'package.json');
+  if (fs.existsSync(rootPackagePath)) {
+    const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
+    if (rootPackage.scripts) {
+      delete rootPackage.scripts['i18n:check'];
+    }
+    writeJson(rootPackagePath, rootPackage);
   }
 
   const appModulePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');

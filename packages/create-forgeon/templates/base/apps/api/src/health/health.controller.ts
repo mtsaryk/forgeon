@@ -16,14 +16,6 @@ export class HealthController {
     };
   }
 
-  @Get('meta')
-  getMeta(@Query('lang') lang?: string) {
-    return {
-      checkApiHealth: this.translate('common.checkApiHealth', lang),
-      languageLabel: this.translate('common.language', lang),
-    };
-  }
-
   @Get('echo')
   getEcho(@Query() query: EchoQueryDto) {
     return { value: query.value };
@@ -34,8 +26,8 @@ export class HealthController {
       if (key === 'common.ok') return 'OK';
       if (key === 'common.checkApiHealth') return 'Check API health';
       if (key === 'common.language') return 'Language';
-      if (key === 'languages.english') return 'English';
-      if (key === 'languages.ukrainian') return 'Ukrainian';
+      if (key === 'common.languages.english') return 'English';
+      if (key === 'common.languages.ukrainian') return 'Ukrainian';
       return key;
     }
 
@@ -52,6 +44,6 @@ export class HealthController {
   }
 
   private localeNameKey(locale: 'en' | 'uk'): string {
-    return locale === 'uk' ? 'languages.ukrainian' : 'languages.english';
+    return locale === 'uk' ? 'common.languages.ukrainian' : 'common.languages.english';
   }
 }

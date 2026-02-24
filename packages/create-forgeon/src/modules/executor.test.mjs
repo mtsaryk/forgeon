@@ -104,7 +104,7 @@ describe('addModule', () => {
 
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);
-      assert.match(appTsx, /\/api\/health\/meta/);
+      assert.match(appTsx, /react-i18next/);
       assert.match(appTsx, /checkApiHealth/);
 
       const i18nWebPackage = fs.readFileSync(
@@ -123,13 +123,32 @@ describe('addModule', () => {
         path.join(projectRoot, 'packages', 'i18n-web', 'src', 'index.ts'),
         'utf8',
       );
-      assert.match(i18nWebSource, /@forgeon\/i18n-contracts\/src\/index/);
+      assert.match(i18nWebSource, /@forgeon\/i18n-contracts/);
 
       const enCommon = JSON.parse(
         fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'common.json'), 'utf8'),
       );
-      assert.equal(enCommon.common.checkApiHealth, 'Check API health');
+      assert.equal(enCommon.checkApiHealth, 'Check API health');
       assert.equal(enCommon.languages.english, 'English');
+
+      const enErrors = JSON.parse(
+        fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'errors.json'), 'utf8'),
+      );
+      assert.equal(enErrors.notFound, 'Resource not found');
+
+      const webPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'package.json'), 'utf8');
+      assert.match(webPackage, /"i18next":/);
+      assert.match(webPackage, /"react-i18next":/);
+
+      const mainTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'main.tsx'), 'utf8');
+      assert.match(mainTsx, /import '\.\/i18n';/);
+
+      const i18nTs = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'i18n.ts'), 'utf8');
+      assert.match(i18nTs, /initReactI18next/);
+      assert.match(i18nTs, /resources\/i18n\/en\/common\.json/);
+
+      const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');
+      assert.match(rootPackage, /"i18n:check"/);
 
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),

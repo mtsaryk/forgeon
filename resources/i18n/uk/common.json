@@ -1,13 +1,7 @@
 {
-  "errors": {
-    "accessDenied": "Доступ заборонено",
-    "notFound": "Ресурс не знайдено"
-  },
-  "common": {
-    "ok": "OK",
-    "checkApiHealth": "Перевірити API health",
-    "language": "Мова"
-  },
+  "ok": "OK",
+  "checkApiHealth": "Перевірити API health",
+  "language": "Мова",
   "languages": {
     "english": "Англійська",
     "ukrainian": "Українська"

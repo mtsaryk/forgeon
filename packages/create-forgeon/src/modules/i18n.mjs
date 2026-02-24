@@ -232,6 +232,8 @@ function patchWebPackage(targetRoot) {
   );
   ensureDependency(packageJson, '@forgeon/i18n-contracts', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/i18n-web', 'workspace:*');
+  ensureDependency(packageJson, 'i18next', '^23.16.8');
+  ensureDependency(packageJson, 'react-i18next', '^15.1.2');
   writeJson(packagePath, packageJson);
 }
 
@@ -246,6 +248,17 @@ function patchI18nPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
+function patchRootPackage(targetRoot) {
+  const packagePath = path.join(targetRoot, 'package.json');
+  if (!fs.existsSync(packagePath)) {
+    return;
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  ensureScript(packageJson, 'i18n:check', 'pnpm --filter @forgeon/i18n-contracts check:keys');
+  writeJson(packagePath, packageJson);
+}
+
 export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
   copyFromBase(packageRoot, targetRoot, path.join('resources', 'i18n'));
@@ -253,6 +266,8 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'i18n-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'i18n-web'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'App.tsx'));
+  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'i18n.ts'));
+  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'main.tsx'));
 
   copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'app.module.ts'));
   copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'config', 'app.config.ts'));
@@ -270,6 +285,7 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   patchI18nPackage(targetRoot);
   patchApiPackage(targetRoot);
   patchWebPackage(targetRoot);
+  patchRootPackage(targetRoot);
   patchApiDockerfile(targetRoot);
   patchProxyDockerfiles(targetRoot);
 

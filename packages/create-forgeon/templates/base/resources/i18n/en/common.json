@@ -1,13 +1,7 @@
 {
-  "errors": {
-    "accessDenied": "Access denied",
-    "notFound": "Resource not found"
-  },
-  "common": {
-    "ok": "OK",
-    "checkApiHealth": "Check API health",
-    "language": "Language"
-  },
+  "ok": "OK",
+  "checkApiHealth": "Check API health",
+  "language": "Language",
   "languages": {
     "english": "English",
     "ukrainian": "Ukrainian"
