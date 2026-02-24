@@ -8,9 +8,19 @@ export class HealthController {
 
   @Get()
   getHealth(@Query('lang') lang?: string) {
+    const locale = this.resolveLocale(lang);
     return {
       status: 'ok',
       message: this.translate('common.ok', lang),
+      i18n: this.translate(this.localeNameKey(locale), lang),
+    };
+  }
+
+  @Get('meta')
+  getMeta(@Query('lang') lang?: string) {
+    return {
+      checkApiHealth: this.translate('common.checkApiHealth', lang),
+      languageLabel: this.translate('common.language', lang),
     };
   }
 
@@ -22,10 +32,26 @@ export class HealthController {
   private translate(key: string, lang?: string): string {
     if (!this.i18n) {
       if (key === 'common.ok') return 'OK';
+      if (key === 'common.checkApiHealth') return 'Check API health';
+      if (key === 'common.language') return 'Language';
+      if (key === 'languages.english') return 'English';
+      if (key === 'languages.ukrainian') return 'Ukrainian';
       return key;
     }
 
     const value = this.i18n.t(key, { lang, defaultValue: key });
     return typeof value === 'string' ? value : key;
+  }
+
+  private resolveLocale(lang?: string): 'en' | 'uk' {
+    const normalized = (lang ?? '').toLowerCase();
+    if (normalized.startsWith('uk')) {
+      return 'uk';
+    }
+    return 'en';
+  }
+
+  private localeNameKey(locale: 'en' | 'uk'): string {
+    return locale === 'uk' ? 'languages.ukrainian' : 'languages.english';
   }
 }

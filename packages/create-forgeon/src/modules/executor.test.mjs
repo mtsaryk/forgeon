@@ -104,7 +104,8 @@ describe('addModule', () => {
 
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);
-      assert.match(appTsx, /Language:/);
+      assert.match(appTsx, /\/api\/health\/meta/);
+      assert.match(appTsx, /checkApiHealth/);
 
       const i18nWebPackage = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-web', 'package.json'),

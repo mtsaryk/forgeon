@@ -1,5 +1,9 @@
 {
   "errors.accessDenied": "Доступ заборонено",
   "errors.notFound": "Ресурс не знайдено",
-  "common.ok": "OK"
+  "common.ok": "OK",
+  "common.checkApiHealth": "Перевірити API health",
+  "common.language": "Мова",
+  "languages.english": "Англійська",
+  "languages.ukrainian": "Українська"
 }
