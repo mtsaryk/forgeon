@@ -145,7 +145,7 @@ describe('addModule', () => {
 
       const i18nTs = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'i18n.ts'), 'utf8');
       assert.match(i18nTs, /initReactI18next/);
-      assert.match(i18nTs, /\.\.\/\.\.\/\.\.\/\.\.\/resources\/i18n\/en\/common\.json/);
+      assert.match(i18nTs, /\.\.\/\.\.\/\.\.\/resources\/i18n\/en\/common\.json/);
 
       const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');
       assert.match(rootPackage, /"i18n:check"/);

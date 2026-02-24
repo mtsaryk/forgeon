@@ -12,7 +12,7 @@ Checklist of recurring Docker build failures in generated Forgeon projects and h
 - Root cause:
   - wrong relative path from `apps/web/src` to monorepo `resources/`
 - Fix:
-  - use `../../../../resources/i18n/...` imports
+  - use `../../../resources/i18n/...` imports
 - Prevention:
   - after i18n changes, generate a project and run `pnpm --dir <project> --filter @forgeon/web build`
 
