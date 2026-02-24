@@ -10,6 +10,8 @@ const repoRoot = path.resolve(__dirname, '..');
 
 const rootPackagePath = path.join(repoRoot, 'package.json');
 const cliPackagePath = path.join(repoRoot, 'packages', 'create-forgeon', 'package.json');
+const cliPackageDir = path.join(repoRoot, 'packages', 'create-forgeon');
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 const releaseType = process.argv.includes('--minor') ? 'minor' : 'patch';
 const isDryRun = process.argv.includes('--dry-run');
@@ -29,6 +31,12 @@ function run(command, args, options = {}) {
     shell: false,
     ...options,
   });
+
+  if (result.error) {
+    throw new Error(
+      `Failed to run "${command} ${args.join(' ')}": ${result.error.message}`,
+    );
+  }
 
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -89,10 +97,8 @@ function main() {
   run('git', ['push', 'origin', nextVersion]);
 
   console.log('Starting npm publish for create-forgeon...');
-  console.log('If npm asks for login or OTP, continue manually in this terminal.');
-  run('npm', ['publish', '--access', 'public'], {
-    cwd: path.join(repoRoot, 'packages', 'create-forgeon'),
-  });
+  console.log('Manual handoff: complete npm auth/OTP prompts in this terminal if requested.');
+  run(npmCommand, ['publish', '--access', 'public'], { cwd: cliPackageDir });
 
   console.log(`Release completed: ${nextVersion}`);
 }
