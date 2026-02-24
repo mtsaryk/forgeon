@@ -36,6 +36,16 @@ Checklist of recurring Docker build failures in generated Forgeon projects and h
 - Prevention:
   - grep check before release: `rg "@forgeon/.+/src/index" packages/create-forgeon/templates -n`
 
+4. Vite/Rollup reports missing named exports from workspace package dist
+- Symptom:
+  - `"X" is not exported by "../../packages/<pkg>/dist/index.js"`
+- Root cause:
+  - package built as CommonJS while consumer expects ESM named exports
+- Fix:
+  - set package to ESM (`"type": "module"` + `tsconfig.compilerOptions.module = "ESNext"`)
+- Prevention:
+  - for frontend-consumed workspace libs, do not inherit `module: commonjs` from base tsconfig
+
 ## Release Gate (minimal)
 
 Before publishing `create-forgeon`, run:

@@ -113,11 +113,23 @@ describe('addModule', () => {
       );
       assert.match(i18nWebPackage, /"type": "module"/);
 
+      const i18nContractsPackage = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-contracts', 'package.json'),
+        'utf8',
+      );
+      assert.match(i18nContractsPackage, /"type": "module"/);
+
       const i18nWebTsconfig = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-web', 'tsconfig.json'),
         'utf8',
       );
       assert.match(i18nWebTsconfig, /"module": "ESNext"/);
+
+      const i18nContractsTsconfig = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-contracts', 'tsconfig.json'),
+        'utf8',
+      );
+      assert.match(i18nContractsTsconfig, /"module": "ESNext"/);
 
       const i18nWebSource = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-web', 'src', 'index.ts'),
