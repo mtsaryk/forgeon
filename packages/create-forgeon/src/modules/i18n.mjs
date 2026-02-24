@@ -166,6 +166,11 @@ function patchProxyDockerfile(filePath) {
     'COPY packages/i18n-contracts packages/i18n-contracts',
     'COPY packages/i18n-web packages/i18n-web',
   );
+  content = ensureLineAfter(
+    content,
+    'COPY packages/i18n-web packages/i18n-web',
+    'COPY resources resources',
+  );
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }

@@ -58,7 +58,8 @@ export function applyI18nDisabled(targetRoot) {
       )
       .replace(/^COPY packages\/i18n-web\/package\.json packages\/i18n-web\/package\.json\r?\n/gm, '')
       .replace(/^COPY packages\/i18n-contracts packages\/i18n-contracts\r?\n/gm, '')
-      .replace(/^COPY packages\/i18n-web packages\/i18n-web\r?\n/gm, '');
+      .replace(/^COPY packages\/i18n-web packages\/i18n-web\r?\n/gm, '')
+      .replace(/^COPY resources resources\r?\n/gm, '');
 
     fs.writeFileSync(dockerfilePath, content, 'utf8');
   }
