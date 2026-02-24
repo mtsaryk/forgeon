@@ -106,6 +106,18 @@ describe('addModule', () => {
       assert.match(appTsx, /@forgeon\/i18n-web/);
       assert.match(appTsx, /Language:/);
 
+      const i18nWebPackage = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-web', 'package.json'),
+        'utf8',
+      );
+      assert.match(i18nWebPackage, /"type": "module"/);
+
+      const i18nWebTsconfig = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-web', 'tsconfig.json'),
+        'utf8',
+      );
+      assert.match(i18nWebTsconfig, /"module": "ESNext"/);
+
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),
         'utf8',
