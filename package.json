@@ -1,6 +1,6 @@
 {
   "name": "forgeon",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {
@@ -8,6 +8,8 @@
     "build": "pnpm -r build",
     "postinstall": "pnpm --filter @forgeon/api prisma:generate",
     "create:forgeon": "node packages/create-forgeon/bin/create-forgeon.mjs",
+    "release:patch": "node scripts/release-patch.mjs",
+    "release:minor": "node scripts/release-patch.mjs --minor",
     "docker:up": "docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build",
     "docker:down": "docker compose -f infra/docker/compose.yml down -v"
   },
@@ -21,4 +23,3 @@
     ]
   }
 }
-

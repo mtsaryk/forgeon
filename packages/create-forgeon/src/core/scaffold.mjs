@@ -3,6 +3,7 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import { toKebabCase } from '../utils/values.mjs';
 import { applyI18nDisabled, applyProxyPreset, patchDockerEnvForI18n } from '../presets/index.mjs';
+import { applyModulePreset } from '../modules/executor.mjs';
 import { generateDocs } from './docs.mjs';
 
 function writeApiEnvExample(targetRoot, i18nEnabled) {
@@ -46,9 +47,11 @@ export function scaffoldProject({
   copyRecursive(templateRoot, targetRoot);
   patchRootPackageJson(targetRoot, projectName);
   applyProxyPreset(targetRoot, proxy);
-  patchDockerEnvForI18n(targetRoot, i18nEnabled);
 
-  if (!i18nEnabled) {
+  if (i18nEnabled) {
+    applyModulePreset({ moduleId: 'i18n', targetRoot, packageRoot });
+  } else {
+    patchDockerEnvForI18n(targetRoot, i18nEnabled);
     applyI18nDisabled(targetRoot);
   }
 

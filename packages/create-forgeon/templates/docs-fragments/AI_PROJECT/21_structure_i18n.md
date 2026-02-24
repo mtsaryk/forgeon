@@ -1,2 +1,4 @@
 - `packages/i18n` - reusable nestjs-i18n integration package
+- `packages/i18n-contracts` - shared locale/query constants
+- `packages/i18n-web` - frontend locale helper package
 - `resources/i18n` - translation dictionaries

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addModule } from './executor.mjs';
+import { scaffoldProject } from '../core/scaffold.mjs';
 
 function mkTmp(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -55,6 +56,55 @@ describe('addModule', () => {
           }),
         /Unknown module/,
       );
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies i18n module on top of scaffold without i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-i18n-');
+    const projectRoot = path.join(targetRoot, 'demo-i18n');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-i18n',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'i18n',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assert.match(result.message, /applied/);
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'packages', 'i18n-contracts', 'package.json')),
+        true,
+      );
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'packages', 'i18n-web', 'package.json')),
+        true,
+      );
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/i18n/);
+      assert.match(apiPackage, /@forgeon\/i18n-contracts/);
+
+      const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+      assert.match(compose, /I18N_ENABLED/);
+
+      const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+      assert.match(appTsx, /@forgeon\/i18n-web/);
+      assert.match(appTsx, /Language:/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

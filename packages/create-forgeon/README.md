@@ -13,6 +13,7 @@ Project name stays text input; fixed-choice prompts use arrow-key selection (`Up
 
 ```bash
 npx create-forgeon@latest add --list
+npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
 
@@ -20,4 +21,5 @@ npx create-forgeon@latest add jwt-auth --project ./my-app
 
 - Canonical stack is fixed: NestJS + React + Prisma/Postgres + Docker.
 - Reverse proxy options: `caddy` (default), `nginx`, `none`.
-- `add <module-id>` currently writes module docs notes under `docs/AI/MODULES/`
+- `add i18n` is implemented and applies backend/frontend i18n wiring.
+- Planned modules write docs notes under `docs/AI/MODULES/`.

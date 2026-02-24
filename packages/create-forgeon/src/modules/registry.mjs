@@ -1,4 +1,12 @@
 const MODULE_PRESETS = {
+  i18n: {
+    id: 'i18n',
+    label: 'I18n',
+    category: 'localization',
+    implemented: true,
+    description: 'Backend/frontend i18n wiring with locale contracts and translation resources.',
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   'jwt-auth': {
     id: 'jwt-auth',
     label: 'JWT Auth',

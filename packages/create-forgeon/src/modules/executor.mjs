@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
+import { applyI18nModule } from './i18n.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
   const requiredPaths = [
@@ -19,21 +20,38 @@ function ensureForgeonLikeProject(targetRoot) {
   }
 }
 
-export function addModule({ moduleId, targetRoot, packageRoot }) {
+const MODULE_APPLIERS = {
+  i18n: applyI18nModule,
+};
+
+export function applyModulePreset({ moduleId, targetRoot, packageRoot }) {
+  const applier = MODULE_APPLIERS[moduleId];
+  if (!applier) {
+    return false;
+  }
+
+  applier({ targetRoot, packageRoot });
+  return true;
+}
+
+export function addModule({ moduleId, targetRoot, packageRoot, writeDocs = true }) {
   ensureForgeonLikeProject(targetRoot);
 
   const preset = ensureModuleExists(moduleId);
-  const docsPath = writeModuleDocs({
-    packageRoot,
-    targetRoot,
-    preset,
-  });
+  const applied = applyModulePreset({ moduleId, targetRoot, packageRoot });
+  const docsPath = writeDocs
+    ? writeModuleDocs({
+        packageRoot,
+        targetRoot,
+        preset,
+      })
+    : path.join(targetRoot, 'docs', 'AI', 'MODULES', `${preset.id}.md`);
 
   return {
     preset,
     docsPath,
-    applied: preset.implemented,
-    message: preset.implemented
+    applied: applied || preset.implemented,
+    message: applied
       ? `Module "${preset.id}" applied.`
       : `Module "${preset.id}" is planned; docs note created only.`,
   };

@@ -50,6 +50,7 @@ pnpm create:forgeon -- my-app --i18n true --proxy caddy
 
 ```bash
 npx create-forgeon@latest add --list
+npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
 

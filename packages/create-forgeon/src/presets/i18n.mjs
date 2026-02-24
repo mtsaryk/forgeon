@@ -4,6 +4,8 @@ import { removeIfExists, writeJson } from '../utils/fs.mjs';
 
 export function applyI18nDisabled(targetRoot) {
   removeIfExists(path.join(targetRoot, 'packages', 'i18n'));
+  removeIfExists(path.join(targetRoot, 'packages', 'i18n-contracts'));
+  removeIfExists(path.join(targetRoot, 'packages', 'i18n-web'));
   removeIfExists(path.join(targetRoot, 'resources', 'i18n'));
 
   const apiPackagePath = path.join(targetRoot, 'apps', 'api', 'package.json');
@@ -16,6 +18,7 @@ export function applyI18nDisabled(targetRoot) {
 
     if (apiPackage.dependencies) {
       delete apiPackage.dependencies['@forgeon/i18n'];
+      delete apiPackage.dependencies['@forgeon/i18n-contracts'];
       delete apiPackage.dependencies['nestjs-i18n'];
     }
 
@@ -27,9 +30,32 @@ export function applyI18nDisabled(targetRoot) {
     let content = fs.readFileSync(apiDockerfile, 'utf8');
     content = content
       .replace(/^COPY packages\/i18n\/package\.json packages\/i18n\/package\.json\r?\n/gm, '')
+      .replace(
+        /^COPY packages\/i18n-contracts\/package\.json packages\/i18n-contracts\/package\.json\r?\n/gm,
+        '',
+      )
       .replace(/^COPY packages\/i18n packages\/i18n\r?\n/gm, '')
-      .replace(/^RUN pnpm --filter @forgeon\/i18n build\r?\n/gm, '');
+      .replace(/^COPY packages\/i18n-contracts packages\/i18n-contracts\r?\n/gm, '')
+      .replace(/^RUN pnpm --filter @forgeon\/i18n build\r?\n/gm, '')
+      .replace(/^RUN pnpm --filter @forgeon\/i18n-contracts build\r?\n/gm, '');
     fs.writeFileSync(apiDockerfile, content, 'utf8');
+  }
+
+  const webPackagePath = path.join(targetRoot, 'apps', 'web', 'package.json');
+  if (fs.existsSync(webPackagePath)) {
+    const webPackage = JSON.parse(fs.readFileSync(webPackagePath, 'utf8'));
+
+    if (webPackage.scripts) {
+      delete webPackage.scripts.predev;
+      delete webPackage.scripts.prebuild;
+    }
+
+    if (webPackage.dependencies) {
+      delete webPackage.dependencies['@forgeon/i18n-contracts'];
+      delete webPackage.dependencies['@forgeon/i18n-web'];
+    }
+
+    writeJson(webPackagePath, webPackage);
   }
 
   const appModulePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
