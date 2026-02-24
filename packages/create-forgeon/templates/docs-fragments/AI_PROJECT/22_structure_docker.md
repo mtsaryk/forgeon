@@ -1,0 +1,1 @@
+- `infra` - Docker Compose (always) + proxy preset (`{{PROXY_LABEL}}`)

@@ -7,6 +7,10 @@
 - `infra/*` - runtime infrastructure
 - `resources/*` - static assets (translations)
 
+Canonical stack is fixed in this stage:
+- NestJS + React + Prisma/Postgres + Docker
+- Proxy preset can be `caddy`, `nginx`, or `none`
+
 ## Environment Flags
 
 - `PORT` - API port (default 3000)
@@ -21,18 +25,14 @@ Current default is Prisma + Postgres.
 
 - Prisma schema and migrations live in `apps/api/prisma`
 - DB access is encapsulated via `PrismaModule` (`apps/api/src/prisma`)
+- Additional DB presets are out of scope for the current milestone.
 
-## Future DB Presets (Not Implemented Yet)
+## Module Strategy
 
-A future preset can switch DB by:
-1. Replacing `PrismaModule` with another DB module package (for example Mongo package).
-2. Updating `infra/docker/compose.yml` DB service.
-3. Updating `DATABASE_URL` and related env keys.
-4. Keeping app-level services dependent only on repository/data-access abstractions.
+Reusable features should be added as fullstack add-modules:
 
-## Future Feature Modules
+- `contracts` package (shared DTO/routes/errors)
+- `api` package (NestJS integration)
+- `web` package (React integration)
 
-Reusable features should be added as workspace packages and imported by apps as needed:
-
-- `packages/core` for shared backend primitives
-- Additional packages for auth presets, guards, queues, mailers, etc.
+Reference: `docs/AI/MODULE_SPEC.md`.

@@ -38,11 +38,21 @@ Run build checks and show changed files.
 ## Generate Preset
 
 ```text
-Create a new preset flow for create-forgeon:
-- add new flag(s)
-- update interactive questions
-- update generated files
-- keep defaults: Prisma + Postgres, React + Vite + TS
-- update docs/AI/ARCHITECTURE.md
+Create or update create-forgeon preset flow:
+- keep canonical stack fixed: NestJS + React + Prisma/Postgres + Docker
+- allow only runtime proxy choice: caddy/nginx/none
+- update generated docs fragments
+- update docs/AI/ARCHITECTURE.md and docs/AI/MODULE_SPEC.md when scope changes
+```
+
+## Add Fullstack Module
+
+```text
+Implement `create-forgeon add <module-id>` for a fullstack feature.
+Requirements:
+- split module into contracts/api/web packages
+- contracts is source of truth for routes, DTOs, errors
+- add docs note under docs/AI/MODULES/<module-id>.md
+- keep backward compatibility
 ```
 

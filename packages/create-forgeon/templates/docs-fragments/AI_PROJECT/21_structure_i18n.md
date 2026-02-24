@@ -1,0 +1,2 @@
+- `packages/i18n` - reusable nestjs-i18n integration package
+- `resources/i18n` - translation dictionaries

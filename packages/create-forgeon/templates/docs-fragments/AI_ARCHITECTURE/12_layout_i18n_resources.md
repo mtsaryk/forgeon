@@ -1,0 +1,1 @@
+- `resources/*` - static assets (includes translation dictionaries when i18n is enabled)

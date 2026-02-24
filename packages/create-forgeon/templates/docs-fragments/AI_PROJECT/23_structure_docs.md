@@ -1,0 +1,1 @@
+- `docs` - documentation, AI prompts, and module spec contracts

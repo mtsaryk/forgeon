@@ -7,12 +7,12 @@ A canonical fullstack monorepo scaffold intended to be reused as a project start
 ## Structure
 
 - `apps/api` - NestJS backend
-- `apps/web` - frontend scaffold (default React + Vite + TS)
+- `apps/web` - React frontend (fixed stack)
 - `packages/core` - shared backend core placeholder
 - `packages/i18n` - reusable nestjs-i18n integration package
-- `infra` - Docker Compose + Nginx
+- `infra` - Docker Compose + proxy preset (`caddy|nginx|none`)
 - `resources/i18n` - translation dictionaries
-- `docs` - documentation and AI workflow prompts
+- `docs` - documentation, AI prompts, and module contracts
 
 ## Run Modes
 
@@ -30,3 +30,5 @@ docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml 
 ```
 
 The API uses Prisma and expects `DATABASE_URL` from env.
+
+If proxy preset is `none`, API is directly available on `localhost:3000`.

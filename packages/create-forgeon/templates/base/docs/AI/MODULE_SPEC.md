@@ -1,0 +1,56 @@
+# MODULE SPEC
+
+## Goal
+
+Define one repeatable fullstack pattern for Forgeon add-modules.
+
+Each feature module should be split into:
+
+1. `@forgeon/<feature>-contracts`
+2. `@forgeon/<feature>-api`
+3. `@forgeon/<feature>-web`
+
+## 1) Contracts Package
+
+Single source of truth shared by backend and frontend.
+
+Must contain:
+
+- DTO/request/response types
+- route constants (`API.<feature>.*`)
+- error codes (`<FEATURE>_*`)
+- shared constants (header/cookie names)
+
+Should contain:
+
+- zod schemas + inferred TS types
+
+## 2) API Package
+
+NestJS module integrating contracts into backend runtime.
+
+Must contain:
+
+- module/service/controller
+- guards/strategies (if auth/security related)
+- config keys
+- minimal e2e test path
+- integration with `@forgeon/core` errors/logging
+
+## 3) Web Package
+
+React integration layer for the same feature.
+
+Must contain:
+
+- provider/hooks/store
+- route guard (if feature requires auth/access)
+- API client helpers using contracts route constants/types
+- token/header/cookie wiring where relevant
+
+## Acceptance Criteria
+
+- No duplicate route strings across api/web.
+- No duplicate error-code enums across api/web.
+- Contracts package can be imported from both sides without circular dependencies.
+- Module has docs under `docs/AI/MODULES/<module-id>.md`.

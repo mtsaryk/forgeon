@@ -1,15 +1,19 @@
 {
   "name": "create-forgeon",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Forgeon project generator CLI",
   "license": "MIT",
   "author": "Forgeon",
   "type": "module",
+  "scripts": {
+    "test": "node --test src/cli/options.test.mjs src/cli/add-options.test.mjs src/cli/prompt-select.test.mjs src/core/docs.test.mjs src/core/validate.test.mjs src/modules/executor.test.mjs"
+  },
   "bin": {
     "create-forgeon": "bin/create-forgeon.mjs"
   },
   "files": [
     "bin",
+    "src",
     "templates",
     "README.md"
   ]

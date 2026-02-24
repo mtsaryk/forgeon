@@ -1,6 +1,14 @@
 # Forgeon Fullstack Scaffold
 
-Canonical monorepo scaffold for NestJS + frontend with shared packages, built-in docs, optional i18n (enabled by default), and default DB stack Prisma + Postgres.
+Canonical monorepo scaffold focused on one stable stack:
+
+- NestJS API
+- React + Vite web
+- Prisma + Postgres
+- Docker runtime (always generated)
+- Proxy preset: `caddy` (default), `nginx`, or `none`
+
+Current release line: `0.1.0`.
 
 ## Quick Start (Dev)
 
@@ -8,7 +16,7 @@ Canonical monorepo scaffold for NestJS + frontend with shared packages, built-in
    ```bash
    pnpm install
    ```
-2. Start local Postgres (Docker):
+2. Start local Postgres:
    ```bash
    docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up db -d
    ```
@@ -16,9 +24,6 @@ Canonical monorepo scaffold for NestJS + frontend with shared packages, built-in
    ```bash
    pnpm dev
    ```
-4. Open:
-   - Web: `http://localhost:5173`
-   - API health: `http://localhost:3000/api/health`
 
 ## Quick Start (Docker)
 
@@ -26,41 +31,30 @@ Canonical monorepo scaffold for NestJS + frontend with shared packages, built-in
 docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build
 ```
 
-Open `http://localhost:8080`.
+- `proxy=caddy|nginx`: open `http://localhost:8080`
+- `proxy=none`: API at `http://localhost:3000/api/health`, web via `pnpm dev`
 
-## i18n Toggle
+## Generator
 
-Set in env:
-- `I18N_ENABLED=true|false`
-- `I18N_DEFAULT_LANG=en`
-- `I18N_FALLBACK_LANG=en`
-
-When `I18N_ENABLED=false`, API runs without loading i18n module.
-
-## Prisma In Docker Start
-
-API container starts with:
-1. `prisma migrate deploy`
-2. `node apps/api/dist/main.js`
-
-This keeps container startup production-like while still simple.
-
-## Generator Command
-
-Use:
 ```bash
-npx create-forgeon@latest my-app --frontend react --db prisma --i18n true --docker true --proxy nginx
+npx create-forgeon@latest my-app --i18n true --proxy caddy
 ```
 
-Or locally from this repo:
+Local invocation:
+
 ```bash
-pnpm create:forgeon -- my-app --frontend react --db prisma --i18n true --docker true
+pnpm create:forgeon -- my-app --i18n true --proxy caddy
 ```
 
-If flags are omitted, the CLI asks questions interactively.
+## Add Modules
 
-Implemented presets today:
-- frontend: `react`
-- db: `prisma`
-- proxy (docker mode): `nginx` or `caddy`
+```bash
+npx create-forgeon@latest add --list
+npx create-forgeon@latest add jwt-auth --project ./my-app
+```
+
+## Docs
+
+- Project docs index: `docs/README.md`
+- Module contract spec: `docs/AI/MODULE_SPEC.md`
 
