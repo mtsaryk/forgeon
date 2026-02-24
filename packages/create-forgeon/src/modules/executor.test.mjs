@@ -105,6 +105,20 @@ describe('addModule', () => {
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);
       assert.match(appTsx, /Language:/);
+
+      const caddyDockerfile = fs.readFileSync(
+        path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),
+        'utf8',
+      );
+      assert.match(caddyDockerfile, /COPY tsconfig\.base\.json \.\//);
+      assert.match(
+        caddyDockerfile,
+        /COPY packages\/i18n-contracts\/package\.json packages\/i18n-contracts\/package\.json/,
+      );
+      assert.match(
+        caddyDockerfile,
+        /COPY packages\/i18n-web\/package\.json packages\/i18n-web\/package\.json/,
+      );
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

@@ -143,6 +143,11 @@ function patchProxyDockerfile(filePath) {
 
   content = ensureLineAfter(
     content,
+    'COPY package.json pnpm-workspace.yaml ./',
+    'COPY tsconfig.base.json ./',
+  );
+  content = ensureLineAfter(
+    content,
     'COPY apps/web/package.json apps/web/package.json',
     'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
   );
