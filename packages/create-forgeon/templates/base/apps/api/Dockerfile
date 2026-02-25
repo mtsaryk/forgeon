@@ -16,6 +16,7 @@ COPY packages/core packages/core
 COPY packages/i18n packages/i18n
 COPY resources resources
 
+RUN pnpm --filter @forgeon/core build
 RUN pnpm --filter @forgeon/i18n build
 RUN pnpm --filter @forgeon/api prisma:generate
 RUN pnpm --filter @forgeon/api build

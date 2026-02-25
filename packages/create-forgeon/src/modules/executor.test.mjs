@@ -189,6 +189,12 @@ describe('addModule', () => {
         /COPY packages\/i18n-web\/package\.json packages\/i18n-web\/package\.json/,
       );
       assert.match(caddyDockerfile, /COPY resources resources/);
+
+      const apiDockerfile = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'Dockerfile'),
+        'utf8',
+      );
+      assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/core build/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

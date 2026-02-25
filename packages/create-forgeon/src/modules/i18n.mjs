@@ -121,9 +121,15 @@ function patchApiDockerfile(targetRoot) {
   );
 
   content = content
+    .replace(/^RUN pnpm --filter @forgeon\/core build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n-contracts build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n build\r?\n?/gm, '');
 
+  content = ensureLineBefore(
+    content,
+    'RUN pnpm --filter @forgeon/api prisma:generate',
+    'RUN pnpm --filter @forgeon/core build',
+  );
   content = ensureLineBefore(
     content,
     'RUN pnpm --filter @forgeon/api prisma:generate',
