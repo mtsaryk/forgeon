@@ -198,8 +198,6 @@ describe('addModule', () => {
       assert.match(rootPackage, /"i18n:sync"/);
       assert.match(rootPackage, /"i18n:check"/);
       assert.match(rootPackage, /"i18n:types"/);
-      assert.match(rootPackage, /postinstall/);
-      assert.match(rootPackage, /pnpm i18n:sync/);
 
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),

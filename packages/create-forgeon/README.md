@@ -2,6 +2,12 @@
 
 CLI package for generating Forgeon fullstack monorepo projects.
 
+> [!WARNING]
+> **Pre-release package. Do not use in production before `1.0.0`.**
+> The project is under active development: each patch can add changes and may introduce breaking regressions.
+>
+> ![warning](https://img.shields.io/badge/STATUS-PRE--RELEASE%20DO%20NOT%20USE-red)
+
 ## Usage
 
 ```bash
