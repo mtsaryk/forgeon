@@ -6,41 +6,40 @@ import {
   QueryResolver,
 } from 'nestjs-i18n';
 import { join } from 'path';
+import { I18nConfigModule } from './i18n-config.module';
+import { I18nConfigService } from './i18n-config.service';
 
 export interface ForgeonI18nOptions {
-  enabled: boolean;
-  defaultLang: string;
-  fallbackLang: string;
   path?: string;
 }
 
 @Module({})
 export class ForgeonI18nModule {
-  static register(options: ForgeonI18nOptions): DynamicModule {
-    if (!options.enabled) {
-      return { module: ForgeonI18nModule };
-    }
-
-    const translationsPath =
-      options.path ?? join(process.cwd(), 'resources', 'i18n');
+  static register(options: ForgeonI18nOptions = {}): DynamicModule {
+    const translationsPath = options.path ?? join(process.cwd(), 'resources', 'i18n');
 
     return {
       module: ForgeonI18nModule,
       imports: [
-        I18nModule.forRoot({
-          fallbackLanguage: options.fallbackLang,
-          loader: I18nJsonLoader,
-          loaderOptions: {
-            path: translationsPath,
-            watch: false,
-          },
-          resolvers: [
-            { use: AcceptLanguageResolver, options: { matchType: 'strict-loose' } },
-            { use: QueryResolver, options: ['lang'] },
-          ],
+        I18nConfigModule,
+        I18nModule.forRootAsync({
+          imports: [I18nConfigModule],
+          inject: [I18nConfigService],
+          useFactory: (config: I18nConfigService) => ({
+            fallbackLanguage: config.fallbackLang,
+            loader: I18nJsonLoader,
+            loaderOptions: {
+              path: translationsPath,
+              watch: false,
+            },
+            resolvers: [
+              { use: AcceptLanguageResolver, options: { matchType: 'strict-loose' } },
+              { use: QueryResolver, options: ['lang'] },
+            ],
+          }),
         }),
       ],
-      exports: [I18nModule],
+      exports: [I18nModule, I18nConfigModule, I18nConfigService],
     };
   }
 }

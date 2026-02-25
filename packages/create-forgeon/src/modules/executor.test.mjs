@@ -110,7 +110,10 @@ describe('addModule', () => {
 
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
       assert.match(appModule, /coreConfig/);
-      assert.match(appModule, /validateCoreEnv/);
+      assert.match(appModule, /createEnvValidator/);
+      assert.match(appModule, /coreEnvSchema/);
+      assert.match(appModule, /i18nConfig/);
+      assert.match(appModule, /i18nEnvSchema/);
       assert.match(appModule, /CoreConfigModule/);
 
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
