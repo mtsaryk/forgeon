@@ -110,10 +110,9 @@ export function applyI18nDisabled(targetRoot) {
     appModulePath,
     `import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { CoreConfigModule, coreConfig, validateCoreEnv } from '@forgeon/core';
+import { CoreConfigModule, CoreErrorsModule, coreConfig, validateCoreEnv } from '@forgeon/core';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
-import { AppExceptionFilter } from './common/filters/app-exception.filter';
 
 @Module({
   imports: [
@@ -124,10 +123,10 @@ import { AppExceptionFilter } from './common/filters/app-exception.filter';
       envFilePath: '.env',
     }),
     CoreConfigModule,
+    CoreErrorsModule,
     PrismaModule,
   ],
   controllers: [HealthController],
-  providers: [AppExceptionFilter],
 })
 export class AppModule {}
 `,
@@ -166,80 +165,8 @@ export class HealthController {
     'utf8',
   );
 
-  const filterPath = path.join(
-    targetRoot,
-    'apps',
-    'api',
-    'src',
-    'common',
-    'filters',
-    'app-exception.filter.ts',
-  );
-  fs.writeFileSync(
-    filterPath,
-    `import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  HttpStatus,
-  Injectable,
-} from '@nestjs/common';
-import { Response } from 'express';
-
-@Injectable()
-@Catch()
-export class AppExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
-    const context = host.switchToHttp();
-    const response = context.getResponse<Response>();
-
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    const payload =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : { message: 'Internal server error' };
-
-    const message =
-      typeof payload === 'object' && payload !== null && 'message' in payload
-        ? Array.isArray((payload as { message?: unknown }).message)
-          ? String((payload as { message: unknown[] }).message[0] ?? 'Internal server error')
-          : String((payload as { message?: unknown }).message ?? 'Internal server error')
-        : typeof payload === 'string'
-          ? payload
-          : 'Internal server error';
-
-    response.status(status).json({
-      error: {
-        code: this.resolveCode(status),
-        message,
-      },
-    });
-  }
-
-  private resolveCode(status: number): string {
-    switch (status) {
-      case HttpStatus.BAD_REQUEST:
-        return 'validation_error';
-      case HttpStatus.UNAUTHORIZED:
-        return 'unauthorized';
-      case HttpStatus.FORBIDDEN:
-        return 'forbidden';
-      case HttpStatus.NOT_FOUND:
-        return 'not_found';
-      case HttpStatus.CONFLICT:
-        return 'conflict';
-      default:
-        return 'internal_error';
-    }
-  }
-}
-`,
-    'utf8',
+  removeIfExists(
+    path.join(targetRoot, 'apps', 'api', 'src', 'common', 'filters', 'app-exception.filter.ts'),
   );
 }
 

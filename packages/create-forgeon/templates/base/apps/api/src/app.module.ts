@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import {
   CoreConfigModule,
+  CoreErrorsModule,
   coreConfig,
   coreEnvSchema,
   createEnvValidator,
@@ -10,7 +11,6 @@ import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';
 import { join } from 'path';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
-import { AppExceptionFilter } from './common/filters/app-exception.filter';
 
 const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');
 
@@ -23,13 +23,13 @@ const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');
       envFilePath: '.env',
     }),
     CoreConfigModule,
+    CoreErrorsModule,
     ForgeonI18nModule.register({
       path: i18nPath,
     }),
     PrismaModule,
   ],
   controllers: [HealthController],
-  providers: [AppExceptionFilter],
 })
 export class AppModule {}
 

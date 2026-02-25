@@ -1,9 +1,8 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
-import { CoreConfigService } from '@forgeon/core';
+import { CoreConfigService, CoreExceptionFilter } from '@forgeon/core';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { AppExceptionFilter } from './common/filters/app-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,7 +16,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.useGlobalFilters(app.get(AppExceptionFilter));
+  app.useGlobalFilters(app.get(CoreExceptionFilter));
 
   await app.listen(coreConfigService.port);
 }

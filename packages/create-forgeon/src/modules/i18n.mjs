@@ -313,11 +313,6 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
     targetRoot,
     path.join('apps', 'api', 'src', 'health', 'health.controller.ts'),
   );
-  copyFromBase(
-    packageRoot,
-    targetRoot,
-    path.join('apps', 'api', 'src', 'common', 'filters', 'app-exception.filter.ts'),
-  );
 
   patchI18nPackage(targetRoot);
   patchApiPackage(targetRoot);

@@ -115,6 +115,10 @@ describe('addModule', () => {
       assert.match(appModule, /i18nConfig/);
       assert.match(appModule, /i18nEnvSchema/);
       assert.match(appModule, /CoreConfigModule/);
+      assert.match(appModule, /CoreErrorsModule/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /CoreExceptionFilter/);
 
       const forgeonI18nModule = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n', 'src', 'forgeon-i18n.module.ts'),
