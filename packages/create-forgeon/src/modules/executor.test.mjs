@@ -116,6 +116,17 @@ describe('addModule', () => {
       assert.match(appModule, /i18nEnvSchema/);
       assert.match(appModule, /CoreConfigModule/);
 
+      const forgeonI18nModule = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n', 'src', 'forgeon-i18n.module.ts'),
+        'utf8',
+      );
+      assert.match(forgeonI18nModule, /const resolvers = \[/);
+      assert.match(forgeonI18nModule, /I18nModule\.forRootAsync\([\s\S]*resolvers,/);
+      assert.doesNotMatch(
+        forgeonI18nModule,
+        /exports:\s*\[I18nModule,\s*I18nConfigModule,\s*I18nConfigService\]/,
+      );
+
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);
       assert.match(appTsx, /react-i18next/);

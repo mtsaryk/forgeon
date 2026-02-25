@@ -17,6 +17,10 @@ export interface ForgeonI18nOptions {
 export class ForgeonI18nModule {
   static register(options: ForgeonI18nOptions = {}): DynamicModule {
     const translationsPath = options.path ?? join(process.cwd(), 'resources', 'i18n');
+    const resolvers = [
+      { use: AcceptLanguageResolver, options: { matchType: 'strict-loose' } },
+      { use: QueryResolver, options: ['lang'] },
+    ];
 
     return {
       module: ForgeonI18nModule,
@@ -25,6 +29,7 @@ export class ForgeonI18nModule {
         I18nModule.forRootAsync({
           imports: [I18nConfigModule],
           inject: [I18nConfigService],
+          resolvers,
           useFactory: (config: I18nConfigService) => ({
             fallbackLanguage: config.fallbackLang,
             loader: I18nJsonLoader,
@@ -32,14 +37,10 @@ export class ForgeonI18nModule {
               path: translationsPath,
               watch: false,
             },
-            resolvers: [
-              { use: AcceptLanguageResolver, options: { matchType: 'strict-loose' } },
-              { use: QueryResolver, options: ['lang'] },
-            ],
           }),
         }),
       ],
-      exports: [I18nModule, I18nConfigModule, I18nConfigService],
+      exports: [I18nModule, I18nConfigModule],
     };
   }
 }
