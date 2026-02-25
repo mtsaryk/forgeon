@@ -41,10 +41,12 @@ describe('generateDocs', () => {
       assert.match(readme, /Docker\/infra: `enabled`/);
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: none/);
+      assert.match(readme, /Error Handling \(`core-errors`\)/);
       assert.doesNotMatch(readme, /i18n Configuration/);
 
       assert.match(projectDoc, /### Docker mode/);
       assert.match(projectDoc, /Active proxy preset: `none`/);
+      assert.match(projectDoc, /CoreErrorsModule/);
       assert.doesNotMatch(projectDoc, /packages\/i18n/);
 
       assert.match(architectureDoc, /infra\/\*/);
@@ -81,9 +83,11 @@ describe('generateDocs', () => {
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: Caddy/);
       assert.match(readme, /i18n Configuration/);
+      assert.match(readme, /Error Handling \(`core-errors`\)/);
 
       assert.match(projectDoc, /`infra` - Docker Compose \(always\) \+ proxy preset \(`caddy`\)/);
       assert.match(projectDoc, /Main proxy config: `infra\/caddy\/Caddyfile`/);
+      assert.match(projectDoc, /CoreExceptionFilter/);
 
       assert.match(architectureDoc, /infra\/\*/);
       assert.match(architectureDoc, /I18N_DEFAULT_LANG/);

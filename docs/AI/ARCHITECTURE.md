@@ -52,3 +52,15 @@ Reference: `docs/AI/MODULE_SPEC.md`.
   - `tsconfig.base.esm.json`
 - Contracts packages are ESM-first and imported via package entrypoints only.
 - Cross-package imports from `/src/*` are disallowed.
+
+## Error Handling Strategy
+
+- `@forgeon/core` owns the global HTTP error envelope and filter.
+- API apps import `CoreErrorsModule` and register `CoreExceptionFilter` globally.
+- Envelope fields:
+  - `error.code`
+  - `error.message`
+  - `error.status`
+  - `error.details` (optional)
+  - `error.requestId` (optional)
+  - `error.timestamp`

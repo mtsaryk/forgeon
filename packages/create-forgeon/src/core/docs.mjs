@@ -68,6 +68,7 @@ export function generateDocs(targetRoot, options, packageRoot) {
   if (options.i18nEnabled) {
     readmeFragments.push('40_i18n');
   }
+  readmeFragments.push('41_error_handling');
   readmeFragments.push('90_next_steps');
 
   const aiProjectFragments = ['00_title', '10_what_is', '20_structure_base'];
@@ -83,6 +84,7 @@ export function generateDocs(targetRoot, options, packageRoot) {
   if (options.i18nEnabled) {
     aiProjectFragments.push('33_i18n_notes');
   }
+  aiProjectFragments.push('34_error_handling');
   aiProjectFragments.push('40_change_boundaries_base');
   if (options.proxy !== 'none') {
     aiProjectFragments.push('41_change_boundaries_docker');
@@ -97,6 +99,7 @@ export function generateDocs(targetRoot, options, packageRoot) {
     aiArchitectureFragments.push('21_env_i18n');
   }
   aiArchitectureFragments.push('22_ts_module_policy');
+  aiArchitectureFragments.push('23_error_handling');
   aiArchitectureFragments.push('30_default_db', '31_docker_runtime', '32_scope_freeze');
   aiArchitectureFragments.push('40_docs_generation', '50_extension_points');
 

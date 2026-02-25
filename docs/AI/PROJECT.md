@@ -32,3 +32,11 @@ docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml 
 The API uses Prisma and expects `DATABASE_URL` from env.
 
 If proxy preset is `none`, API is directly available on `localhost:3000`.
+
+## Error Handling
+
+`core-errors` is enabled by default.
+
+- `CoreErrorsModule` is imported in `apps/api/src/app.module.ts`.
+- `CoreExceptionFilter` is registered globally in `apps/api/src/main.ts`.
+- Throw standard Nest exceptions from controllers/services; the filter converts them to a stable envelope.
