@@ -161,6 +161,15 @@ describe('addModule', () => {
         'utf8',
       );
       assert.match(i18nWebSource, /@forgeon\/i18n-contracts/);
+      assert.doesNotMatch(i18nWebSource, /I18N_DEFAULT_LANG/);
+
+      const i18nContractsIndex = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'i18n-contracts', 'src', 'index.ts'),
+        'utf8',
+      );
+      assert.match(i18nContractsIndex, /from '\.\/generated'/);
+      assert.doesNotMatch(i18nContractsIndex, /I18N_DEFAULT_LANG/);
+      assert.doesNotMatch(i18nContractsIndex, /I18N_FALLBACK_LANG/);
 
       const enCommon = JSON.parse(
         fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'common.json'), 'utf8'),
@@ -183,9 +192,14 @@ describe('addModule', () => {
       const i18nTs = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'i18n.ts'), 'utf8');
       assert.match(i18nTs, /initReactI18next/);
       assert.match(i18nTs, /\.\.\/\.\.\/\.\.\/resources\/i18n\/en\/common\.json/);
+      assert.doesNotMatch(i18nTs, /I18N_DEFAULT_LANG/);
 
       const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');
+      assert.match(rootPackage, /"i18n:sync"/);
       assert.match(rootPackage, /"i18n:check"/);
+      assert.match(rootPackage, /"i18n:types"/);
+      assert.match(rootPackage, /postinstall/);
+      assert.match(rootPackage, /pnpm i18n:sync/);
 
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),

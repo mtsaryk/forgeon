@@ -1,11 +1,11 @@
 import {
-  I18N_DEFAULT_LANG,
   I18N_LOCALES,
   LANG_QUERY_PARAM,
   type I18nLocale,
 } from '@forgeon/i18n-contracts';
 
 const LOCALE_STORAGE_KEY = 'forgeon.locale';
+const DEFAULT_LOCALE = (I18N_LOCALES[0] ?? 'en') as I18nLocale;
 
 type StorageLike = {
   getItem: (key: string) => string | null;
@@ -35,7 +35,7 @@ export function getInitialLocale(): I18nLocale {
   if (stored && isSupportedLocale(stored)) {
     return stored;
   }
-  return I18N_DEFAULT_LANG;
+  return DEFAULT_LOCALE;
 }
 
 export function persistLocale(locale: I18nLocale): void {

@@ -56,3 +56,10 @@ Requirements:
 - keep backward compatibility
 ```
 
+## Deferred TODOs
+
+- i18n runtime fallback env check (deferred):
+  - add optional `VITE_I18N_FALLBACK_LANG` for web;
+  - validate it against `I18N_LOCALES`;
+  - behavior: throw in `dev`, warn+fallback in `build/prod`.
+

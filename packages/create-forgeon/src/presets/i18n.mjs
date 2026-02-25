@@ -87,7 +87,20 @@ export function applyI18nDisabled(targetRoot) {
   if (fs.existsSync(rootPackagePath)) {
     const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
     if (rootPackage.scripts) {
+      if (typeof rootPackage.scripts.postinstall === 'string') {
+        const nextPostinstall = rootPackage.scripts.postinstall
+          .replace(/\s*&&\s*pnpm i18n:sync/g, '')
+          .replace(/pnpm i18n:sync\s*&&\s*/g, '')
+          .trim();
+        if (nextPostinstall.length === 0) {
+          delete rootPackage.scripts.postinstall;
+        } else {
+          rootPackage.scripts.postinstall = nextPostinstall;
+        }
+      }
+      delete rootPackage.scripts['i18n:sync'];
       delete rootPackage.scripts['i18n:check'];
+      delete rootPackage.scripts['i18n:types'];
     }
     writeJson(rootPackagePath, rootPackage);
   }

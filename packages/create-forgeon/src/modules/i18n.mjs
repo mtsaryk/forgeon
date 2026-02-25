@@ -34,6 +34,24 @@ function ensureScript(packageJson, name, command) {
   packageJson.scripts[name] = command;
 }
 
+function ensurePostinstallStep(packageJson, command) {
+  if (!packageJson.scripts) {
+    packageJson.scripts = {};
+  }
+
+  const current = packageJson.scripts.postinstall;
+  if (!current) {
+    packageJson.scripts.postinstall = command;
+    return;
+  }
+
+  if (current.includes(command)) {
+    return;
+  }
+
+  packageJson.scripts.postinstall = `${current} && ${command}`;
+}
+
 function upsertEnvLines(filePath, lines) {
   let content = '';
   if (fs.existsSync(filePath)) {
@@ -279,7 +297,22 @@ function patchRootPackage(targetRoot) {
   }
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  ensureScript(packageJson, 'i18n:check', 'pnpm --filter @forgeon/i18n-contracts check:keys');
+  ensureScript(
+    packageJson,
+    'i18n:sync',
+    'pnpm --filter @forgeon/i18n-contracts i18n:sync',
+  );
+  ensureScript(
+    packageJson,
+    'i18n:check',
+    'pnpm --filter @forgeon/i18n-contracts i18n:check',
+  );
+  ensureScript(
+    packageJson,
+    'i18n:types',
+    'pnpm --filter @forgeon/i18n-contracts i18n:types',
+  );
+  ensurePostinstallStep(packageJson, 'pnpm i18n:sync');
   writeJson(packagePath, packageJson);
 }
 

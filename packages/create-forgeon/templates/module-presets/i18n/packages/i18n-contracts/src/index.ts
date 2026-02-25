@@ -1,9 +1,8 @@
-export const I18N_LOCALES = ['en', 'uk'] as const;
-export const I18N_NAMESPACES = ['common', 'errors', 'validation'] as const;
-
-export type I18nLocale = (typeof I18N_LOCALES)[number];
-export type I18nNamespace = (typeof I18N_NAMESPACES)[number];
-
-export const I18N_DEFAULT_LANG: I18nLocale = 'en';
-export const I18N_FALLBACK_LANG: I18nLocale = 'en';
+export {
+  I18N_LOCALES,
+  I18N_NAMESPACES,
+  type I18nLocale,
+  type I18nNamespace,
+} from './generated';
+export type { I18nTranslationKey } from './generated-keys';
 export const LANG_QUERY_PARAM = 'lang';

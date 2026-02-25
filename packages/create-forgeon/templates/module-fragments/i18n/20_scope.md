@@ -6,4 +6,7 @@
 - Frontend `react-i18next` setup (`apps/web/src/i18n.ts`)
 - Frontend language selector and translated UI in `apps/web/src/App.tsx`
 - Frontend package/deps/scripts updates for i18n helpers
-- Root script `i18n:check` for dictionary key consistency across locales
+- Root scripts:
+- `i18n:sync` for locale/namespace contracts sync from `resources/i18n`
+- `i18n:check` for contract/json/key consistency checks
+- `i18n:types` for translation key type generation
