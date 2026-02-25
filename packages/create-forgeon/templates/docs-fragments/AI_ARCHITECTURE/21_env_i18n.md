@@ -1,3 +1,2 @@
-- `I18N_ENABLED` - toggles i18n package wiring
 - `I18N_DEFAULT_LANG` - default language
 - `I18N_FALLBACK_LANG` - fallback language

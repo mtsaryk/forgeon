@@ -49,6 +49,8 @@ describe('generateDocs', () => {
 
       assert.match(architectureDoc, /infra\/\*/);
       assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
+      assert.match(architectureDoc, /API_PREFIX/);
+      assert.match(architectureDoc, /Config Strategy/);
       assert.match(architectureDoc, /TypeScript Module Policy/);
       assert.match(architectureDoc, /tsconfig\.base\.esm\.json/);
     } finally {
@@ -84,7 +86,8 @@ describe('generateDocs', () => {
       assert.match(projectDoc, /Main proxy config: `infra\/caddy\/Caddyfile`/);
 
       assert.match(architectureDoc, /infra\/\*/);
-      assert.match(architectureDoc, /I18N_ENABLED/);
+      assert.match(architectureDoc, /I18N_DEFAULT_LANG/);
+      assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
       assert.match(architectureDoc, /Active reverse proxy preset: `caddy`/);
       assert.match(architectureDoc, /TypeScript Module Policy/);
       assert.match(architectureDoc, /tsconfig\.base\.node\.json/);

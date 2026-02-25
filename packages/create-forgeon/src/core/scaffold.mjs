@@ -9,12 +9,13 @@ import { generateDocs } from './docs.mjs';
 function writeApiEnvExample(targetRoot, i18nEnabled) {
   const apiEnvExamplePath = path.join(targetRoot, 'apps', 'api', '.env.example');
   const apiEnvLines = [
+    'NODE_ENV=development',
     'PORT=3000',
+    'API_PREFIX=api',
     'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app?schema=public',
   ];
 
   if (i18nEnabled) {
-    apiEnvLines.push('I18N_ENABLED=true');
     apiEnvLines.push('I18N_DEFAULT_LANG=en');
     apiEnvLines.push('I18N_FALLBACK_LANG=en');
   }

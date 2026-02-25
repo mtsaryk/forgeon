@@ -8,7 +8,7 @@ A canonical fullstack monorepo scaffold intended to be reused as a project start
 
 - `apps/api` - NestJS backend
 - `apps/web` - frontend scaffold (default React + Vite + TS)
-- `packages/core` - shared backend core placeholder
+- `packages/core` - shared backend core package with internal submodules (starting with `core-config`)
 - `packages/i18n` - reusable nestjs-i18n integration package
 - `infra` - Docker Compose + reverse proxy preset (nginx/caddy)
 - `resources/i18n` - translation dictionaries

@@ -1,4 +1,8 @@
 # @forgeon/core
 
-Placeholder package for shared backend modules (auth guards, config helpers, etc.).
+Shared backend core package.
+
+Current submodules:
+
+- `core-config` - Zod-validated env config + typed accessors for API runtime.
 

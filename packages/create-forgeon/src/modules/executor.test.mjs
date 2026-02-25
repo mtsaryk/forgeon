@@ -105,7 +105,13 @@ describe('addModule', () => {
       assert.match(apiTsconfig, /tsconfig\.base\.node\.json/);
 
       const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
-      assert.match(compose, /I18N_ENABLED/);
+      assert.match(compose, /I18N_DEFAULT_LANG/);
+      assert.doesNotMatch(compose, /I18N_ENABLED/);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /coreConfig/);
+      assert.match(appModule, /validateCoreEnv/);
+      assert.match(appModule, /CoreConfigModule/);
 
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);

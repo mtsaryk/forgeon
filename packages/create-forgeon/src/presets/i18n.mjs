@@ -97,7 +97,7 @@ export function applyI18nDisabled(targetRoot) {
     appModulePath,
     `import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import appConfig from './config/app.config';
+import { CoreConfigModule, coreConfig, validateCoreEnv } from '@forgeon/core';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AppExceptionFilter } from './common/filters/app-exception.filter';
@@ -106,9 +106,11 @@ import { AppExceptionFilter } from './common/filters/app-exception.filter';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig],
+      load: [coreConfig],
+      validate: validateCoreEnv,
       envFilePath: '.env',
     }),
+    CoreConfigModule,
     PrismaModule,
   ],
   controllers: [HealthController],
@@ -223,18 +225,6 @@ export class AppExceptionFilter implements ExceptionFilter {
     }
   }
 }
-`,
-    'utf8',
-  );
-
-  const appConfigPath = path.join(targetRoot, 'apps', 'api', 'src', 'config', 'app.config.ts');
-  fs.writeFileSync(
-    appConfigPath,
-    `import { registerAs } from '@nestjs/config';
-
-export default registerAs('app', () => ({
-  port: Number(process.env.PORT ?? 3000),
-}));
 `,
     'utf8',
   );

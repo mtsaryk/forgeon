@@ -201,11 +201,10 @@ function patchCompose(targetRoot) {
   }
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
-  if (!content.includes('I18N_ENABLED: ${I18N_ENABLED}')) {
+  if (!content.includes('I18N_DEFAULT_LANG: ${I18N_DEFAULT_LANG}')) {
     content = content.replace(
       /^(\s+DATABASE_URL:.*)$/m,
       `$1
-      I18N_ENABLED: \${I18N_ENABLED}
       I18N_DEFAULT_LANG: \${I18N_DEFAULT_LANG}
       I18N_FALLBACK_LANG: \${I18N_FALLBACK_LANG}`,
     );
@@ -289,7 +288,6 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'main.tsx'));
 
   copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'app.module.ts'));
-  copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'config', 'app.config.ts'));
   copyFromBase(
     packageRoot,
     targetRoot,
@@ -309,12 +307,10 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   patchProxyDockerfiles(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
-    'I18N_ENABLED=true',
     'I18N_DEFAULT_LANG=en',
     'I18N_FALLBACK_LANG=en',
   ]);
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
-    'I18N_ENABLED=true',
     'I18N_DEFAULT_LANG=en',
     'I18N_FALLBACK_LANG=en',
   ]);

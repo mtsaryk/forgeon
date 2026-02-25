@@ -14,6 +14,7 @@
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
+    "@forgeon/core": "workspace:*",
     "@forgeon/i18n": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",

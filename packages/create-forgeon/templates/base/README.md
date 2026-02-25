@@ -28,14 +28,11 @@ docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml 
 
 Open `http://localhost:8080`.
 
-## i18n Toggle
+## i18n Configuration
 
-Set in env:
-- `I18N_ENABLED=true|false`
+Set in env (when i18n module is installed):
 - `I18N_DEFAULT_LANG=en`
 - `I18N_FALLBACK_LANG=en`
-
-When `I18N_ENABLED=false`, API runs without loading i18n module.
 
 ## Prisma In Docker Start
 
