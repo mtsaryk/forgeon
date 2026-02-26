@@ -1,42 +1,49 @@
-import { ConflictException, Controller, Get, Optional, Post, Query } from '@nestjs/common';
+import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
 import { PrismaService } from '@forgeon/db-prisma';
 import { I18nService } from 'nestjs-i18n';
-import { EchoQueryDto } from '../common/dto/echo-query.dto';
 
 @Controller('health')
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly i18n?: I18nService,
+    private readonly i18n: I18nService,
   ) {}
 
   @Get()
   getHealth(@Query('lang') lang?: string) {
-    const locale = this.resolveLocale(lang);
     return {
       status: 'ok',
       message: this.translate('common.ok', lang),
-      i18n: this.translate(this.localeNameKey(locale), lang),
+      i18n: this.translate('common.languages.english', lang),
     };
   }
 
   @Get('error')
-  getErrorProbe() {
+  getErrorProbe(@Query('lang') lang?: string) {
     throw new ConflictException({
-      message: 'Email already exists',
+      message: this.translate('errors.emailAlreadyExists', lang),
       details: {
         feature: 'core-errors',
-        probe: 'health.error',
+        probeId: 'health.error',
+        probe: this.translate('common.probes.error', lang),
       },
     });
   }
 
   @Get('validation')
-  getValidationProbe(@Query() query: EchoQueryDto) {
+  getValidationProbe(@Query('value') value?: string, @Query('lang') lang?: string) {
+    if (!value || value.trim().length === 0) {
+      const translatedMessage = this.translate('validation.required', lang);
+      throw new BadRequestException({
+        message: translatedMessage,
+        details: [{ field: 'value', message: translatedMessage }],
+      });
+    }
+
     return {
       status: 'ok',
       validated: true,
-      value: query.value,
+      value,
     };
   }
 
@@ -57,23 +64,7 @@ export class HealthController {
   }
 
   private translate(key: string, lang?: string): string {
-    if (!this.i18n) {
-      if (key === 'common.ok') return 'OK';
-      if (key === 'common.languages.english') return 'English';
-      if (key === 'common.languages.ukrainian') return 'Ukrainian';
-      return key;
-    }
-
     const value = this.i18n.t(key, { lang, defaultValue: key });
     return typeof value === 'string' ? value : key;
-  }
-
-  private resolveLocale(lang?: string): 'en' | 'uk' {
-    const normalized = (lang ?? '').toLowerCase();
-    return normalized.startsWith('uk') ? 'uk' : 'en';
-  }
-
-  private localeNameKey(locale: 'en' | 'uk'): string {
-    return locale === 'uk' ? 'common.languages.ukrainian' : 'common.languages.english';
   }
 }

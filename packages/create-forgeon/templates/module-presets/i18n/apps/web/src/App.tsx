@@ -10,10 +10,6 @@ type ProbeResult = {
   body: unknown;
 };
 
-function localeLabelKey(locale: I18nLocale): string {
-  return locale === 'uk' ? 'common:languages.ukrainian' : 'common:languages.english';
-}
-
 export default function App() {
   const { t } = useTranslation(['common']);
   const { I18N_LOCALES, getInitialLocale, persistLocale, toLangQuery } = i18nWeb;
@@ -85,7 +81,7 @@ export default function App() {
       >
         {I18N_LOCALES.map((item) => (
           <option key={item} value={item}>
-            {t(localeLabelKey(item))}
+            {t(`common:languages.${item}`, { defaultValue: item })}
           </option>
         ))}
       </select>

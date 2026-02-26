@@ -102,6 +102,7 @@ export function applyI18nDisabled(targetRoot) {
       delete rootPackage.scripts['i18n:sync'];
       delete rootPackage.scripts['i18n:check'];
       delete rootPackage.scripts['i18n:types'];
+      delete rootPackage.scripts['i18n:add'];
     }
     writeJson(rootPackagePath, rootPackage);
   }
@@ -144,21 +145,19 @@ export class AppModule {}
   );
   fs.writeFileSync(
     healthControllerPath,
-    `import { ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
+    `import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
 import { PrismaService } from '@forgeon/db-prisma';
-import { EchoQueryDto } from '../common/dto/echo-query.dto';
 
 @Controller('health')
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  getHealth(@Query('lang') lang?: string) {
-    const locale = this.resolveLocale(lang);
+  getHealth(@Query('lang') _lang?: string) {
     return {
       status: 'ok',
       message: 'OK',
-      i18n: locale === 'uk' ? 'Ukrainian' : 'English',
+      i18n: 'English',
     };
   }
 
@@ -168,17 +167,25 @@ export class HealthController {
       message: 'Email already exists',
       details: {
         feature: 'core-errors',
-        probe: 'health.error',
+        probeId: 'health.error',
+        probe: 'Error envelope probe',
       },
     });
   }
 
   @Get('validation')
-  getValidationProbe(@Query() query: EchoQueryDto) {
+  getValidationProbe(@Query('value') value?: string) {
+    if (!value || value.trim().length === 0) {
+      throw new BadRequestException({
+        message: 'Field is required',
+        details: [{ field: 'value', message: 'Field is required' }],
+      });
+    }
+
     return {
       status: 'ok',
       validated: true,
-      value: query.value,
+      value,
     };
   }
 
@@ -196,11 +203,6 @@ export class HealthController {
       feature: 'db-prisma',
       user,
     };
-  }
-
-  private resolveLocale(lang?: string): 'en' | 'uk' {
-    const normalized = (lang ?? '').toLowerCase();
-    return normalized.startsWith('uk') ? 'uk' : 'en';
   }
 }
 `,

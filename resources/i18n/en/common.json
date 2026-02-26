@@ -5,8 +5,10 @@
   "checkValidation": "Check validation (expect 400)",
   "checkDatabase": "Check database (create user)",
   "language": "Language",
+  "probes": {
+    "error": "Error envelope probe"
+  },
   "languages": {
-    "english": "English",
-    "ukrainian": "Ukrainian"
+    "english": "English"
   }
 }

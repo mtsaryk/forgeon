@@ -2,10 +2,14 @@
 
 export type I18nTranslationKey =
   | "common.checkApiHealth"
+  | "common.checkDatabase"
+  | "common.checkErrorEnvelope"
+  | "common.checkValidation"
   | "common.language"
   | "common.languages.english"
-  | "common.languages.ukrainian"
   | "common.ok"
+  | "common.probes.error"
   | "errors.accessDenied"
+  | "errors.emailAlreadyExists"
   | "errors.notFound"
   | "validation.required";

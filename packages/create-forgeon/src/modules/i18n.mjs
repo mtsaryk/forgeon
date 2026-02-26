@@ -311,10 +311,12 @@ function patchRootPackage(targetRoot) {
     'i18n:types',
     'pnpm --filter @forgeon/i18n-contracts i18n:types',
   );
+  ensureScript(packageJson, 'i18n:add', 'node scripts/i18n-add.mjs');
   writeJson(packagePath, packageJson);
 }
 
 export function applyI18nModule({ packageRoot, targetRoot }) {
+  copyFromBase(packageRoot, targetRoot, path.join('scripts', 'i18n-add.mjs'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
   copyFromBase(packageRoot, targetRoot, path.join('resources', 'i18n'));

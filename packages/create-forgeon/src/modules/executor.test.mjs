@@ -208,6 +208,10 @@ describe('addModule', () => {
       assert.match(rootPackage, /"i18n:sync"/);
       assert.match(rootPackage, /"i18n:check"/);
       assert.match(rootPackage, /"i18n:types"/);
+      assert.match(rootPackage, /"i18n:add"/);
+
+      const i18nAddScriptPath = path.join(projectRoot, 'scripts', 'i18n-add.mjs');
+      assert.equal(fs.existsSync(i18nAddScriptPath), true);
 
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),

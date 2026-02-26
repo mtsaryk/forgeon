@@ -7,3 +7,12 @@
 - `AI/VALIDATION.md` - DTO/env validation standards
 - `AI/TASKS.md` - ready-to-use Codex prompts
 - `AI/DOCKER_BUILD_GOTCHAS.md` - recurring Docker build failures and release gate
+
+## i18n Language Workflow
+
+Add a new language from existing namespaces:
+- `pnpm i18n:add uk`
+
+Useful follow-up commands:
+- `pnpm i18n:sync`
+- `pnpm i18n:check`

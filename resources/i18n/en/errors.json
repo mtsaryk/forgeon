@@ -1,4 +1,5 @@
 {
   "accessDenied": "Access denied",
-  "notFound": "Resource not found"
+  "notFound": "Resource not found",
+  "emailAlreadyExists": "Email already exists"
 }
