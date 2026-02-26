@@ -299,6 +299,12 @@ describe('addModule', () => {
       assert.match(apiDockerfile, /COPY packages\/logger packages\/logger/);
       assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/logger build/);
 
+      const loggerTsconfig = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'logger', 'tsconfig.json'),
+        'utf8',
+      );
+      assert.match(loggerTsconfig, /"extends": "\.\.\/\.\.\/tsconfig\.base\.node\.json"/);
+
       const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
       assert.match(apiEnv, /LOGGER_LEVEL=log/);
       assert.match(apiEnv, /LOGGER_HTTP_ENABLED=true/);
@@ -316,6 +322,11 @@ describe('addModule', () => {
       assert.match(compose, /LOGGER_LEVEL: \$\{LOGGER_LEVEL\}/);
       assert.match(compose, /LOGGER_HTTP_ENABLED: \$\{LOGGER_HTTP_ENABLED\}/);
       assert.match(compose, /LOGGER_REQUEST_ID_HEADER: \$\{LOGGER_REQUEST_ID_HEADER\}/);
+
+      const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(rootReadme, /## Logger Module/);
+      assert.match(rootReadme, /LOGGER_LEVEL=log/);
+      assert.match(rootReadme, /docker compose logs api/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Logger/);

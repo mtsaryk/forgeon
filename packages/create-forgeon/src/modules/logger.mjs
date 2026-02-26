@@ -218,6 +218,44 @@ function patchCompose(targetRoot) {
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
+function patchReadme(targetRoot) {
+  const readmePath = path.join(targetRoot, 'README.md');
+  if (!fs.existsSync(readmePath)) {
+    return;
+  }
+
+  const marker = '## Logger Module';
+  let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
+  if (content.includes(marker)) {
+    return;
+  }
+
+  const section = `## Logger Module
+
+The logger add-module provides:
+- request id middleware (default header: \`x-request-id\`)
+- HTTP access logs with method/path/status/duration/ip/requestId
+- Nest logger integration via \`app.useLogger(...)\`
+
+Configuration (env):
+- \`LOGGER_LEVEL=log\` (\`error|warn|log|debug|verbose\`)
+- \`LOGGER_HTTP_ENABLED=true\`
+- \`LOGGER_REQUEST_ID_HEADER=x-request-id\`
+
+Where to see logs:
+- local dev: API terminal output
+- Docker: \`docker compose logs api\`
+`;
+
+  if (content.includes('## Prisma In Docker Start')) {
+    content = content.replace('## Prisma In Docker Start', `${section}\n## Prisma In Docker Start`);
+  } else {
+    content = `${content.trimEnd()}\n\n${section}\n`;
+  }
+
+  fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
 export function applyLoggerModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'logger'));
   patchApiPackage(targetRoot);
@@ -225,6 +263,7 @@ export function applyLoggerModule({ packageRoot, targetRoot }) {
   patchAppModule(targetRoot);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
+  patchReadme(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'LOGGER_LEVEL=log',
@@ -238,4 +277,3 @@ export function applyLoggerModule({ packageRoot, targetRoot }) {
     'LOGGER_REQUEST_ID_HEADER=x-request-id',
   ]);
 }
-
