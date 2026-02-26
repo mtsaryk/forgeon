@@ -13,7 +13,8 @@ export function applyI18nDisabled(targetRoot) {
     const apiPackage = JSON.parse(fs.readFileSync(apiPackagePath, 'utf8'));
 
     if (apiPackage.scripts) {
-      delete apiPackage.scripts.predev;
+      apiPackage.scripts.predev =
+        'pnpm --filter @forgeon/core build && pnpm --filter @forgeon/db-prisma build';
     }
 
     if (apiPackage.dependencies) {
@@ -110,21 +111,21 @@ export function applyI18nDisabled(targetRoot) {
     appModulePath,
     `import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { CoreConfigModule, CoreErrorsModule, coreConfig, validateCoreEnv } from '@forgeon/core';
+import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';
+import { CoreConfigModule, CoreErrorsModule, coreConfig, coreEnvSchema, createEnvValidator } from '@forgeon/core';
 import { HealthController } from './health/health.controller';
-import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [coreConfig],
-      validate: validateCoreEnv,
+      load: [coreConfig, dbPrismaConfig],
+      validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema]),
       envFilePath: '.env',
     }),
     CoreConfigModule,
     CoreErrorsModule,
-    PrismaModule,
+    DbPrismaModule,
   ],
   controllers: [HealthController],
 })

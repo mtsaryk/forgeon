@@ -21,7 +21,7 @@ Canonical stack is fixed in this stage:
 
 ## Config Strategy
 
-- `@forgeon/core` owns base runtime config (port, API prefix, node env).
+- `@forgeon/core` owns base runtime config, global error envelope/filter, and validation pipe defaults.
 - Core config is validated with Zod and exposed through typed accessors.
 - Add-modules own and validate only their module-specific env keys.
 - i18n is an add-module; when installed, it uses its own env keys.
@@ -31,7 +31,9 @@ Canonical stack is fixed in this stage:
 Current default is Prisma + Postgres.
 
 - Prisma schema and migrations live in `apps/api/prisma`
-- DB access is encapsulated via `PrismaModule` (`apps/api/src/prisma`)
+- DB access is encapsulated via `DbPrismaModule` in `@forgeon/db-prisma`
+- `db-prisma` is treated as default-applied behavior in scaffold generation.
+- Future direction: this default DB layer may be extracted to an explicit add-module/preset and optionally controlled by a CLI flag.
 - Additional DB presets are out of scope for the current milestone.
 
 ## Module Strategy

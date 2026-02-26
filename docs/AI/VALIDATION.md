@@ -3,9 +3,12 @@
 ## Backend DTO Validation Standard
 
 - Use `class-validator` decorators on DTO classes.
-- Global validation is done by Nest `ValidationPipe` with:
+- Global validation is centralized in `@forgeon/core` via `createValidationPipe()`.
+- Current defaults:
   - `whitelist: true`
   - `transform: true`
+  - `validationError.target: false`
+  - `validationError.value: false`
 - Keep DTO validation messages stable and explicit.
 - For required values, use a consistent key or message pattern.
 
@@ -24,3 +27,5 @@
   - `error.status`
   - optional `error.details`
 - Validation details should be structured (not `any`).
+- `core-validation` formats validation details as:
+  - `{ field?: string, message: string }[]`

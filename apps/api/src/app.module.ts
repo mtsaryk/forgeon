@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';
 import {
   CoreConfigModule,
   CoreErrorsModule,
@@ -10,7 +11,6 @@ import {
 import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';
 import { join } from 'path';
 import { HealthController } from './health/health.controller';
-import { PrismaModule } from './prisma/prisma.module';
 
 const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');
 
@@ -18,16 +18,16 @@ const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [coreConfig, i18nConfig],
-      validate: createEnvValidator([coreEnvSchema, i18nEnvSchema]),
+      load: [coreConfig, dbPrismaConfig, i18nConfig],
+      validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema, i18nEnvSchema]),
       envFilePath: '.env',
     }),
     CoreConfigModule,
     CoreErrorsModule,
+    DbPrismaModule,
     ForgeonI18nModule.register({
       path: i18nPath,
     }),
-    PrismaModule,
   ],
   controllers: [HealthController],
 })

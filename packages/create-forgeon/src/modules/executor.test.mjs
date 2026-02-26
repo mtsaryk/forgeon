@@ -98,6 +98,7 @@ describe('addModule', () => {
       assert.equal(fs.existsSync(path.join(projectRoot, 'tsconfig.base.esm.json')), true);
 
       const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/db-prisma/);
       assert.match(apiPackage, /@forgeon\/i18n/);
       assert.match(apiPackage, /@forgeon\/i18n-contracts/);
 
@@ -110,15 +111,20 @@ describe('addModule', () => {
 
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
       assert.match(appModule, /coreConfig/);
+      assert.match(appModule, /dbPrismaConfig/);
+      assert.match(appModule, /dbPrismaEnvSchema/);
       assert.match(appModule, /createEnvValidator/);
       assert.match(appModule, /coreEnvSchema/);
       assert.match(appModule, /i18nConfig/);
       assert.match(appModule, /i18nEnvSchema/);
       assert.match(appModule, /CoreConfigModule/);
       assert.match(appModule, /CoreErrorsModule/);
+      assert.match(appModule, /DbPrismaModule/);
 
       const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
       assert.match(mainTs, /CoreExceptionFilter/);
+      assert.match(mainTs, /createValidationPipe/);
+      assert.doesNotMatch(mainTs, /new ValidationPipe\(/);
 
       const forgeonI18nModule = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n', 'src', 'forgeon-i18n.module.ts'),
@@ -225,6 +231,8 @@ describe('addModule', () => {
         'utf8',
       );
       assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/core build/);
+      assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/db-prisma build/);
+      assert.match(apiDockerfile, /COPY packages\/db-prisma\/package\.json packages\/db-prisma\/package\.json/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

@@ -54,6 +54,16 @@ npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
 
+## Validation (`core-validation`)
+
+Validation is centralized in `@forgeon/core` via `createValidationPipe()`.
+
+- Registered globally in `apps/api/src/main.ts`
+- Default options: `whitelist: true`, `transform: true`
+- Validation errors are normalized into structured `error.details`
+
+Use standard `class-validator` decorators in DTOs; the global pipe and envelope formatting are applied automatically.
+
 ## Docs
 
 - Project docs index: `docs/README.md`

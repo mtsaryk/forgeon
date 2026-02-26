@@ -55,6 +55,7 @@ describe('generateDocs', () => {
       assert.match(architectureDoc, /Config Strategy/);
       assert.match(architectureDoc, /TypeScript Module Policy/);
       assert.match(architectureDoc, /tsconfig\.base\.esm\.json/);
+      assert.match(architectureDoc, /DbPrismaModule/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -95,6 +96,7 @@ describe('generateDocs', () => {
       assert.match(architectureDoc, /Active reverse proxy preset: `caddy`/);
       assert.match(architectureDoc, /TypeScript Module Policy/);
       assert.match(architectureDoc, /tsconfig\.base\.node\.json/);
+      assert.match(architectureDoc, /DbPrismaModule/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

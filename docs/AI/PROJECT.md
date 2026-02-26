@@ -8,7 +8,8 @@ A canonical fullstack monorepo scaffold intended to be reused as a project start
 
 - `apps/api` - NestJS backend
 - `apps/web` - React frontend (fixed stack)
-- `packages/core` - shared backend core package with internal submodules (starting with `core-config`)
+- `packages/core` - shared backend core package (`core-config`, `core-errors`, `core-validation`)
+- `packages/db-prisma` - reusable Prisma/Postgres module (`DbPrismaModule`, `PrismaService`, config)
 - `packages/i18n` - reusable nestjs-i18n integration package
 - `infra` - Docker Compose + proxy preset (`caddy|nginx|none`)
 - `resources/i18n` - translation dictionaries

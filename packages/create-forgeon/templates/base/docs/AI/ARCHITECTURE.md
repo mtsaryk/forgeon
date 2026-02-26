@@ -7,6 +7,10 @@
 - `infra/*` - runtime infrastructure
 - `resources/*` - static assets (translations)
 
+Canonical stack is fixed in this stage:
+- NestJS + React + Prisma/Postgres + Docker
+- Proxy preset can be `caddy`, `nginx`, or `none`
+
 ## Environment Flags
 
 - `PORT` - API port (default 3000)
@@ -17,7 +21,7 @@
 
 ## Config Strategy
 
-- `@forgeon/core` owns base runtime config (port, API prefix, node env).
+- `@forgeon/core` owns base runtime config, global error envelope/filter, and validation pipe defaults.
 - Core config is validated with Zod and exposed through typed accessors.
 - Add-modules own and validate only their module-specific env keys.
 - i18n is an add-module; when installed, it uses its own env keys.
@@ -27,26 +31,38 @@
 Current default is Prisma + Postgres.
 
 - Prisma schema and migrations live in `apps/api/prisma`
-- DB access is encapsulated via `PrismaModule` (`apps/api/src/prisma`)
+- DB access is encapsulated via `DbPrismaModule` in `@forgeon/db-prisma`
+- `db-prisma` is treated as default-applied behavior in scaffold generation.
+- Future direction: this default DB layer may be extracted to an explicit add-module/preset and optionally controlled by a CLI flag.
+- Additional DB presets are out of scope for the current milestone.
 
-## Future DB Presets (Not Implemented Yet)
+## Module Strategy
 
-A future preset can switch DB by:
-1. Replacing `PrismaModule` with another DB module package (for example Mongo package).
-2. Updating `infra/docker/compose.yml` DB service.
-3. Updating `DATABASE_URL` and related env keys.
-4. Keeping app-level services dependent only on repository/data-access abstractions.
+Reusable features should be added as fullstack add-modules:
 
-## Future Feature Modules
+- `contracts` package (shared DTO/routes/errors)
+- `api` package (NestJS integration)
+- `web` package (React integration)
 
-Reusable features should be added as workspace packages and imported by apps as needed:
-
-- `packages/core` for shared backend primitives
-- Additional packages for auth presets, guards, queues, mailers, etc.
+Reference: `docs/AI/MODULE_SPEC.md`.
 
 ## TypeScript Module Format Policy
 
-- `apps/api`, `packages/core`, and backend runtime packages use `tsconfig.base.node.json`.
-- Frontend-consumed shared packages (contracts/web helpers) use `tsconfig.base.esm.json`.
-- Contracts packages are ESM-first and imported only via package entrypoints.
+- `apps/api`, `packages/core`, and backend runtime packages use Node-oriented config:
+  - `tsconfig.base.node.json`
+- Frontend-consumed shared packages (especially contracts/web helpers) use ESM config:
+  - `tsconfig.base.esm.json`
+- Contracts packages are ESM-first and imported via package entrypoints only.
 - Cross-package imports from `/src/*` are disallowed.
+
+## Error Handling Strategy
+
+- `@forgeon/core` owns the global HTTP error envelope and filter.
+- API apps import `CoreErrorsModule` and register `CoreExceptionFilter` globally.
+- Envelope fields:
+  - `error.code`
+  - `error.message`
+  - `error.status`
+  - `error.details` (optional)
+  - `error.requestId` (optional)
+  - `error.timestamp`

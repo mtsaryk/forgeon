@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "pnpm --filter @forgeon/i18n build",
+    "predev": "pnpm --filter @forgeon/core build && pnpm --filter @forgeon/db-prisma build && pnpm --filter @forgeon/i18n build",
     "build": "tsc -p tsconfig.build.json",
     "dev": "ts-node --transpile-only src/main.ts",
     "start": "node dist/main.js",
@@ -14,6 +14,7 @@
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
+    "@forgeon/db-prisma": "workspace:*",
     "@forgeon/core": "workspace:*",
     "@forgeon/i18n": "workspace:*",
     "@nestjs/common": "^11.0.1",

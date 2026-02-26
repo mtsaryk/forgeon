@@ -102,6 +102,11 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(
     content,
     'COPY packages/core/package.json packages/core/package.json',
+    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
     'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
   );
   content = ensureLineAfter(
@@ -112,6 +117,11 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(
     content,
     'COPY packages/core packages/core',
+    'COPY packages/db-prisma packages/db-prisma',
+  );
+  content = ensureLineAfter(
+    content,
+    'COPY packages/db-prisma packages/db-prisma',
     'COPY packages/i18n-contracts packages/i18n-contracts',
   );
   content = ensureLineAfter(
@@ -122,6 +132,7 @@ function patchApiDockerfile(targetRoot) {
 
   content = content
     .replace(/^RUN pnpm --filter @forgeon\/core build\r?\n?/gm, '')
+    .replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n-contracts build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n build\r?\n?/gm, '');
 
@@ -129,6 +140,11 @@ function patchApiDockerfile(targetRoot) {
     content,
     'RUN pnpm --filter @forgeon/api prisma:generate',
     'RUN pnpm --filter @forgeon/core build',
+  );
+  content = ensureLineBefore(
+    content,
+    'RUN pnpm --filter @forgeon/api prisma:generate',
+    'RUN pnpm --filter @forgeon/db-prisma build',
   );
   content = ensureLineBefore(
     content,
@@ -229,10 +245,11 @@ function patchApiPackage(targetRoot) {
   ensureScript(
     packageJson,
     'predev',
-    'pnpm --filter @forgeon/i18n-contracts build && pnpm --filter @forgeon/i18n build',
+    'pnpm --filter @forgeon/core build && pnpm --filter @forgeon/db-prisma build && pnpm --filter @forgeon/i18n-contracts build && pnpm --filter @forgeon/i18n build',
   );
   ensureDependency(packageJson, '@forgeon/i18n', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/i18n-contracts', 'workspace:*');
+  ensureDependency(packageJson, '@forgeon/db-prisma', 'workspace:*');
   ensureDependency(packageJson, 'nestjs-i18n', '^10.5.1');
   writeJson(packagePath, packageJson);
 }
@@ -298,6 +315,7 @@ function patchRootPackage(targetRoot) {
 }
 
 export function applyI18nModule({ packageRoot, targetRoot }) {
+  copyFromBase(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
   copyFromBase(packageRoot, targetRoot, path.join('resources', 'i18n'));
 

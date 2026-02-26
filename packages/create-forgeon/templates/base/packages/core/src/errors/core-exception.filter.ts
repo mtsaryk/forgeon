@@ -88,15 +88,23 @@ export class CoreExceptionFilter implements ExceptionFilter {
   }
 
   private resolveDetails(payload: unknown, status: number): AppErrorDetails | undefined {
-    if (status !== HttpStatus.BAD_REQUEST) {
-      return undefined;
-    }
-
     if (typeof payload !== 'object' || payload === null) {
       return undefined;
     }
 
-    const obj = payload as { message?: unknown };
+    const obj = payload as { message?: unknown; details?: unknown };
+
+    if (Array.isArray(obj.details)) {
+      return obj.details as AppErrorDetails;
+    }
+    if (obj.details && typeof obj.details === 'object') {
+      return obj.details as AppErrorDetails;
+    }
+
+    if (status !== HttpStatus.BAD_REQUEST) {
+      return undefined;
+    }
+
     const messages = Array.isArray(obj.message)
       ? obj.message.filter((item): item is string => typeof item === 'string')
       : typeof obj.message === 'string'

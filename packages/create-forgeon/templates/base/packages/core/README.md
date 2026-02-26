@@ -6,4 +6,5 @@ Current submodules:
 
 - `core-config` - Zod-validated env config + typed accessors for API runtime.
 - `core-errors` - global exception filter + stable error envelope shape.
+- `core-validation` - shared ValidationPipe factory with normalized validation details.
 
