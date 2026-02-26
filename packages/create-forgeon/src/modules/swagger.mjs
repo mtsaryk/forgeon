@@ -197,6 +197,12 @@ function patchAppModule(targetRoot) {
         "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
         "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
       );
+    } else {
+      content = ensureLineAfter(
+        content,
+        "import { ConfigModule } from '@nestjs/config';",
+        "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
+      );
     }
   }
 
@@ -218,7 +224,9 @@ function patchApiDockerfile(targetRoot) {
 
   const packageAnchor = content.includes('COPY packages/logger/package.json packages/logger/package.json')
     ? 'COPY packages/logger/package.json packages/logger/package.json'
-    : 'COPY packages/db-prisma/package.json packages/db-prisma/package.json';
+    : content.includes('COPY packages/db-prisma/package.json packages/db-prisma/package.json')
+      ? 'COPY packages/db-prisma/package.json packages/db-prisma/package.json'
+      : 'COPY packages/core/package.json packages/core/package.json';
   content = ensureLineAfter(
     content,
     packageAnchor,
@@ -227,7 +235,9 @@ function patchApiDockerfile(targetRoot) {
 
   const sourceAnchor = content.includes('COPY packages/logger packages/logger')
     ? 'COPY packages/logger packages/logger'
-    : 'COPY packages/db-prisma packages/db-prisma';
+    : content.includes('COPY packages/db-prisma packages/db-prisma')
+      ? 'COPY packages/db-prisma packages/db-prisma'
+      : 'COPY packages/core packages/core';
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/swagger packages/swagger');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/swagger build\r?\n?/gm, '');

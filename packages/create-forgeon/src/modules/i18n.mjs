@@ -34,6 +34,31 @@ function ensureScript(packageJson, name, command) {
   packageJson.scripts[name] = command;
 }
 
+function ensureBuildSteps(packageJson, scriptName, requiredCommands) {
+  if (!packageJson.scripts) {
+    packageJson.scripts = {};
+  }
+
+  const current = packageJson.scripts[scriptName];
+  const steps =
+    typeof current === 'string' && current.trim().length > 0
+      ? current
+          .split('&&')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+
+  for (const command of requiredCommands) {
+    if (!steps.includes(command)) {
+      steps.push(command);
+    }
+  }
+
+  if (steps.length > 0) {
+    packageJson.scripts[scriptName] = steps.join(' && ');
+  }
+}
+
 function upsertEnvLines(filePath, lines) {
   let content = '';
   if (fs.existsSync(filePath)) {
@@ -85,6 +110,48 @@ function ensureLineBefore(content, anchorLine, lineToInsert) {
   }
 
   return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
+}
+
+function ensureLoadItem(content, itemName) {
+  const pattern = /load:\s*\[([^\]]*)\]/m;
+  const match = content.match(pattern);
+  if (!match) {
+    return content;
+  }
+
+  const rawList = match[1];
+  const items = rawList
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!items.includes(itemName)) {
+    items.push(itemName);
+  }
+
+  const next = `load: [${items.join(', ')}]`;
+  return content.replace(pattern, next);
+}
+
+function ensureValidatorSchema(content, schemaName) {
+  const pattern = /validate:\s*createEnvValidator\(\[([^\]]*)\]\)/m;
+  const match = content.match(pattern);
+  if (!match) {
+    return content;
+  }
+
+  const rawList = match[1];
+  const items = rawList
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!items.includes(schemaName)) {
+    items.push(schemaName);
+  }
+
+  const next = `validate: createEnvValidator([${items.join(', ')}])`;
+  return content.replace(pattern, next);
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -242,11 +309,12 @@ function patchApiPackage(targetRoot) {
   }
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  ensureScript(
-    packageJson,
-    'predev',
-    'pnpm --filter @forgeon/core build && pnpm --filter @forgeon/db-prisma build && pnpm --filter @forgeon/i18n-contracts build && pnpm --filter @forgeon/i18n build',
-  );
+  ensureBuildSteps(packageJson, 'predev', [
+    'pnpm --filter @forgeon/core build',
+    'pnpm --filter @forgeon/db-prisma build',
+    'pnpm --filter @forgeon/i18n-contracts build',
+    'pnpm --filter @forgeon/i18n build',
+  ]);
   ensureDependency(packageJson, '@forgeon/i18n', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/i18n-contracts', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/db-prisma', 'workspace:*');
@@ -261,21 +329,180 @@ function patchWebPackage(targetRoot) {
   }
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  ensureScript(
-    packageJson,
-    'predev',
-    'pnpm --filter @forgeon/i18n-contracts build && pnpm --filter @forgeon/i18n-web build',
-  );
-  ensureScript(
-    packageJson,
-    'prebuild',
-    'pnpm --filter @forgeon/i18n-contracts build && pnpm --filter @forgeon/i18n-web build',
-  );
+  ensureBuildSteps(packageJson, 'predev', [
+    'pnpm --filter @forgeon/i18n-contracts build',
+    'pnpm --filter @forgeon/i18n-web build',
+  ]);
+  ensureBuildSteps(packageJson, 'prebuild', [
+    'pnpm --filter @forgeon/i18n-contracts build',
+    'pnpm --filter @forgeon/i18n-web build',
+  ]);
   ensureDependency(packageJson, '@forgeon/i18n-contracts', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/i18n-web', 'workspace:*');
   ensureDependency(packageJson, 'i18next', '^23.16.8');
   ensureDependency(packageJson, 'react-i18next', '^15.1.2');
   writeJson(packagePath, packageJson);
+}
+
+function patchAppModule(targetRoot) {
+  const appModulePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
+  if (!fs.existsSync(appModulePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(appModulePath, 'utf8').replace(/\r\n/g, '\n');
+  if (!content.includes("from '@forgeon/i18n';")) {
+    if (content.includes("import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';")) {
+      content = ensureLineAfter(
+        content,
+        "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
+        "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
+      );
+    } else if (
+      content.includes("import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';")
+    ) {
+      content = ensureLineAfter(
+        content,
+        "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
+        "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
+      );
+    } else if (
+      content.includes("import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';")
+    ) {
+      content = ensureLineAfter(
+        content,
+        "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
+        "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
+      );
+    } else {
+      content = ensureLineAfter(
+        content,
+        "import { ConfigModule } from '@nestjs/config';",
+        "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
+      );
+    }
+  }
+
+  if (!content.includes("import { join } from 'path';")) {
+    content = ensureLineBefore(
+      content,
+      "import { HealthController } from './health/health.controller';",
+      "import { join } from 'path';",
+    );
+  }
+
+  if (!content.includes('const i18nPath =')) {
+    content = ensureLineBefore(
+      content,
+      '@Module({',
+      "const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');",
+    );
+  }
+
+  content = ensureLoadItem(content, 'i18nConfig');
+  content = ensureValidatorSchema(content, 'i18nEnvSchema');
+
+  const i18nModuleBlock = `    ForgeonI18nModule.register({
+      path: i18nPath,
+    }),`;
+  if (!content.includes('ForgeonI18nModule.register({')) {
+    if (content.includes('    DbPrismaModule,')) {
+      content = ensureLineAfter(content, '    DbPrismaModule,', i18nModuleBlock);
+    } else if (content.includes('    ForgeonLoggerModule,')) {
+      content = ensureLineAfter(content, '    ForgeonLoggerModule,', i18nModuleBlock);
+    } else if (content.includes('    ForgeonSwaggerModule,')) {
+      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', i18nModuleBlock);
+    } else {
+      content = ensureLineAfter(content, '    CoreErrorsModule,', i18nModuleBlock);
+    }
+  }
+
+  fs.writeFileSync(appModulePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
+function patchHealthController(targetRoot) {
+  const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  if (!content.includes("from 'nestjs-i18n';")) {
+    if (content.includes("import { PrismaService } from '@forgeon/db-prisma';")) {
+      content = ensureLineAfter(
+        content,
+        "import { PrismaService } from '@forgeon/db-prisma';",
+        "import { I18nService } from 'nestjs-i18n';",
+      );
+    } else {
+      content = ensureLineAfter(
+        content,
+        "import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';",
+        "import { I18nService } from 'nestjs-i18n';",
+      );
+    }
+  }
+
+  if (!content.includes('private readonly i18n: I18nService')) {
+    const constructorMatch = content.match(/constructor\(([\s\S]*?)\)\s*\{/m);
+    if (constructorMatch) {
+      const original = constructorMatch[0];
+      const inner = constructorMatch[1].trimEnd();
+      const separator = inner.length > 0 ? ',' : '';
+      const next = `constructor(${inner}${separator}
+    private readonly i18n: I18nService,
+  ) {`;
+      content = content.replace(original, next);
+    }
+  }
+
+  if (!content.includes('private translate(')) {
+    const translateMethod = `
+  private translate(key: string, lang?: string): string {
+    const value = this.i18n.t(key, { lang, defaultValue: key });
+    return typeof value === 'string' ? value : key;
+  }
+`;
+    content = `${content.trimEnd()}\n${translateMethod}\n`;
+  }
+
+  content = content.replace(
+    /getHealth\(@Query\('lang'\)\s*_lang\?:\s*string\)/g,
+    "getHealth(@Query('lang') lang?: string)",
+  );
+  content = content.replace(
+    /getErrorProbe\(\)/g,
+    "getErrorProbe(@Query('lang') lang?: string)",
+  );
+  content = content.replace(
+    /getValidationProbe\(@Query\('value'\)\s*value\?:\s*string\)/g,
+    "getValidationProbe(@Query('value') value?: string, @Query('lang') lang?: string)",
+  );
+  content = content.replace(/message:\s*'OK',/g, "message: this.translate('common.actions.ok', lang),");
+  content = content.replace(/i18n:\s*'English',/g, "i18n: 'en',");
+
+  content = content.replace(
+    /message:\s*'Email already exists',/g,
+    "message: this.translate('errors.http.CONFLICT', lang),",
+  );
+
+  if (
+    content.includes("const translatedMessage = this.translate('validation.generic.required', lang);") === false &&
+    content.includes("if (!value || value.trim().length === 0) {")
+  ) {
+    content = content.replace(
+      /if \(!value \|\| value\.trim\(\)\.length === 0\) \{\s*throw new BadRequestException\(\{\s*message:\s*'Field is required',\s*details:\s*\[\{ field: 'value', message: 'Field is required' \}\],\s*\}\);\s*\}/m,
+      `if (!value || value.trim().length === 0) {
+      const translatedMessage = this.translate('validation.generic.required', lang);
+      throw new BadRequestException({
+        message: translatedMessage,
+        details: [{ field: 'value', message: translatedMessage }],
+      });
+    }`,
+    );
+  }
+
+  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
 function patchI18nPackage(targetRoot) {
@@ -327,17 +554,12 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'i18n.ts'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'main.tsx'));
 
-  copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'app.module.ts'));
-  copyFromBase(
-    packageRoot,
-    targetRoot,
-    path.join('apps', 'api', 'src', 'health', 'health.controller.ts'),
-  );
-
   patchI18nPackage(targetRoot);
   patchApiPackage(targetRoot);
   patchWebPackage(targetRoot);
   patchRootPackage(targetRoot);
+  patchAppModule(targetRoot);
+  patchHealthController(targetRoot);
   patchApiDockerfile(targetRoot);
   patchProxyDockerfiles(targetRoot);
 

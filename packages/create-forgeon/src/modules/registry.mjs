@@ -1,4 +1,12 @@
 const MODULE_PRESETS = {
+  'db-prisma': {
+    id: 'db-prisma',
+    label: 'DB Prisma',
+    category: 'database-layer',
+    implemented: true,
+    description: 'Prisma/Postgres module wiring with env config, scripts, and DB probe endpoint.',
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   i18n: {
     id: 'i18n',
     label: 'I18n',

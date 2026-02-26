@@ -71,6 +71,48 @@ function upsertEnvLines(filePath, lines) {
   fs.writeFileSync(filePath, next.replace(/^\n/, ''), 'utf8');
 }
 
+function ensureLoadItem(content, itemName) {
+  const pattern = /load:\s*\[([^\]]*)\]/m;
+  const match = content.match(pattern);
+  if (!match) {
+    return content;
+  }
+
+  const rawList = match[1];
+  const items = rawList
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!items.includes(itemName)) {
+    items.push(itemName);
+  }
+
+  const next = `load: [${items.join(', ')}]`;
+  return content.replace(pattern, next);
+}
+
+function ensureValidatorSchema(content, schemaName) {
+  const pattern = /validate:\s*createEnvValidator\(\[([^\]]*)\]\)/m;
+  const match = content.match(pattern);
+  if (!match) {
+    return content;
+  }
+
+  const rawList = match[1];
+  const items = rawList
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!items.includes(schemaName)) {
+    items.push(schemaName);
+  }
+
+  const next = `validate: createEnvValidator([${items.join(', ')}])`;
+  return content.replace(pattern, next);
+}
+
 function patchApiPackage(targetRoot) {
   const packagePath = path.join(targetRoot, 'apps', 'api', 'package.json');
   if (!fs.existsSync(packagePath)) {
@@ -141,28 +183,32 @@ function patchAppModule(targetRoot) {
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
 
-  content = ensureLineAfter(
-    content,
-    "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
-    "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
-  );
+  if (!content.includes("from '@forgeon/logger';")) {
+    if (content.includes("import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';")) {
+      content = ensureLineAfter(
+        content,
+        "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
+        "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
+      );
+    } else if (
+      content.includes("import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';")
+    ) {
+      content = ensureLineAfter(
+        content,
+        "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
+        "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
+      );
+    } else {
+      content = ensureLineAfter(
+        content,
+        "import { ConfigModule } from '@nestjs/config';",
+        "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
+      );
+    }
+  }
 
-  content = content.replace(
-    'load: [coreConfig, dbPrismaConfig, i18nConfig],',
-    'load: [coreConfig, dbPrismaConfig, i18nConfig, loggerConfig],',
-  );
-  content = content.replace(
-    'load: [coreConfig, dbPrismaConfig],',
-    'load: [coreConfig, dbPrismaConfig, loggerConfig],',
-  );
-  content = content.replace(
-    'validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema, i18nEnvSchema]),',
-    'validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema, i18nEnvSchema, loggerEnvSchema]),',
-  );
-  content = content.replace(
-    'validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema]),',
-    'validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema, loggerEnvSchema]),',
-  );
+  content = ensureLoadItem(content, 'loggerConfig');
+  content = ensureValidatorSchema(content, 'loggerEnvSchema');
 
   content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonLoggerModule,');
 
@@ -177,16 +223,19 @@ function patchApiDockerfile(targetRoot) {
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
 
+  const packageAnchor = content.includes('COPY packages/db-prisma/package.json packages/db-prisma/package.json')
+    ? 'COPY packages/db-prisma/package.json packages/db-prisma/package.json'
+    : 'COPY packages/core/package.json packages/core/package.json';
   content = ensureLineAfter(
     content,
-    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
+    packageAnchor,
     'COPY packages/logger/package.json packages/logger/package.json',
   );
-  content = ensureLineAfter(
-    content,
-    'COPY packages/db-prisma packages/db-prisma',
-    'COPY packages/logger packages/logger',
-  );
+
+  const sourceAnchor = content.includes('COPY packages/db-prisma packages/db-prisma')
+    ? 'COPY packages/db-prisma packages/db-prisma'
+    : 'COPY packages/core packages/core';
+  content = ensureLineAfter(content, sourceAnchor, 'COPY packages/logger packages/logger');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/logger build\r?\n?/gm, '');
   content = ensureLineBefore(

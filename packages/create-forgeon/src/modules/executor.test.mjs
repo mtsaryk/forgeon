@@ -17,6 +17,131 @@ function createMinimalForgeonProject(targetRoot) {
   fs.writeFileSync(path.join(targetRoot, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n', 'utf8');
 }
 
+function assertDbPrismaWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /dbPrismaConfig/);
+  assert.match(appModule, /dbPrismaEnvSchema/);
+  assert.match(appModule, /DbPrismaModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/db-prisma/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/db-prisma\/package\.json packages\/db-prisma\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/db-prisma packages\/db-prisma/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/db-prisma build/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /DATABASE_URL: \$\{DATABASE_URL\}/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /PrismaService/);
+}
+
+function stripDbPrismaArtifacts(projectRoot) {
+  const dbPackageDir = path.join(projectRoot, 'packages', 'db-prisma');
+  if (fs.existsSync(dbPackageDir)) {
+    fs.rmSync(dbPackageDir, { recursive: true, force: true });
+  }
+
+  const prismaDir = path.join(projectRoot, 'apps', 'api', 'prisma');
+  if (fs.existsSync(prismaDir)) {
+    fs.rmSync(prismaDir, { recursive: true, force: true });
+  }
+
+  const apiPackagePath = path.join(projectRoot, 'apps', 'api', 'package.json');
+  const apiPackage = JSON.parse(fs.readFileSync(apiPackagePath, 'utf8'));
+  if (apiPackage.dependencies) {
+    delete apiPackage.dependencies['@forgeon/db-prisma'];
+    delete apiPackage.dependencies['@prisma/client'];
+  }
+  if (apiPackage.devDependencies) {
+    delete apiPackage.devDependencies.prisma;
+  }
+  if (apiPackage.scripts) {
+    for (const key of Object.keys(apiPackage.scripts)) {
+      if (key.startsWith('prisma:')) {
+        delete apiPackage.scripts[key];
+      }
+    }
+    if (typeof apiPackage.scripts.predev === 'string') {
+      apiPackage.scripts.predev = apiPackage.scripts.predev
+        .replace('pnpm --filter @forgeon/db-prisma build && ', '')
+        .replace(' && pnpm --filter @forgeon/db-prisma build', '')
+        .replace('pnpm --filter @forgeon/db-prisma build', '')
+        .trim();
+      if (apiPackage.scripts.predev.length === 0) {
+        delete apiPackage.scripts.predev;
+      }
+    }
+  }
+  delete apiPackage.prisma;
+  fs.writeFileSync(apiPackagePath, `${JSON.stringify(apiPackage, null, 2)}\n`, 'utf8');
+
+  const rootPackagePath = path.join(projectRoot, 'package.json');
+  const rootPackage = JSON.parse(fs.readFileSync(rootPackagePath, 'utf8'));
+  if (rootPackage.scripts && typeof rootPackage.scripts.postinstall === 'string') {
+    rootPackage.scripts.postinstall = rootPackage.scripts.postinstall
+      .replace(/\s*&&\s*pnpm --filter @forgeon\/api prisma:generate/g, '')
+      .replace(/pnpm --filter @forgeon\/api prisma:generate\s*&&\s*/g, '')
+      .trim();
+    if (rootPackage.scripts.postinstall.length === 0) {
+      delete rootPackage.scripts.postinstall;
+    }
+  }
+  fs.writeFileSync(rootPackagePath, `${JSON.stringify(rootPackage, null, 2)}\n`, 'utf8');
+
+  const appModulePath = path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts');
+  let appModule = fs.readFileSync(appModulePath, 'utf8');
+  appModule = appModule
+    .replace(/^import \{ dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule \} from '@forgeon\/db-prisma';\r?\n/m, '')
+    .replace(/,\s*dbPrismaConfig/g, '')
+    .replace(/dbPrismaConfig,\s*/g, '')
+    .replace(/,\s*dbPrismaEnvSchema/g, '')
+    .replace(/dbPrismaEnvSchema,\s*/g, '')
+    .replace(/^\s*DbPrismaModule,\r?\n/gm, '');
+  fs.writeFileSync(appModulePath, appModule, 'utf8');
+
+  const healthControllerPath = path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
+  let healthController = fs.readFileSync(healthControllerPath, 'utf8');
+  healthController = healthController
+    .replace(/^import \{ PrismaService \} from '@forgeon\/db-prisma';\r?\n/m, '')
+    .replace(/\s*private readonly prisma: PrismaService,\r?\n/g, '\n')
+    .replace(
+      /\s*@Post\('db'\)\s*async getDbProbe\(\)\s*\{[\s\S]*?\n\s*\}\r?\n/g,
+      '\n',
+    );
+  fs.writeFileSync(healthControllerPath, healthController, 'utf8');
+
+  const apiDockerfilePath = path.join(projectRoot, 'apps', 'api', 'Dockerfile');
+  let apiDockerfile = fs.readFileSync(apiDockerfilePath, 'utf8');
+  apiDockerfile = apiDockerfile
+    .replace(/^COPY apps\/api\/prisma apps\/api\/prisma\r?\n/gm, '')
+    .replace(/^COPY packages\/db-prisma\/package\.json packages\/db-prisma\/package\.json\r?\n/gm, '')
+    .replace(/^COPY packages\/db-prisma packages\/db-prisma\r?\n/gm, '')
+    .replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n/gm, '')
+    .replace(/^RUN pnpm --filter @forgeon\/api prisma:generate\r?\n/gm, '');
+  fs.writeFileSync(apiDockerfilePath, apiDockerfile, 'utf8');
+
+  const composePath = path.join(projectRoot, 'infra', 'docker', 'compose.yml');
+  let compose = fs.readFileSync(composePath, 'utf8');
+  compose = compose.replace(/^\s+DATABASE_URL:.*\r?\n/gm, '');
+  fs.writeFileSync(composePath, compose, 'utf8');
+
+  const apiEnvExamplePath = path.join(projectRoot, 'apps', 'api', '.env.example');
+  let apiEnv = fs.readFileSync(apiEnvExamplePath, 'utf8');
+  apiEnv = apiEnv.replace(/^DATABASE_URL=.*\r?\n/gm, '');
+  fs.writeFileSync(apiEnvExamplePath, apiEnv, 'utf8');
+
+  const dockerEnvExamplePath = path.join(projectRoot, 'infra', 'docker', '.env.example');
+  let dockerEnv = fs.readFileSync(dockerEnvExamplePath, 'utf8');
+  dockerEnv = dockerEnv.replace(/^DATABASE_URL=.*\r?\n/gm, '');
+  fs.writeFileSync(dockerEnvExamplePath, dockerEnv, 'utf8');
+}
+
 describe('addModule', () => {
   const modulesDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(modulesDir, '..', '..');
@@ -460,6 +585,289 @@ describe('addModule', () => {
         appModule,
         /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*i18nEnvSchema,\s*swaggerEnvSchema\]\)/,
       );
+      assert.match(appModule, /ForgeonSwaggerModule/);
+      assert.match(appModule, /ForgeonI18nModule/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies logger after swagger without losing logger config keys', () => {
+    const targetRoot = mkTmp('forgeon-module-swagger-logger-');
+    const projectRoot = path.join(targetRoot, 'demo-swagger-logger');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-swagger-logger',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: true,
+        proxy: 'caddy',
+      });
+
+      const swaggerResult = addModule({
+        moduleId: 'swagger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(swaggerResult.applied, true);
+
+      const loggerResult = addModule({
+        moduleId: 'logger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(loggerResult.applied, true);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(
+        appModule,
+        /load: \[coreConfig,\s*dbPrismaConfig,\s*i18nConfig,\s*swaggerConfig,\s*loggerConfig\]/,
+      );
+      assert.match(
+        appModule,
+        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*i18nEnvSchema,\s*swaggerEnvSchema,\s*loggerEnvSchema\]\)/,
+      );
+      assert.match(appModule, /ForgeonSwaggerModule/);
+      assert.match(appModule, /ForgeonLoggerModule/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies i18n after logger without losing logger config keys', () => {
+    const targetRoot = mkTmp('forgeon-module-logger-i18n-');
+    const projectRoot = path.join(targetRoot, 'demo-logger-i18n');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-logger-i18n',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'logger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const i18nResult = addModule({
+        moduleId: 'i18n',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(i18nResult.applied, true);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(
+        appModule,
+        /load: \[coreConfig,\s*dbPrismaConfig,\s*loggerConfig,\s*i18nConfig\]/,
+      );
+      assert.match(
+        appModule,
+        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*loggerEnvSchema,\s*i18nEnvSchema\]\)/,
+      );
+      assert.match(appModule, /ForgeonLoggerModule/);
+      assert.match(appModule, /ForgeonI18nModule/);
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/logger/);
+      assert.match(apiPackage, /@forgeon\/i18n/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/logger build/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/i18n build/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /ForgeonLoggerService/);
+      assert.match(mainTs, /ForgeonHttpLoggingInterceptor/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies i18n after swagger without losing swagger config keys', () => {
+    const targetRoot = mkTmp('forgeon-module-swagger-i18n-order-');
+    const projectRoot = path.join(targetRoot, 'demo-swagger-i18n-order');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-swagger-i18n-order',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'swagger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const i18nResult = addModule({
+        moduleId: 'i18n',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(i18nResult.applied, true);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(
+        appModule,
+        /load: \[coreConfig,\s*dbPrismaConfig,\s*swaggerConfig,\s*i18nConfig\]/,
+      );
+      assert.match(
+        appModule,
+        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*swaggerEnvSchema,\s*i18nEnvSchema\]\)/,
+      );
+      assert.match(appModule, /ForgeonSwaggerModule/);
+      assert.match(appModule, /ForgeonI18nModule/);
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/swagger/);
+      assert.match(apiPackage, /@forgeon\/i18n/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/swagger build/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/i18n build/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /setupSwagger/);
+      assert.match(mainTs, /SwaggerConfigService/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies swagger -> logger -> i18n and keeps all module wiring', () => {
+    const targetRoot = mkTmp('forgeon-module-mixed-order-');
+    const projectRoot = path.join(targetRoot, 'demo-mixed-order');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-mixed-order',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({ moduleId: 'swagger', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'logger', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'i18n', targetRoot: projectRoot, packageRoot });
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(
+        appModule,
+        /load: \[coreConfig,\s*dbPrismaConfig,\s*swaggerConfig,\s*loggerConfig,\s*i18nConfig\]/,
+      );
+      assert.match(
+        appModule,
+        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*swaggerEnvSchema,\s*loggerEnvSchema,\s*i18nEnvSchema\]\)/,
+      );
+      assert.match(appModule, /ForgeonSwaggerModule/);
+      assert.match(appModule, /ForgeonLoggerModule/);
+      assert.match(appModule, /ForgeonI18nModule/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /setupSwagger\(app,\s*swaggerConfigService\)/);
+      assert.match(mainTs, /app\.useLogger\(app\.get\(ForgeonLoggerService\)\);/);
+      assert.match(mainTs, /app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);/);
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/swagger/);
+      assert.match(apiPackage, /@forgeon\/logger/);
+      assert.match(apiPackage, /@forgeon\/i18n/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/swagger build/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/logger build/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/i18n build/);
+
+      assertDbPrismaWiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps db-prisma wiring across module installation orders', () => {
+    const sequences = [
+      ['logger', 'swagger', 'i18n'],
+      ['swagger', 'i18n', 'logger'],
+      ['i18n', 'logger', 'swagger'],
+    ];
+
+    for (const sequence of sequences) {
+      const targetRoot = mkTmp(`forgeon-module-db-order-${sequence.join('-')}-`);
+      const projectRoot = path.join(targetRoot, `demo-db-${sequence.join('-')}`);
+      const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+      try {
+        scaffoldProject({
+          templateRoot,
+          packageRoot,
+          targetRoot: projectRoot,
+          projectName: `demo-db-${sequence.join('-')}`,
+          frontend: 'react',
+          db: 'prisma',
+          i18nEnabled: false,
+          proxy: 'caddy',
+        });
+
+        for (const moduleId of sequence) {
+          addModule({ moduleId, targetRoot: projectRoot, packageRoot });
+        }
+
+        assertDbPrismaWiring(projectRoot);
+      } finally {
+        fs.rmSync(targetRoot, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('applies db-prisma as final module after other modules', () => {
+    const targetRoot = mkTmp('forgeon-module-db-last-');
+    const projectRoot = path.join(targetRoot, 'demo-db-last');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-db-last',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      stripDbPrismaArtifacts(projectRoot);
+
+      addModule({ moduleId: 'logger', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'swagger', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'i18n', targetRoot: projectRoot, packageRoot });
+      const dbResult = addModule({ moduleId: 'db-prisma', targetRoot: projectRoot, packageRoot });
+      assert.equal(dbResult.applied, true);
+
+      assertDbPrismaWiring(projectRoot);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /ForgeonLoggerModule/);
       assert.match(appModule, /ForgeonSwaggerModule/);
       assert.match(appModule, /ForgeonI18nModule/);
     } finally {
