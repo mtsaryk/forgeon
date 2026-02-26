@@ -63,3 +63,4 @@ Must contain:
 - Contracts package can be imported from both sides without circular dependencies.
 - Contracts package exports are stable from `dist/index` entrypoint.
 - Module has docs under `docs/AI/MODULES/<module-id>.md`.
+- If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/AI/MODULE_CHECKS.md`).

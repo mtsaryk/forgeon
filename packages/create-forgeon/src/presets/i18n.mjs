@@ -144,22 +144,63 @@ export class AppModule {}
   );
   fs.writeFileSync(
     healthControllerPath,
-    `import { Controller, Get, Query } from '@nestjs/common';
+    `import { ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
+import { PrismaService } from '@forgeon/db-prisma';
 import { EchoQueryDto } from '../common/dto/echo-query.dto';
 
 @Controller('health')
 export class HealthController {
+  constructor(private readonly prisma: PrismaService) {}
+
   @Get()
-  getHealth(@Query('lang') _lang?: string) {
+  getHealth(@Query('lang') lang?: string) {
+    const locale = this.resolveLocale(lang);
     return {
       status: 'ok',
       message: 'OK',
+      i18n: locale === 'uk' ? 'Ukrainian' : 'English',
     };
   }
 
-  @Get('echo')
-  getEcho(@Query() query: EchoQueryDto) {
-    return { value: query.value };
+  @Get('error')
+  getErrorProbe() {
+    throw new ConflictException({
+      message: 'Email already exists',
+      details: {
+        feature: 'core-errors',
+        probe: 'health.error',
+      },
+    });
+  }
+
+  @Get('validation')
+  getValidationProbe(@Query() query: EchoQueryDto) {
+    return {
+      status: 'ok',
+      validated: true,
+      value: query.value,
+    };
+  }
+
+  @Post('db')
+  async getDbProbe() {
+    const token = \`\${Date.now()}-\${Math.floor(Math.random() * 1_000_000)}\`;
+    const email = \`health-probe-\${token}@example.local\`;
+    const user = await this.prisma.user.create({
+      data: { email },
+      select: { id: true, email: true, createdAt: true },
+    });
+
+    return {
+      status: 'ok',
+      feature: 'db-prisma',
+      user,
+    };
+  }
+
+  private resolveLocale(lang?: string): 'en' | 'uk' {
+    const normalized = (lang ?? '').toLowerCase();
+    return normalized.startsWith('uk') ? 'uk' : 'en';
   }
 }
 `,

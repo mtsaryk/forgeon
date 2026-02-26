@@ -1,6 +1,9 @@
 {
   "ok": "OK",
   "checkApiHealth": "Check API health",
+  "checkErrorEnvelope": "Check error envelope",
+  "checkValidation": "Check validation (expect 400)",
+  "checkDatabase": "Check database (create user)",
   "language": "Language",
   "languages": {
     "english": "English",

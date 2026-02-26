@@ -52,6 +52,7 @@ Implement `create-forgeon add <module-id>` for a fullstack feature.
 Requirements:
 - split module into contracts/api/web packages
 - contracts is source of truth for routes, DTOs, errors
+- if feasible, add module probe hooks in API (`/api/health/*`) and web diagnostics UI
 - add docs note under docs/AI/MODULES/<module-id>.md
 - keep backward compatibility
 ```
