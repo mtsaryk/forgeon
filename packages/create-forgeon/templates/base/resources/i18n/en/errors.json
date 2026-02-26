@@ -1,5 +1,33 @@
 {
-  "accessDenied": "Access denied",
-  "notFound": "Resource not found",
-  "emailAlreadyExists": "Email already exists"
+  "http": {
+    "BAD_REQUEST": "Bad request",
+    "NOT_FOUND": "Resource not found",
+    "UNAUTHORIZED": "Unauthorized",
+    "FORBIDDEN": "Access denied",
+    "CONFLICT": "Conflict",
+    "TOO_MANY_REQUESTS": "Too many requests",
+    "METHOD_NOT_ALLOWED": "Method not allowed",
+    "UNPROCESSABLE_ENTITY": "Unprocessable entity",
+    "INTERNAL_ERROR": "Internal server error",
+    "SERVICE_UNAVAILABLE": "Service unavailable",
+    "BAD_GATEWAY": "Bad gateway",
+    "GATEWAY_TIMEOUT": "Gateway timeout"
+  },
+  "network": {
+    "NETWORK_ERROR": "Network error",
+    "TIMEOUT": "Request timeout",
+    "OFFLINE": "You appear to be offline"
+  },
+  "auth": {
+    "AUTH_INVALID_CREDENTIALS": "Invalid credentials",
+    "AUTH_TOKEN_EXPIRED": "Session expired"
+  },
+  "validation": {
+    "VALIDATION_ERROR": "Validation error"
+  },
+  "files": {
+    "UPLOAD_FILE_TOO_LARGE": "File is too large",
+    "UPLOAD_INVALID_TYPE": "Invalid file type",
+    "UPLOAD_QUOTA_EXCEEDED": "Upload quota exceeded"
+  }
 }

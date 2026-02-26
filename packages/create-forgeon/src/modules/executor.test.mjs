@@ -140,7 +140,7 @@ describe('addModule', () => {
       const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
       assert.match(appTsx, /@forgeon\/i18n-web/);
       assert.match(appTsx, /react-i18next/);
-      assert.match(appTsx, /checkApiHealth/);
+      assert.match(appTsx, /ui:labels\.language/);
 
       const i18nWebPackage = fs.readFileSync(
         path.join(projectRoot, 'packages', 'i18n-web', 'package.json'),
@@ -184,13 +184,14 @@ describe('addModule', () => {
       const enCommon = JSON.parse(
         fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'common.json'), 'utf8'),
       );
-      assert.equal(enCommon.checkApiHealth, 'Check API health');
-      assert.equal(enCommon.languages.english, 'English');
+      assert.equal(enCommon.actions.ok, 'OK');
+      assert.equal(enCommon.nav.next, 'Next');
 
       const enErrors = JSON.parse(
         fs.readFileSync(path.join(projectRoot, 'resources', 'i18n', 'en', 'errors.json'), 'utf8'),
       );
-      assert.equal(enErrors.notFound, 'Resource not found');
+      assert.equal(enErrors.http.NOT_FOUND, 'Resource not found');
+      assert.equal(enErrors.validation.VALIDATION_ERROR, 'Validation error');
 
       const webPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'package.json'), 'utf8');
       assert.match(webPackage, /"i18next":/);
@@ -202,6 +203,7 @@ describe('addModule', () => {
       const i18nTs = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'i18n.ts'), 'utf8');
       assert.match(i18nTs, /initReactI18next/);
       assert.match(i18nTs, /\.\.\/\.\.\/\.\.\/resources\/i18n\/en\/common\.json/);
+      assert.match(i18nTs, /\.\.\/\.\.\/\.\.\/resources\/i18n\/en\/ui\.json/);
       assert.doesNotMatch(i18nTs, /I18N_DEFAULT_LANG/);
 
       const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');

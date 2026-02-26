@@ -64,3 +64,5 @@ Must contain:
 - Contracts package exports are stable from `dist/index` entrypoint.
 - Module has docs under `docs/AI/MODULES/<module-id>.md`.
 - If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/AI/MODULE_CHECKS.md`).
+- If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
+- If module is added before i18n, namespace templates must still be prepared and applied when i18n is installed later.

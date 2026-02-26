@@ -11,7 +11,7 @@ type ProbeResult = {
 };
 
 export default function App() {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['ui']);
   const { I18N_LOCALES, getInitialLocale, persistLocale, toLangQuery } = i18nWeb;
   const [locale, setLocale] = useState<I18nLocale>(getInitialLocale);
   const [healthResult, setHealthResult] = useState<ProbeResult | null>(null);
@@ -73,7 +73,7 @@ export default function App() {
     <main className="page">
       <h1>Forgeon Fullstack Scaffold</h1>
       <p>Default frontend preset: React + Vite + TypeScript.</p>
-      <label htmlFor="language">{t('common:language')}:</label>
+      <label htmlFor="language">{t('ui:labels.language')}:</label>
       <select
         id="language"
         value={locale}
@@ -81,20 +81,20 @@ export default function App() {
       >
         {I18N_LOCALES.map((item) => (
           <option key={item} value={item}>
-            {t(`common:languages.${item}`, { defaultValue: item })}
+            {item}
           </option>
         ))}
       </select>
       <div className="actions">
-        <button onClick={() => runProbe(setHealthResult, '/health')}>{t('common:checkApiHealth')}</button>
+        <button onClick={() => runProbe(setHealthResult, '/health')}>Check API health</button>
         <button onClick={() => runProbe(setErrorProbeResult, '/health/error')}>
-          {t('common:checkErrorEnvelope')}
+          Check error envelope
         </button>
         <button onClick={() => runProbe(setValidationProbeResult, '/health/validation')}>
-          {t('common:checkValidation')}
+          Check validation (expect 400)
         </button>
         <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>
-          {t('common:checkDatabase')}
+          Check database (create user)
         </button>
       </div>
       {renderResult('Health response', healthResult)}

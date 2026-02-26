@@ -84,9 +84,13 @@ async function listJsonFiles(folderPath) {
 }
 
 function runSyncCommand(cwd) {
-  const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  const command = 'pnpm i18n:sync';
   return new Promise((resolve, reject) => {
-    const child = spawn(command, ['i18n:sync'], { cwd, stdio: 'inherit' });
+    const child = spawn(command, {
+      cwd,
+      stdio: 'inherit',
+      shell: true,
+    });
     child.on('error', (error) => reject(error));
     child.on('exit', (code) => {
       if (code === 0) {
@@ -185,4 +189,3 @@ main().catch((error) => {
   printUsage();
   process.exitCode = 1;
 });
-

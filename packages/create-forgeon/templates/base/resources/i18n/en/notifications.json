@@ -1,0 +1,21 @@
+{
+  "success": {
+    "saved": "Saved successfully",
+    "updated": "Updated successfully",
+    "deleted": "Deleted successfully",
+    "copied": "Copied successfully"
+  },
+  "error": {
+    "saveFailed": "Failed to save",
+    "updateFailed": "Failed to update",
+    "deleteFailed": "Failed to delete"
+  },
+  "info": {
+    "changesDiscarded": "Changes were discarded",
+    "sessionExpired": "Your session has expired"
+  },
+  "progress": {
+    "uploading": "Uploading...",
+    "processing": "Processing..."
+  }
+}

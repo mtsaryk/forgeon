@@ -1,3 +1,32 @@
 {
-  "required": "Field is required"
+  "generic": {
+    "required": "Field is required",
+    "invalid": "Invalid value",
+    "outOfRange": "Value is out of range"
+  },
+  "string": {
+    "minLength": "Value is too short",
+    "maxLength": "Value is too long",
+    "pattern": "Value does not match required format"
+  },
+  "number": {
+    "min": "Value is too small",
+    "max": "Value is too large",
+    "int": "Value must be an integer"
+  },
+  "format": {
+    "email": "Invalid email format",
+    "phone": "Invalid phone format",
+    "url": "Invalid URL format",
+    "uuid": "Invalid UUID format"
+  },
+  "date": {
+    "minDate": "Date is too early",
+    "maxDate": "Date is too late",
+    "invalidDate": "Invalid date"
+  },
+  "file": {
+    "fileTooLarge": "File is too large",
+    "invalidType": "Invalid file type"
+  }
 }

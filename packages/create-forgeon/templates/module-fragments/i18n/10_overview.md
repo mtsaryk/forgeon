@@ -8,6 +8,7 @@ Included parts:
 - `@forgeon/i18n-web` (React-side locale helpers)
 - `react-i18next` integration for frontend translations
 - shared dictionaries in `resources/i18n/*` (`en` by default) used by both API and web
+- default namespaces: `common`, `errors`, `validation`, `ui`, `notifications`, `meta`
 
 Utility commands:
 - `pnpm i18n:sync` - regenerate `I18N_LOCALES` and `I18N_NAMESPACES` from `resources/i18n`.

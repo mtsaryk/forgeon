@@ -53,6 +53,7 @@ Requirements:
 - split module into contracts/api/web packages
 - contracts is source of truth for routes, DTOs, errors
 - if feasible, add module probe hooks in API (`/api/health/*`) and web diagnostics UI
+- if i18n is enabled, add module namespace files and wire them for both API and web
 - add docs note under docs/AI/MODULES/<module-id>.md
 - keep backward compatibility
 ```

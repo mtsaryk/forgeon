@@ -1,0 +1,31 @@
+{
+  "labels": {
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "search": "Search",
+    "language": "Language"
+  },
+  "placeholders": {
+    "email": "Enter email",
+    "search": "Search...",
+    "password": "Enter password"
+  },
+  "titles": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "settings": "Settings"
+  },
+  "messages": {
+    "emptyState": "Nothing to display yet",
+    "noResults": "No results found"
+  },
+  "table": {
+    "rowsPerPage": "Rows per page",
+    "noData": "No data"
+  },
+  "modal": {
+    "confirmTitle": "Please confirm",
+    "confirmText": "Are you sure you want to continue?"
+  }
+}

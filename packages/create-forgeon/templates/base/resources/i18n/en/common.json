@@ -1,14 +1,42 @@
 {
-  "ok": "OK",
-  "checkApiHealth": "Check API health",
-  "checkErrorEnvelope": "Check error envelope",
-  "checkValidation": "Check validation (expect 400)",
-  "checkDatabase": "Check database (create user)",
-  "language": "Language",
-  "probes": {
-    "error": "Error envelope probe"
+  "actions": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update",
+    "confirm": "Confirm",
+    "retry": "Retry"
   },
-  "languages": {
-    "english": "English"
+  "nav": {
+    "back": "Back",
+    "next": "Next",
+    "close": "Close"
+  },
+  "state": {
+    "loading": "Loading...",
+    "empty": "No data",
+    "selected": "Selected"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "disabled": "Disabled",
+    "archived": "Archived"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "now": "Now"
+  },
+  "misc": {
+    "yes": "Yes",
+    "no": "No",
+    "on": "On",
+    "off": "Off"
   }
 }

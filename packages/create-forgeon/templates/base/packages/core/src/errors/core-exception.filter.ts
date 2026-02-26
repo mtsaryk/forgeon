@@ -51,17 +51,29 @@ export class CoreExceptionFilter implements ExceptionFilter {
   private resolveCode(status: number): string {
     switch (status) {
       case HttpStatus.BAD_REQUEST:
-        return 'validation_error';
+        return 'BAD_REQUEST';
       case HttpStatus.UNAUTHORIZED:
-        return 'unauthorized';
+        return 'UNAUTHORIZED';
       case HttpStatus.FORBIDDEN:
-        return 'forbidden';
+        return 'FORBIDDEN';
       case HttpStatus.NOT_FOUND:
-        return 'not_found';
+        return 'NOT_FOUND';
       case HttpStatus.CONFLICT:
-        return 'conflict';
+        return 'CONFLICT';
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return 'TOO_MANY_REQUESTS';
+      case HttpStatus.METHOD_NOT_ALLOWED:
+        return 'METHOD_NOT_ALLOWED';
+      case HttpStatus.UNPROCESSABLE_ENTITY:
+        return 'UNPROCESSABLE_ENTITY';
+      case HttpStatus.SERVICE_UNAVAILABLE:
+        return 'SERVICE_UNAVAILABLE';
+      case HttpStatus.BAD_GATEWAY:
+        return 'BAD_GATEWAY';
+      case HttpStatus.GATEWAY_TIMEOUT:
+        return 'GATEWAY_TIMEOUT';
       default:
-        return 'internal_error';
+        return 'INTERNAL_ERROR';
     }
   }
 

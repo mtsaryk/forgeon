@@ -13,19 +13,19 @@ export class HealthController {
   getHealth(@Query('lang') lang?: string) {
     return {
       status: 'ok',
-      message: this.translate('common.ok', lang),
-      i18n: this.translate('common.languages.english', lang),
+      message: this.translate('common.actions.ok', lang),
+      i18n: 'en',
     };
   }
 
   @Get('error')
   getErrorProbe(@Query('lang') lang?: string) {
     throw new ConflictException({
-      message: this.translate('errors.emailAlreadyExists', lang),
+      message: this.translate('errors.http.CONFLICT', lang),
       details: {
         feature: 'core-errors',
         probeId: 'health.error',
-        probe: this.translate('common.probes.error', lang),
+        probe: 'Error envelope probe',
       },
     });
   }
@@ -33,7 +33,7 @@ export class HealthController {
   @Get('validation')
   getValidationProbe(@Query('value') value?: string, @Query('lang') lang?: string) {
     if (!value || value.trim().length === 0) {
-      const translatedMessage = this.translate('validation.required', lang);
+      const translatedMessage = this.translate('validation.generic.required', lang);
       throw new BadRequestException({
         message: translatedMessage,
         details: [{ field: 'value', message: translatedMessage }],
