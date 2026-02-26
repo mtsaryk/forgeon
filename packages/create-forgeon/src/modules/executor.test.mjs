@@ -335,4 +335,135 @@ describe('addModule', () => {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
+
+  it('applies swagger module on top of scaffold without i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-swagger-');
+    const projectRoot = path.join(targetRoot, 'demo-swagger');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-swagger',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'swagger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assert.match(result.message, /applied/);
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'packages', 'swagger', 'package.json')),
+        true,
+      );
+
+      const swaggerTsconfig = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'swagger', 'tsconfig.json'),
+        'utf8',
+      );
+      assert.match(swaggerTsconfig, /"extends": "\.\.\/\.\.\/tsconfig\.base\.node\.json"/);
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/swagger/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/swagger build/);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /@forgeon\/swagger/);
+      assert.match(appModule, /swaggerConfig/);
+      assert.match(appModule, /swaggerEnvSchema/);
+      assert.match(appModule, /ForgeonSwaggerModule/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /setupSwagger/);
+      assert.match(mainTs, /SwaggerConfigService/);
+      assert.match(mainTs, /setupSwagger\(app,\s*swaggerConfigService\)/);
+
+      const apiDockerfile = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'Dockerfile'),
+        'utf8',
+      );
+      assert.match(apiDockerfile, /COPY packages\/swagger\/package\.json packages\/swagger\/package\.json/);
+      assert.match(apiDockerfile, /COPY packages\/swagger packages\/swagger/);
+      assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/swagger build/);
+
+      const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+      assert.match(apiEnv, /SWAGGER_ENABLED=false/);
+      assert.match(apiEnv, /SWAGGER_PATH=docs/);
+      assert.match(apiEnv, /SWAGGER_TITLE="Forgeon API"/);
+      assert.match(apiEnv, /SWAGGER_VERSION=1\.0\.0/);
+
+      const dockerEnv = fs.readFileSync(
+        path.join(projectRoot, 'infra', 'docker', '.env.example'),
+        'utf8',
+      );
+      assert.match(dockerEnv, /SWAGGER_ENABLED=false/);
+      assert.match(dockerEnv, /SWAGGER_PATH=docs/);
+      assert.match(dockerEnv, /SWAGGER_TITLE="Forgeon API"/);
+      assert.match(dockerEnv, /SWAGGER_VERSION=1\.0\.0/);
+
+      const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+      assert.match(compose, /SWAGGER_ENABLED: \$\{SWAGGER_ENABLED\}/);
+      assert.match(compose, /SWAGGER_PATH: \$\{SWAGGER_PATH\}/);
+      assert.match(compose, /SWAGGER_TITLE: \$\{SWAGGER_TITLE\}/);
+      assert.match(compose, /SWAGGER_VERSION: \$\{SWAGGER_VERSION\}/);
+
+      const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(rootReadme, /## Swagger \/ OpenAPI Module/);
+      assert.match(rootReadme, /SWAGGER_ENABLED=false/);
+      assert.match(rootReadme, /localhost:3000\/docs/);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /Swagger \/ OpenAPI/);
+      assert.match(moduleDoc, /Status: implemented/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies swagger module on top of scaffold with i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-swagger-i18n-');
+    const projectRoot = path.join(targetRoot, 'demo-swagger-i18n');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-swagger-i18n',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: true,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'swagger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /load: \[coreConfig,\s*dbPrismaConfig,\s*i18nConfig,\s*swaggerConfig\]/);
+      assert.match(
+        appModule,
+        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*i18nEnvSchema,\s*swaggerEnvSchema\]\)/,
+      );
+      assert.match(appModule, /ForgeonSwaggerModule/);
+      assert.match(appModule, /ForgeonI18nModule/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
 });

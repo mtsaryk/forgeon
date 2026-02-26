@@ -15,6 +15,14 @@ const MODULE_PRESETS = {
     description: 'Structured API logger with request id middleware and HTTP logging interceptor.',
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
+  swagger: {
+    id: 'swagger',
+    label: 'Swagger / OpenAPI',
+    category: 'api-documentation',
+    implemented: true,
+    description: 'OpenAPI docs setup with env-based toggle and route path.',
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   'jwt-auth': {
     id: 'jwt-auth',
     label: 'JWT Auth',

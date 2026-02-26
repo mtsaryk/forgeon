@@ -4,6 +4,7 @@ import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
 import { applyI18nModule } from './i18n.mjs';
 import { applyLoggerModule } from './logger.mjs';
+import { applySwaggerModule } from './swagger.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
   const requiredPaths = [
@@ -24,6 +25,7 @@ function ensureForgeonLikeProject(targetRoot) {
 const MODULE_APPLIERS = {
   i18n: applyI18nModule,
   logger: applyLoggerModule,
+  swagger: applySwaggerModule,
 };
 
 export function applyModulePreset({ moduleId, targetRoot, packageRoot }) {
