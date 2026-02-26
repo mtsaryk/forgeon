@@ -3,6 +3,7 @@ import path from 'node:path';
 import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
 import { applyI18nModule } from './i18n.mjs';
+import { applyLoggerModule } from './logger.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
   const requiredPaths = [
@@ -22,6 +23,7 @@ function ensureForgeonLikeProject(targetRoot) {
 
 const MODULE_APPLIERS = {
   i18n: applyI18nModule,
+  logger: applyLoggerModule,
 };
 
 export function applyModulePreset({ moduleId, targetRoot, packageRoot }) {

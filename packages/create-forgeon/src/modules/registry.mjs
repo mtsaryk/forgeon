@@ -7,6 +7,14 @@ const MODULE_PRESETS = {
     description: 'Backend/frontend i18n wiring with locale contracts and translation resources.',
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
+  logger: {
+    id: 'logger',
+    label: 'Logger',
+    category: 'observability',
+    implemented: true,
+    description: 'Structured API logger with request id middleware and HTTP logging interceptor.',
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   'jwt-auth': {
     id: 'jwt-auth',
     label: 'JWT Auth',

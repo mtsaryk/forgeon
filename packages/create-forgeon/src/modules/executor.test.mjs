@@ -243,4 +243,85 @@ describe('addModule', () => {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
+
+  it('applies logger module on top of scaffold without i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-logger-');
+    const projectRoot = path.join(targetRoot, 'demo-logger');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-logger',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'logger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assert.match(result.message, /applied/);
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'packages', 'logger', 'package.json')),
+        true,
+      );
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/logger/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/logger build/);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /@forgeon\/logger/);
+      assert.match(appModule, /loggerConfig/);
+      assert.match(appModule, /loggerEnvSchema/);
+      assert.match(appModule, /ForgeonLoggerModule/);
+
+      const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
+      assert.match(mainTs, /ForgeonLoggerService/);
+      assert.match(mainTs, /ForgeonHttpLoggingInterceptor/);
+      assert.match(mainTs, /bufferLogs: true/);
+      assert.match(mainTs, /app\.useLogger\(app\.get\(ForgeonLoggerService\)\);/);
+      assert.match(mainTs, /app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);/);
+
+      const apiDockerfile = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'Dockerfile'),
+        'utf8',
+      );
+      assert.match(apiDockerfile, /COPY packages\/logger\/package\.json packages\/logger\/package\.json/);
+      assert.match(apiDockerfile, /COPY packages\/logger packages\/logger/);
+      assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/logger build/);
+
+      const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+      assert.match(apiEnv, /LOGGER_LEVEL=log/);
+      assert.match(apiEnv, /LOGGER_HTTP_ENABLED=true/);
+      assert.match(apiEnv, /LOGGER_REQUEST_ID_HEADER=x-request-id/);
+
+      const dockerEnv = fs.readFileSync(
+        path.join(projectRoot, 'infra', 'docker', '.env.example'),
+        'utf8',
+      );
+      assert.match(dockerEnv, /LOGGER_LEVEL=log/);
+      assert.match(dockerEnv, /LOGGER_HTTP_ENABLED=true/);
+      assert.match(dockerEnv, /LOGGER_REQUEST_ID_HEADER=x-request-id/);
+
+      const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+      assert.match(compose, /LOGGER_LEVEL: \$\{LOGGER_LEVEL\}/);
+      assert.match(compose, /LOGGER_HTTP_ENABLED: \$\{LOGGER_HTTP_ENABLED\}/);
+      assert.match(compose, /LOGGER_REQUEST_ID_HEADER: \$\{LOGGER_REQUEST_ID_HEADER\}/);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /Logger/);
+      assert.match(moduleDoc, /Status: implemented/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
 });
