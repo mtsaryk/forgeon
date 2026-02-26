@@ -284,8 +284,8 @@ Configuration (env):
 - \`SWAGGER_VERSION=1.0.0\`
 
 When enabled:
-- UI endpoint: \`http://localhost:3000/docs\` (or your configured path)
-- in Docker with proxy: \`http://localhost:8080/docs\`
+- UI endpoint: \`http://localhost:3000/api/docs\` (respects global API prefix)
+- in Docker with proxy: \`http://localhost:8080/api/docs\`
 `;
 
   if (content.includes('## Prisma In Docker Start')) {

@@ -17,9 +17,9 @@ export function setupSwagger(app: INestApplication, config: SwaggerConfigService
   );
 
   SwaggerModule.setup(config.path, app, document, {
+    useGlobalPrefix: true,
     swaggerOptions: {
       persistAuthorization: true,
     },
   });
 }
-

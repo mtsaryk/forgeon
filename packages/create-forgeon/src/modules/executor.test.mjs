@@ -419,7 +419,7 @@ describe('addModule', () => {
       const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(rootReadme, /## Swagger \/ OpenAPI Module/);
       assert.match(rootReadme, /SWAGGER_ENABLED=false/);
-      assert.match(rootReadme, /localhost:3000\/docs/);
+      assert.match(rootReadme, /localhost:3000\/api\/docs/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Swagger \/ OpenAPI/);
