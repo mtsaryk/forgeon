@@ -1,32 +1,33 @@
 {
   "generic": {
-    "required": "Field is required",
-    "invalid": "Invalid value",
-    "outOfRange": "Value is out of range"
+    "required": "{{field}} is required.",
+    "invalid": "{{field}} is invalid."
+    "outOfRange": "{{field}} is out of range"
   },
   "string": {
-    "minLength": "Value is too short",
-    "maxLength": "Value is too long",
-    "pattern": "Value does not match required format"
+    "minLength": "{{field}} must be at least {{min}} characters long.",
+    "maxLength": "{{field}} must be at most {{max}} characters long.",
+    "pattern": "{{field}} has an invalid format."
   },
   "number": {
-    "min": "Value is too small",
-    "max": "Value is too large",
-    "int": "Value must be an integer"
+    "min": "{{field}} must be greater than or equal to {{min}}.",
+    "max": "{{field}} must be less than or equal to {{max}}.",
+    "int": "{{field}} must be an integer."
   },
   "format": {
-    "email": "Invalid email format",
-    "phone": "Invalid phone format",
-    "url": "Invalid URL format",
-    "uuid": "Invalid UUID format"
+    "email": "Please enter a valid email address.",
+    "phone": "Please enter a valid phone number.",
+    "url": "Please enter a valid URL.",
+    "uuid": "{{field}} must be a valid UUID."
   },
   "date": {
-    "minDate": "Date is too early",
-    "maxDate": "Date is too late",
-    "invalidDate": "Invalid date"
+    "invalid": "{{field}} must be a valid date.",
+    "min": "{{field}} must be on or after {{min}}.",
+    "max": "{{field}} must be on or before {{max}}."
   },
   "file": {
-    "fileTooLarge": "File is too large",
-    "invalidType": "Invalid file type"
+    "fileTooLarge": "File is too large (max {{max}}).",
+    "invalidType": "Unsupported file type.",
+    "missing": "File is required."
   }
 }
