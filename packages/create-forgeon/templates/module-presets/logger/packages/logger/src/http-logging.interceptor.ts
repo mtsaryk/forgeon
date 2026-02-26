@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
-import { Observable, tap } from 'rxjs';
+import { Observable } from 'rxjs';
 import { ForgeonLoggerService } from './forgeon-logger.service';
 import { LoggerConfigService } from './logger-config.service';
 
@@ -17,6 +17,7 @@ interface RequestLike {
 
 interface ResponseLike {
   statusCode?: number;
+  once?: (event: string, listener: () => void) => void;
 }
 
 @Injectable()
@@ -46,30 +47,34 @@ export class ForgeonHttpLoggingInterceptor implements NestInterceptor {
       request.requestId ?? this.readHeader(request.headers, this.loggerConfig.requestIdHeader);
     const startedAt = Date.now();
 
-    return next.handle().pipe(
-      tap({
-        next: () => {
-          this.logger.logHttpRequest({
-            method,
-            path,
-            statusCode: response.statusCode ?? 200,
-            durationMs: Date.now() - startedAt,
-            requestId,
-            ip,
-          });
-        },
-        error: () => {
-          this.logger.logHttpRequest({
-            method,
-            path,
-            statusCode: response.statusCode ?? 500,
-            durationMs: Date.now() - startedAt,
-            requestId,
-            ip,
-          });
-        },
-      }),
-    );
+    if (typeof response.once === 'function') {
+      response.once('finish', () => {
+        this.logger.logHttpRequest({
+          method,
+          path,
+          statusCode: response.statusCode ?? 200,
+          durationMs: Date.now() - startedAt,
+          requestId,
+          ip,
+        });
+      });
+    } else {
+      // Fallback for non-standard response mocks.
+      try {
+        this.logger.logHttpRequest({
+          method,
+          path,
+          statusCode: response.statusCode ?? 200,
+          durationMs: Date.now() - startedAt,
+          requestId,
+          ip,
+        });
+      } catch {
+        // no-op
+      }
+    }
+
+    return next.handle();
   }
 
   private readHeader(headers: HeadersRecord | undefined, name: string): string | undefined {
@@ -87,4 +92,3 @@ export class ForgeonHttpLoggingInterceptor implements NestInterceptor {
     return undefined;
   }
 }
-
