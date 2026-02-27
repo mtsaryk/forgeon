@@ -73,6 +73,81 @@ export function ensureLineBefore(content, anchorLine, lineToInsert) {
   return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
 }
 
+export function ensureImportLine(content, importLine) {
+  if (content.includes(importLine)) {
+    return content;
+  }
+
+  const importMatches = [...content.matchAll(/^import\s.+;$/gm)];
+  if (importMatches.length === 0) {
+    return `${importLine}\n${content}`;
+  }
+
+  const lastImport = importMatches.at(-1);
+  const insertAt = lastImport.index + lastImport[0].length;
+  return `${content.slice(0, insertAt)}\n${importLine}${content.slice(insertAt)}`;
+}
+
+function findClassRange(content, className) {
+  const classPattern = new RegExp(`export\\s+class\\s+${className}\\b`);
+  const classMatch = classPattern.exec(content);
+  if (!classMatch) {
+    return null;
+  }
+
+  const openBrace = content.indexOf('{', classMatch.index);
+  if (openBrace < 0) {
+    return null;
+  }
+
+  let depth = 0;
+  for (let index = openBrace; index < content.length; index += 1) {
+    const char = content[index];
+    if (char === '{') {
+      depth += 1;
+    } else if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return {
+          classStart: classMatch.index,
+          bodyStart: openBrace + 1,
+          classEnd: index,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+export function ensureClassMember(content, className, memberCode, options = {}) {
+  const member = memberCode.trim();
+  if (member.length === 0) {
+    return content;
+  }
+
+  const range = findClassRange(content, className);
+  if (!range) {
+    return `${content.trimEnd()}\n${member}\n`;
+  }
+
+  const classBody = content.slice(range.bodyStart, range.classEnd);
+  if (classBody.includes(member)) {
+    return content;
+  }
+
+  let insertAt = range.classEnd;
+  const beforeNeedle = options.beforeNeedle;
+  if (typeof beforeNeedle === 'string' && beforeNeedle.length > 0) {
+    const needleIndex = classBody.indexOf(beforeNeedle);
+    if (needleIndex >= 0) {
+      insertAt = range.bodyStart + needleIndex;
+    }
+  }
+
+  return `${content.slice(0, insertAt)}\n\n${member}\n${content.slice(insertAt)}`;
+}
+
 export function upsertEnvLines(filePath, lines) {
   let content = '';
   if (fs.existsSync(filePath)) {

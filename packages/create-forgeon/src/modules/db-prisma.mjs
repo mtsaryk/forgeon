@@ -3,8 +3,10 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
   ensureBuildSteps,
+  ensureClassMember,
   ensureDependency,
   ensureDevDependency,
+  ensureImportLine,
   ensureLineAfter,
   ensureLineBefore,
   ensureLoadItem,
@@ -118,11 +120,7 @@ function patchHealthController(targetRoot) {
   content = ensureNestCommonImport(content, 'Post');
 
   if (!content.includes("from '@forgeon/db-prisma';")) {
-    const nestCommonImport = content.match(/import\s*\{[^}]*\}\s*from '@nestjs\/common';/m)?.[0];
-    const anchor = content.includes("import { I18nService } from 'nestjs-i18n';")
-      ? "import { I18nService } from 'nestjs-i18n';"
-      : nestCommonImport;
-    content = ensureLineAfter(content, anchor, "import { PrismaService } from '@forgeon/db-prisma';");
+    content = ensureImportLine(content, "import { PrismaService } from '@forgeon/db-prisma';");
   }
 
   if (!content.includes('private readonly prisma: PrismaService')) {
@@ -167,17 +165,7 @@ function patchHealthController(targetRoot) {
     };
   }
 `;
-    const translateIndex = content.indexOf('private translate(');
-    if (translateIndex > -1) {
-      content = `${content.slice(0, translateIndex).trimEnd()}\n\n${dbMethod}\n${content.slice(translateIndex)}`;
-    } else {
-      const classEnd = content.lastIndexOf('\n}');
-      if (classEnd >= 0) {
-        content = `${content.slice(0, classEnd).trimEnd()}\n\n${dbMethod}\n${content.slice(classEnd)}`;
-      } else {
-        content = `${content.trimEnd()}\n${dbMethod}\n`;
-      }
-    }
+    content = ensureClassMember(content, 'HealthController', dbMethod, { beforeNeedle: 'private translate(' });
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');

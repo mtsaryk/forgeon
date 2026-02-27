@@ -3,7 +3,9 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
   ensureBuildSteps,
+  ensureClassMember,
   ensureDependency,
+  ensureImportLine,
   ensureLineAfter,
   ensureLineBefore,
   ensureLoadItem,
@@ -288,19 +290,7 @@ function patchHealthController(targetRoot) {
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes("from 'nestjs-i18n';")) {
-    if (content.includes("import { PrismaService } from '@forgeon/db-prisma';")) {
-      content = ensureLineAfter(
-        content,
-        "import { PrismaService } from '@forgeon/db-prisma';",
-        "import { I18nService } from 'nestjs-i18n';",
-      );
-    } else {
-      content = ensureLineAfter(
-        content,
-        "import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';",
-        "import { I18nService } from 'nestjs-i18n';",
-      );
-    }
+    content = ensureImportLine(content, "import { I18nService } from 'nestjs-i18n';");
   }
 
   if (!content.includes('private readonly i18n: I18nService')) {
@@ -308,11 +298,22 @@ function patchHealthController(targetRoot) {
     if (constructorMatch) {
       const original = constructorMatch[0];
       const inner = constructorMatch[1].trimEnd();
-      const separator = inner.length > 0 ? ',' : '';
-      const next = `constructor(${inner}${separator}
+      const normalizedInner = inner.replace(/,\s*$/, '');
+      const separator = normalizedInner.length > 0 ? ',' : '';
+      const next = `constructor(${normalizedInner}${separator}
     private readonly i18n: I18nService,
   ) {`;
       content = content.replace(original, next);
+    } else {
+      const classAnchor = 'export class HealthController {';
+      if (content.includes(classAnchor)) {
+        content = content.replace(
+          classAnchor,
+          `${classAnchor}
+  constructor(private readonly i18n: I18nService) {}
+`,
+        );
+      }
     }
   }
 
@@ -323,9 +324,10 @@ function patchHealthController(targetRoot) {
     return typeof value === 'string' ? value : key;
   }
 `;
-    content = `${content.trimEnd()}\n${translateMethod}\n`;
+    content = ensureClassMember(content, 'HealthController', translateMethod);
   }
 
+  content = content.replace(/getHealth\(\)/g, "getHealth(@Query('lang') lang?: string)");
   content = content.replace(
     /getHealth\(@Query\('lang'\)\s*_lang\?:\s*string\)/g,
     "getHealth(@Query('lang') lang?: string)",
@@ -339,6 +341,7 @@ function patchHealthController(targetRoot) {
     "getValidationProbe(@Query('value') value?: string, @Query('lang') lang?: string)",
   );
   content = content.replace(/message:\s*'OK',/g, "message: this.translate('common.actions.ok', lang),");
+  content = content.replace(/i18n:\s*'disabled',/g, "i18n: 'en',");
   content = content.replace(/i18n:\s*'English',/g, "i18n: 'en',");
 
   content = content.replace(

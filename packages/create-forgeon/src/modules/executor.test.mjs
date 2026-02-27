@@ -1053,6 +1053,59 @@ describe('addModule', () => {
     }
   });
 
+  it('keeps health controller valid for add sequence jwt-auth -> logger -> swagger -> i18n -> db-prisma on db/i18n-disabled scaffold', () => {
+    const targetRoot = mkTmp('forgeon-module-seq-health-valid-');
+    const projectRoot = path.join(targetRoot, 'demo-seq-health-valid');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-seq-health-valid',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      for (const moduleId of ['jwt-auth', 'logger', 'swagger', 'i18n', 'db-prisma']) {
+        addModule({ moduleId, targetRoot: projectRoot, packageRoot });
+      }
+
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+
+      const classStart = healthController.indexOf('export class HealthController {');
+      const classEnd = healthController.lastIndexOf('\n}');
+      assert.equal(classStart > -1, true);
+      assert.equal(classEnd > classStart, true);
+
+      const imports = [...healthController.matchAll(/^import\s.+;$/gm)];
+      assert.equal(imports.length > 0, true);
+      for (const importLine of imports) {
+        assert.equal(importLine.index < classStart, true);
+      }
+
+      const authProbe = healthController.indexOf("@Get('auth')");
+      const dbProbe = healthController.indexOf("@Post('db')");
+      const translateMethod = healthController.indexOf('private translate(');
+      assert.equal(authProbe > classStart && authProbe < classEnd, true);
+      assert.equal(dbProbe > classStart && dbProbe < classEnd, true);
+      assert.equal(translateMethod > classStart && translateMethod < classEnd, true);
+
+      assert.match(healthController, /private readonly authService: AuthService/);
+      assert.match(healthController, /private readonly i18n: I18nService/);
+      assert.match(healthController, /private readonly prisma: PrismaService/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
   it('applies swagger then jwt-auth without forcing swagger dependency in auth-api', () => {
     const targetRoot = mkTmp('forgeon-module-jwt-swagger-');
     const projectRoot = path.join(targetRoot, 'demo-jwt-swagger');

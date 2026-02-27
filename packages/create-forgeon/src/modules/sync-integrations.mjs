@@ -72,12 +72,12 @@ const INTEGRATION_GROUPS = [
   {
     id: 'auth-persistence',
     title: 'Auth Persistence Integration',
-    modules: ['jwt-auth', 'db-prisma', 'core-config'],
+    modules: ['jwt-auth', 'db-prisma'],
     description: [
-      'Register Prisma refresh-token store in AuthModule',
-      'Wire AUTH_REFRESH_TOKEN_STORE provider to Prisma store',
-      'Extend Prisma User model with refreshTokenHash',
-      'Add auth persistence migration and update README note',
+      'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE with PrismaAuthRefreshTokenStore',
+      'Add apps/api/src/auth/prisma-auth-refresh-token.store.ts',
+      'Extend Prisma User model with refreshTokenHash and add migration 0002_auth_refresh_token_hash',
+      'Update JWT auth README note about refresh-token persistence',
     ],
     isAvailable: (detected) => detected.jwtAuth && detected.dbPrisma,
     isPending: (rootDir) => isAuthPersistencePending(rootDir),

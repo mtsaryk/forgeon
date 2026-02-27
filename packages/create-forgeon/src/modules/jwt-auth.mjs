@@ -3,7 +3,9 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
   ensureBuildSteps,
+  ensureClassMember,
   ensureDependency,
+  ensureImportLine,
   ensureLineAfter,
   ensureLineBefore,
   ensureLoadItem,
@@ -117,20 +119,7 @@ function patchHealthController(targetRoot) {
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
 
   if (!content.includes("from '@forgeon/auth-api';")) {
-    const nestCommonImport = content.match(/import\s*\{[^}]*\}\s*from '@nestjs\/common';/m)?.[0];
-    if (content.includes("import { PrismaService } from '@forgeon/db-prisma';")) {
-      content = ensureLineAfter(
-        content,
-        "import { PrismaService } from '@forgeon/db-prisma';",
-        "import { AuthService } from '@forgeon/auth-api';",
-      );
-    } else {
-      content = ensureLineAfter(
-        content,
-        nestCommonImport ?? "import { Controller, Get } from '@nestjs/common';",
-        "import { AuthService } from '@forgeon/auth-api';",
-      );
-    }
+    content = ensureImportLine(content, "import { AuthService } from '@forgeon/auth-api';");
   }
 
   if (!content.includes('private readonly authService: AuthService')) {
@@ -164,19 +153,8 @@ function patchHealthController(targetRoot) {
     return this.authService.getProbeStatus();
   }
 `;
-    if (content.includes("@Post('db')")) {
-      content = content.replace("@Post('db')", `${method}\n  @Post('db')`);
-    } else if (content.includes('private translate(')) {
-      const index = content.indexOf('private translate(');
-      content = `${content.slice(0, index).trimEnd()}\n\n${method}\n${content.slice(index)}`;
-    } else {
-      const classEnd = content.lastIndexOf('\n}');
-      if (classEnd >= 0) {
-        content = `${content.slice(0, classEnd).trimEnd()}\n\n${method}\n${content.slice(classEnd)}`;
-      } else {
-        content = `${content.trimEnd()}\n${method}\n`;
-      }
-    }
+    const beforeNeedle = content.includes("@Post('db')") ? "@Post('db')" : 'private translate(';
+    content = ensureClassMember(content, 'HealthController', method, { beforeNeedle });
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
