@@ -58,6 +58,20 @@ Requirements:
 - keep backward compatibility
 ```
 
+## Implement JWT Auth Module
+
+```text
+Implement `create-forgeon add jwt-auth` as an idempotent add-module.
+Requirements:
+- split into `@forgeon/auth-contracts` and `@forgeon/auth-api`
+- include login/refresh/logout/me endpoints + jwt strategy/guard
+- add auth probe hook (`GET /api/health/auth`) and web probe button
+- detect available DB adapter during install:
+  - if supported adapter is found, auto-wire refresh token persistence
+  - if DB is missing/unsupported, print red warning and install stateless mode
+- update root README in generated project with follow-up steps to enable persistence later
+```
+
 ## Deferred TODOs
 
 - i18n runtime fallback env check (deferred):

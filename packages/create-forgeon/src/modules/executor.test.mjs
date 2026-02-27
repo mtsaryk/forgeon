@@ -41,6 +41,61 @@ function assertDbPrismaWiring(projectRoot) {
   assert.match(healthController, /PrismaService/);
 }
 
+function assertJwtAuthWiring(projectRoot, withPrismaStore) {
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/auth-api/);
+  assert.match(apiPackage, /@forgeon\/auth-contracts/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/auth-contracts build/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/auth-api build/);
+
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /authConfig/);
+  assert.match(appModule, /authEnvSchema/);
+  assert.match(appModule, /ForgeonAuthModule\.register\(/);
+  if (withPrismaStore) {
+    assert.match(appModule, /AUTH_REFRESH_TOKEN_STORE/);
+    assert.match(appModule, /PrismaAuthRefreshTokenStore/);
+  } else {
+    assert.doesNotMatch(appModule, /PrismaAuthRefreshTokenStore/);
+  }
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Get\('auth'\)/);
+  assert.match(healthController, /authService\.getProbeStatus/);
+  assert.doesNotMatch(healthController, /,\s*,/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check JWT auth probe/);
+  assert.match(appTsx, /Auth probe response/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(
+    apiDockerfile,
+    /COPY packages\/auth-contracts\/package\.json packages\/auth-contracts\/package\.json/,
+  );
+  assert.match(apiDockerfile, /COPY packages\/auth-api\/package\.json packages\/auth-api\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/auth-contracts packages\/auth-contracts/);
+  assert.match(apiDockerfile, /COPY packages\/auth-api packages\/auth-api/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/auth-contracts build/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/auth-api build/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /JWT_ACCESS_SECRET=/);
+  assert.match(apiEnv, /JWT_REFRESH_SECRET=/);
+  assert.match(apiEnv, /AUTH_DEMO_EMAIL=/);
+  assert.match(apiEnv, /AUTH_DEMO_PASSWORD=/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /JWT_ACCESS_SECRET: \$\{JWT_ACCESS_SECRET\}/);
+  assert.match(compose, /JWT_REFRESH_SECRET: \$\{JWT_REFRESH_SECRET\}/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## JWT Auth Module/);
+}
+
 function stripDbPrismaArtifacts(projectRoot) {
   const dbPackageDir = path.join(projectRoot, 'packages', 'db-prisma');
   if (fs.existsSync(dbPackageDir)) {
@@ -151,7 +206,7 @@ describe('addModule', () => {
     try {
       createMinimalForgeonProject(targetRoot);
       const result = addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'queue',
         targetRoot,
         packageRoot,
       });
@@ -161,7 +216,7 @@ describe('addModule', () => {
       assert.equal(fs.existsSync(result.docsPath), true);
 
       const note = fs.readFileSync(result.docsPath, 'utf8');
-      assert.match(note, /JWT Auth/);
+      assert.match(note, /Queue Worker/);
       assert.match(note, /Status: planned/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -800,6 +855,115 @@ describe('addModule', () => {
 
       assertDbPrismaWiring(projectRoot);
     } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies jwt-auth with db-prisma adapter and wires persistent token store', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-db-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-db');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-db',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: true,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertJwtAuthWiring(projectRoot, true);
+
+      const storeFile = path.join(
+        projectRoot,
+        'apps',
+        'api',
+        'src',
+        'auth',
+        'prisma-auth-refresh-token.store.ts',
+      );
+      assert.equal(fs.existsSync(storeFile), true);
+
+      const schema = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'prisma', 'schema.prisma'), 'utf8');
+      assert.match(schema, /refreshTokenHash/);
+
+      const migrationPath = path.join(
+        projectRoot,
+        'apps',
+        'api',
+        'prisma',
+        'migrations',
+        '0002_auth_refresh_token_hash',
+        'migration.sql',
+      );
+      assert.equal(fs.existsSync(migrationPath), true);
+
+      const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(readme, /refresh token persistence: enabled/);
+      assert.match(readme, /0002_auth_refresh_token_hash/);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /Status: implemented/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies jwt-auth without db and prints warning with stateless fallback', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-nodb-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-nodb');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    const originalError = console.error;
+    const warnings = [];
+    console.error = (...args) => warnings.push(args.join(' '));
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-nodb',
+        frontend: 'react',
+        db: 'prisma',
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      stripDbPrismaArtifacts(projectRoot);
+
+      const result = addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertJwtAuthWiring(projectRoot, false);
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'apps', 'api', 'src', 'auth', 'prisma-auth-refresh-token.store.ts')),
+        false,
+      );
+
+      const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(readme, /refresh token persistence: disabled/);
+      assert.match(readme, /create-forgeon add db-prisma/);
+
+      assert.equal(warnings.length > 0, true);
+      assert.match(warnings.join('\n'), /jwt-auth installed without persistent refresh token store/);
+    } finally {
+      console.error = originalError;
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });

@@ -28,4 +28,5 @@ npx create-forgeon@latest add jwt-auth --project ./my-app
 - Canonical stack is fixed: NestJS + React + Prisma/Postgres + Docker.
 - Reverse proxy options: `caddy` (default), `nginx`, `none`.
 - `add i18n` is implemented and applies backend/frontend i18n wiring.
+- `add jwt-auth` is implemented and auto-detects DB adapter support for refresh-token persistence.
 - Planned modules write docs notes under `docs/AI/MODULES/`.

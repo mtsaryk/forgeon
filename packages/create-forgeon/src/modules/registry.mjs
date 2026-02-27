@@ -35,9 +35,9 @@ const MODULE_PRESETS = {
     id: 'jwt-auth',
     label: 'JWT Auth',
     category: 'auth-security',
-    implemented: false,
-    description: 'JWT auth preset with guards and passport strategy wiring.',
-    docFragments: ['00_title', '10_overview', '20_scope', '90_status_planned'],
+    implemented: true,
+    description: 'JWT auth preset with contracts/api module split, guard+strategy, and DB-aware refresh token storage wiring.',
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
   queue: {
     id: 'queue',

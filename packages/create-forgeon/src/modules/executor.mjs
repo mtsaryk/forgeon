@@ -4,6 +4,7 @@ import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
 import { applyDbPrismaModule } from './db-prisma.mjs';
 import { applyI18nModule } from './i18n.mjs';
+import { applyJwtAuthModule } from './jwt-auth.mjs';
 import { applyLoggerModule } from './logger.mjs';
 import { applySwaggerModule } from './swagger.mjs';
 
@@ -26,6 +27,7 @@ function ensureForgeonLikeProject(targetRoot) {
 const MODULE_APPLIERS = {
   'db-prisma': applyDbPrismaModule,
   i18n: applyI18nModule,
+  'jwt-auth': applyJwtAuthModule,
   logger: applyLoggerModule,
   swagger: applySwaggerModule,
 };

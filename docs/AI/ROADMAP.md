@@ -38,10 +38,14 @@ This is a living plan. Scope and priorities may change.
   - [ ] bearer integration hook for jwt-auth
   - [ ] `/docs` route
 
-- [ ] `jwt-auth`
-  - [ ] module split: contracts/api/web
-  - [ ] access + refresh baseline
-  - [ ] guards/strategy integration
+- [x] `jwt-auth`
+  - [x] module split: contracts/api
+  - [x] access + refresh baseline
+  - [x] guards/strategy integration
+  - [x] DB-aware install behavior:
+    - [x] auto-wire refresh token persistence for `db-prisma`
+    - [x] red warning + stateless mode when DB is missing/unsupported
+  - [ ] web package split (`auth-web`) on next iteration
 
 - [ ] `rbac / permissions`
   - [ ] decorators: `@Roles()`, `@Permissions()`
