@@ -84,6 +84,26 @@ function ensureLineBefore(content, anchorLine, lineToInsert) {
   return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
 }
 
+function ensureNestCommonImport(content, importName) {
+  const pattern = /import\s*\{([^}]*)\}\s*from '@nestjs\/common';/m;
+  const match = content.match(pattern);
+  if (!match) {
+    return `import { ${importName} } from '@nestjs/common';\n${content}`;
+  }
+
+  const names = match[1]
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!names.includes(importName)) {
+    names.push(importName);
+  }
+
+  const replacement = `import { ${names.join(', ')} } from '@nestjs/common';`;
+  return content.replace(pattern, replacement);
+}
+
 function upsertEnvLines(filePath, lines) {
   let content = '';
   if (fs.existsSync(filePath)) {
@@ -244,10 +264,13 @@ function patchHealthController(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = ensureNestCommonImport(content, 'Post');
+
   if (!content.includes("from '@forgeon/db-prisma';")) {
+    const nestCommonImport = content.match(/import\s*\{[^}]*\}\s*from '@nestjs\/common';/m)?.[0];
     const anchor = content.includes("import { I18nService } from 'nestjs-i18n';")
       ? "import { I18nService } from 'nestjs-i18n';"
-      : "import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';";
+      : nestCommonImport;
     content = ensureLineAfter(content, anchor, "import { PrismaService } from '@forgeon/db-prisma';");
   }
 
@@ -350,6 +373,7 @@ function patchApiDockerfile(targetRoot) {
 
   content = content
     .replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n?/gm, '')
+    .replace(/^RUN pnpm --filter @forgeon\/core build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/api prisma:generate\r?\n?/gm, '')
     .replace(/^CMD \["node", "apps\/api\/dist\/main\.js"\]\r?\n?/gm, '')
     .replace(
@@ -357,6 +381,7 @@ function patchApiDockerfile(targetRoot) {
       '',
     );
 
+  content = ensureLineBefore(content, 'RUN pnpm --filter @forgeon/api build', 'RUN pnpm --filter @forgeon/core build');
   content = ensureLineBefore(content, 'RUN pnpm --filter @forgeon/api build', 'RUN pnpm --filter @forgeon/db-prisma build');
   content = ensureLineBefore(content, 'RUN pnpm --filter @forgeon/api build', 'RUN pnpm --filter @forgeon/api prisma:generate');
   content = `${content.trimEnd()}\nCMD ["sh", "-c", "pnpm --filter @forgeon/api prisma:migrate:deploy && node apps/api/dist/main.js"]\n`;
