@@ -56,10 +56,15 @@ Reference: `docs/AI/MODULE_SPEC.md`.
 - Purpose:
   - keep add-modules composable when installed in arbitrary order;
   - apply module-to-module integration patches idempotently.
+- Rule:
+  - each add-module patches only itself;
+  - cross-module changes are allowed only in integration sync rules.
 - Current integration:
-  - `jwt-auth + swagger` (Swagger decorators on auth controller/DTOs).
   - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync).
-- `create-forgeon add <module>` runs sync automatically as best-effort.
+- Pair sync is explicit (opt-in), not automatic after `add`.
+- Run `pnpm forgeon:sync-integrations` when you want to apply module-pair integrations.
+- Swagger auth decorators are intentionally not auto-patched.
+- Future option: this may return as an explicit optional command (not default automatic behavior).
 
 ## TypeScript Module Format Policy
 

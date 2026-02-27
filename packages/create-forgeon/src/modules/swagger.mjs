@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
+import {
+  ensureBuildSteps,
+  ensureDependency,
+  ensureLineAfter,
+  ensureLineBefore,
+  ensureLoadItem,
+  ensureValidatorSchema,
+  upsertEnvLines,
+} from './shared/patch-utils.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'swagger', relativePath);
@@ -11,126 +20,6 @@ function copyFromPreset(packageRoot, targetRoot, relativePath) {
   copyRecursive(source, destination);
 }
 
-function ensureDependency(packageJson, name, version) {
-  if (!packageJson.dependencies) {
-    packageJson.dependencies = {};
-  }
-  packageJson.dependencies[name] = version;
-}
-
-function ensureLineAfter(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  const insertAt = index + anchorLine.length;
-  return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
-}
-
-function ensureLineBefore(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
-}
-
-function upsertEnvLines(filePath, lines) {
-  let content = '';
-  if (fs.existsSync(filePath)) {
-    content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  }
-
-  const keys = new Set(
-    content
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.split('=')[0]),
-  );
-
-  const append = [];
-  for (const line of lines) {
-    const key = line.split('=')[0];
-    if (!keys.has(key)) {
-      append.push(line);
-    }
-  }
-
-  const next =
-    append.length > 0 ? `${content.trimEnd()}\n${append.join('\n')}\n` : `${content.trimEnd()}\n`;
-  fs.writeFileSync(filePath, next.replace(/^\n/, ''), 'utf8');
-}
-
-function ensureBuildStep(packageJson, buildCommand) {
-  if (!packageJson.scripts) {
-    packageJson.scripts = {};
-  }
-
-  const current = packageJson.scripts.predev;
-  if (typeof current !== 'string' || current.trim().length === 0) {
-    packageJson.scripts.predev = buildCommand;
-    return;
-  }
-
-  if (current.includes(buildCommand)) {
-    return;
-  }
-
-  packageJson.scripts.predev = `${buildCommand} && ${current}`;
-}
-
-function ensureLoadItem(content, itemName) {
-  const pattern = /load:\s*\[([^\]]*)\]/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(itemName)) {
-    items.push(itemName);
-  }
-
-  const next = `load: [${items.join(', ')}]`;
-  return content.replace(pattern, next);
-}
-
-function ensureValidatorSchema(content, schemaName) {
-  const pattern = /validate:\s*createEnvValidator\(\[([^\]]*)\]\)/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(schemaName)) {
-    items.push(schemaName);
-  }
-
-  const next = `validate: createEnvValidator([${items.join(', ')}])`;
-  return content.replace(pattern, next);
-}
-
 function patchApiPackage(targetRoot) {
   const packagePath = path.join(targetRoot, 'apps', 'api', 'package.json');
   if (!fs.existsSync(packagePath)) {
@@ -139,7 +28,7 @@ function patchApiPackage(targetRoot) {
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   ensureDependency(packageJson, '@forgeon/swagger', 'workspace:*');
-  ensureBuildStep(packageJson, 'pnpm --filter @forgeon/swagger build');
+  ensureBuildSteps(packageJson, 'predev', ['pnpm --filter @forgeon/swagger build']);
   writeJson(packagePath, packageJson);
 }
 

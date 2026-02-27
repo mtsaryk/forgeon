@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addModule } from './executor.mjs';
+import { syncIntegrations } from './sync-integrations.mjs';
 import { scaffoldProject } from '../core/scaffold.mjs';
 
 function mkTmp(prefix) {
@@ -400,7 +401,6 @@ describe('addModule', () => {
       assert.match(rootPackage, /"i18n:check"/);
       assert.match(rootPackage, /"i18n:types"/);
       assert.match(rootPackage, /"i18n:add"/);
-      assert.match(rootPackage, /"ts-morph":/);
 
       const i18nAddScriptPath = path.join(projectRoot, 'scripts', 'i18n-add.mjs');
       assert.equal(fs.existsSync(i18nAddScriptPath), true);
@@ -893,7 +893,7 @@ describe('addModule', () => {
     }
   });
 
-  it('applies jwt-auth with db-prisma adapter and wires persistent token store', () => {
+  it('applies jwt-auth with db-prisma as stateless first, then wires persistence via explicit sync', () => {
     const targetRoot = mkTmp('forgeon-module-jwt-db-');
     const projectRoot = path.join(targetRoot, 'demo-jwt-db');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
@@ -918,6 +918,14 @@ describe('addModule', () => {
       });
 
       assert.equal(result.applied, true);
+      assertJwtAuthWiring(projectRoot, false);
+
+      const syncResult = syncIntegrations({ targetRoot: projectRoot, packageRoot });
+      const dbPair = syncResult.summary.find((item) => item.id === 'auth-persistence');
+      assert.ok(dbPair);
+      assert.equal(dbPair.result.applied, true);
+      assert.equal(syncResult.changedFiles.length > 0, true);
+
       assertJwtAuthWiring(projectRoot, true);
 
       const storeFile = path.join(
@@ -955,14 +963,10 @@ describe('addModule', () => {
     }
   });
 
-  it('applies jwt-auth without db and prints warning with stateless fallback', () => {
+  it('applies jwt-auth without db and keeps stateless fallback until pair sync is available', () => {
     const targetRoot = mkTmp('forgeon-module-jwt-nodb-');
     const projectRoot = path.join(targetRoot, 'demo-jwt-nodb');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
-
-    const originalError = console.error;
-    const warnings = [];
-    console.error = (...args) => warnings.push(args.join(' '));
 
     try {
       scaffoldProject({
@@ -996,10 +1000,93 @@ describe('addModule', () => {
       assert.match(readme, /refresh token persistence: disabled/);
       assert.match(readme, /create-forgeon add db-prisma/);
 
-      assert.equal(warnings.length > 0, true);
-      assert.match(warnings.join('\n'), /jwt-auth installed without persistent refresh token store/);
     } finally {
-      console.error = originalError;
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies logger then jwt-auth on db/i18n-disabled scaffold without breaking health controller syntax', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-nodb-noi18n-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-nodb-noi18n');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-nodb-noi18n',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'logger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+      assert.match(healthController, /constructor\(private readonly authService: AuthService\)/);
+      assert.match(healthController, /@Get\('auth'\)/);
+      assert.match(healthController, /return this\.authService\.getProbeStatus\(\);/);
+
+      const classStart = healthController.indexOf('export class HealthController {');
+      const classEnd = healthController.lastIndexOf('\n}');
+      const authProbe = healthController.indexOf("@Get('auth')");
+      assert.equal(classStart > -1, true);
+      assert.equal(classEnd > classStart, true);
+      assert.equal(authProbe > classStart && authProbe < classEnd, true);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies swagger then jwt-auth without forcing swagger dependency in auth-api', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-swagger-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-swagger');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-swagger',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'swagger',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const authApiPackage = JSON.parse(
+        fs.readFileSync(path.join(projectRoot, 'packages', 'auth-api', 'package.json'), 'utf8'),
+      );
+      assert.equal(Object.hasOwn(authApiPackage.dependencies ?? {}, '@nestjs/swagger'), false);
+    } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });

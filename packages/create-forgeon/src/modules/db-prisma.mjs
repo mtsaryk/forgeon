@@ -1,6 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
+import {
+  ensureBuildSteps,
+  ensureDependency,
+  ensureDevDependency,
+  ensureLineAfter,
+  ensureLineBefore,
+  ensureLoadItem,
+  ensureNestCommonImport,
+  ensureScript,
+  ensureValidatorSchema,
+  upsertEnvLines,
+} from './shared/patch-utils.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'db-prisma', relativePath);
@@ -9,167 +21,6 @@ function copyFromPreset(packageRoot, targetRoot, relativePath) {
   }
   const destination = path.join(targetRoot, relativePath);
   copyRecursive(source, destination);
-}
-
-function ensureDependency(packageJson, name, version) {
-  if (!packageJson.dependencies) {
-    packageJson.dependencies = {};
-  }
-  packageJson.dependencies[name] = version;
-}
-
-function ensureDevDependency(packageJson, name, version) {
-  if (!packageJson.devDependencies) {
-    packageJson.devDependencies = {};
-  }
-  packageJson.devDependencies[name] = version;
-}
-
-function ensureScript(packageJson, name, command) {
-  if (!packageJson.scripts) {
-    packageJson.scripts = {};
-  }
-  packageJson.scripts[name] = command;
-}
-
-function ensureBuildSteps(packageJson, scriptName, requiredCommands) {
-  if (!packageJson.scripts) {
-    packageJson.scripts = {};
-  }
-
-  const current = packageJson.scripts[scriptName];
-  const steps =
-    typeof current === 'string' && current.trim().length > 0
-      ? current
-          .split('&&')
-          .map((item) => item.trim())
-          .filter(Boolean)
-      : [];
-
-  for (const command of requiredCommands) {
-    if (!steps.includes(command)) {
-      steps.push(command);
-    }
-  }
-
-  if (steps.length > 0) {
-    packageJson.scripts[scriptName] = steps.join(' && ');
-  }
-}
-
-function ensureLineAfter(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  const insertAt = index + anchorLine.length;
-  return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
-}
-
-function ensureLineBefore(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
-}
-
-function ensureNestCommonImport(content, importName) {
-  const pattern = /import\s*\{([^}]*)\}\s*from '@nestjs\/common';/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return `import { ${importName} } from '@nestjs/common';\n${content}`;
-  }
-
-  const names = match[1]
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!names.includes(importName)) {
-    names.push(importName);
-  }
-
-  const replacement = `import { ${names.join(', ')} } from '@nestjs/common';`;
-  return content.replace(pattern, replacement);
-}
-
-function upsertEnvLines(filePath, lines) {
-  let content = '';
-  if (fs.existsSync(filePath)) {
-    content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  }
-
-  const keys = new Set(
-    content
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.split('=')[0]),
-  );
-
-  const append = [];
-  for (const line of lines) {
-    const key = line.split('=')[0];
-    if (!keys.has(key)) {
-      append.push(line);
-    }
-  }
-
-  const next =
-    append.length > 0 ? `${content.trimEnd()}\n${append.join('\n')}\n` : `${content.trimEnd()}\n`;
-  fs.writeFileSync(filePath, next.replace(/^\n/, ''), 'utf8');
-}
-
-function ensureLoadItem(content, itemName) {
-  const pattern = /load:\s*\[([^\]]*)\]/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(itemName)) {
-    items.push(itemName);
-  }
-
-  const next = `load: [${items.join(', ')}]`;
-  return content.replace(pattern, next);
-}
-
-function ensureValidatorSchema(content, schemaName) {
-  const pattern = /validate:\s*createEnvValidator\(\[([^\]]*)\]\)/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(schemaName)) {
-    items.push(schemaName);
-  }
-
-  const next = `validate: createEnvValidator([${items.join(', ')}])`;
-  return content.replace(pattern, next);
 }
 
 function patchApiPackage(targetRoot) {
@@ -285,6 +136,16 @@ function patchHealthController(targetRoot) {
     private readonly prisma: PrismaService,
   ) {`;
       content = content.replace(original, next);
+    } else {
+      const classAnchor = 'export class HealthController {';
+      if (content.includes(classAnchor)) {
+        content = content.replace(
+          classAnchor,
+          `${classAnchor}
+  constructor(private readonly prisma: PrismaService) {}
+`,
+        );
+      }
     }
   }
 
@@ -310,7 +171,12 @@ function patchHealthController(targetRoot) {
     if (translateIndex > -1) {
       content = `${content.slice(0, translateIndex).trimEnd()}\n\n${dbMethod}\n${content.slice(translateIndex)}`;
     } else {
-      content = `${content.trimEnd()}\n${dbMethod}\n`;
+      const classEnd = content.lastIndexOf('\n}');
+      if (classEnd >= 0) {
+        content = `${content.slice(0, classEnd).trimEnd()}\n\n${dbMethod}\n${content.slice(classEnd)}`;
+      } else {
+        content = `${content.trimEnd()}\n${dbMethod}\n`;
+      }
     }
   }
 

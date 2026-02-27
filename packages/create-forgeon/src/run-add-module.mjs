@@ -1,11 +1,11 @@
 import path from 'node:path';
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { printAddHelp } from './cli/add-help.mjs';
 import { parseAddCliArgs } from './cli/add-options.mjs';
 import { addModule } from './modules/executor.mjs';
 import { listModulePresets } from './modules/registry.mjs';
+import { printModuleAdded, runIntegrationFlow } from './integrations/flow.mjs';
 import { writeJson } from './utils/fs.mjs';
 
 function printModuleList() {
@@ -41,45 +41,10 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
   if (!packageJson.scripts) {
     packageJson.scripts = {};
   }
-  if (!packageJson.devDependencies) {
-    packageJson.devDependencies = {};
-  }
 
   packageJson.scripts['forgeon:sync-integrations'] = 'node scripts/forgeon-sync-integrations.mjs';
-  if (!packageJson.devDependencies['ts-morph']) {
-    packageJson.devDependencies['ts-morph'] = '^24.0.0';
-  }
 
   writeJson(packagePath, packageJson);
-}
-
-function runIntegrationSync(targetRoot) {
-  const scriptPath = path.join(targetRoot, 'scripts', 'forgeon-sync-integrations.mjs');
-  if (!fs.existsSync(scriptPath)) {
-    return;
-  }
-
-  const tsMorphPackagePath = path.join(targetRoot, 'node_modules', 'ts-morph', 'package.json');
-  if (!fs.existsSync(tsMorphPackagePath)) {
-    console.warn(
-      '[create-forgeon add] sync-integrations skipped (dependencies are not installed yet). ' +
-        'Run `pnpm install` then `pnpm forgeon:sync-integrations` inside the project.',
-    );
-    return;
-  }
-
-  const result = spawnSync(process.execPath, [scriptPath], {
-    cwd: targetRoot,
-    stdio: 'inherit',
-    env: process.env,
-  });
-
-  if (result.status !== 0) {
-    console.warn(
-      '[create-forgeon add] sync-integrations failed. ' +
-        'Run `pnpm install` then `pnpm forgeon:sync-integrations` inside the project.',
-    );
-  }
 }
 
 export async function runAddModule(argv = process.argv.slice(2)) {
@@ -109,9 +74,10 @@ export async function runAddModule(argv = process.argv.slice(2)) {
     packageRoot,
   });
   ensureSyncTooling({ packageRoot, targetRoot });
-  runIntegrationSync(targetRoot);
-
-  console.log(result.message);
-  console.log(`- module: ${result.preset.id}`);
-  console.log(`- docs: ${result.docsPath}`);
+  printModuleAdded(result.preset.id, result.docsPath);
+  await runIntegrationFlow({
+    targetRoot,
+    packageRoot,
+    relatedModuleId: result.preset.id,
+  });
 }

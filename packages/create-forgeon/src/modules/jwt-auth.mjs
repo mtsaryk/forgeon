@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
+import {
+  ensureBuildSteps,
+  ensureDependency,
+  ensureLineAfter,
+  ensureLineBefore,
+  ensureLoadItem,
+  ensureValidatorSchema,
+  upsertEnvLines,
+} from './shared/patch-utils.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'jwt-auth', relativePath);
@@ -10,177 +19,6 @@ function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const destination = path.join(targetRoot, relativePath);
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   copyRecursive(source, destination);
-}
-
-function ensureDependency(packageJson, name, version) {
-  if (!packageJson.dependencies) {
-    packageJson.dependencies = {};
-  }
-  packageJson.dependencies[name] = version;
-}
-
-function ensureBuildSteps(packageJson, scriptName, requiredCommands) {
-  if (!packageJson.scripts) {
-    packageJson.scripts = {};
-  }
-
-  const current = packageJson.scripts[scriptName];
-  const steps =
-    typeof current === 'string' && current.trim().length > 0
-      ? current
-          .split('&&')
-          .map((item) => item.trim())
-          .filter(Boolean)
-      : [];
-
-  for (const command of requiredCommands) {
-    if (!steps.includes(command)) {
-      steps.push(command);
-    }
-  }
-
-  if (steps.length > 0) {
-    packageJson.scripts[scriptName] = steps.join(' && ');
-  }
-}
-
-function ensureLineAfter(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  const insertAt = index + anchorLine.length;
-  return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
-}
-
-function ensureLineBefore(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-
-  return `${content.slice(0, index)}${lineToInsert}\n${content.slice(index)}`;
-}
-
-function ensureLoadItem(content, itemName) {
-  const pattern = /load:\s*\[([^\]]*)\]/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(itemName)) {
-    items.push(itemName);
-  }
-
-  const next = `load: [${items.join(', ')}]`;
-  return content.replace(pattern, next);
-}
-
-function ensureValidatorSchema(content, schemaName) {
-  const pattern = /validate:\s*createEnvValidator\(\[([^\]]*)\]\)/m;
-  const match = content.match(pattern);
-  if (!match) {
-    return content;
-  }
-
-  const rawList = match[1];
-  const items = rawList
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!items.includes(schemaName)) {
-    items.push(schemaName);
-  }
-
-  const next = `validate: createEnvValidator([${items.join(', ')}])`;
-  return content.replace(pattern, next);
-}
-
-function upsertEnvLines(filePath, lines) {
-  let content = '';
-  if (fs.existsSync(filePath)) {
-    content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  }
-
-  const keys = new Set(
-    content
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => line.split('=')[0]),
-  );
-
-  const append = [];
-  for (const line of lines) {
-    const key = line.split('=')[0];
-    if (!keys.has(key)) {
-      append.push(line);
-    }
-  }
-
-  const next =
-    append.length > 0 ? `${content.trimEnd()}\n${append.join('\n')}\n` : `${content.trimEnd()}\n`;
-  fs.writeFileSync(filePath, next.replace(/^\n/, ''), 'utf8');
-}
-
-function detectDbAdapter(targetRoot) {
-  const apiPackagePath = path.join(targetRoot, 'apps', 'api', 'package.json');
-  let deps = {};
-  if (fs.existsSync(apiPackagePath)) {
-    const packageJson = JSON.parse(fs.readFileSync(apiPackagePath, 'utf8'));
-    deps = {
-      ...(packageJson.dependencies ?? {}),
-      ...(packageJson.devDependencies ?? {}),
-    };
-  }
-
-  if (
-    deps['@forgeon/db-prisma'] ||
-    fs.existsSync(path.join(targetRoot, 'packages', 'db-prisma', 'package.json'))
-  ) {
-    return { id: 'db-prisma', supported: true, tokenStore: 'prisma' };
-  }
-
-  const dbDeps = Object.keys(deps).filter((name) => name.startsWith('@forgeon/db-'));
-  if (dbDeps.length > 0) {
-    return { id: dbDeps[0], supported: false, tokenStore: 'none' };
-  }
-
-  const packagesPath = path.join(targetRoot, 'packages');
-  if (fs.existsSync(packagesPath)) {
-    const localDbPackages = fs
-      .readdirSync(packagesPath, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith('db-'))
-      .map((entry) => entry.name);
-    if (localDbPackages.includes('db-prisma')) {
-      return { id: 'db-prisma', supported: true, tokenStore: 'prisma' };
-    }
-    if (localDbPackages.length > 0) {
-      return { id: `@forgeon/${localDbPackages[0]}`, supported: false, tokenStore: 'none' };
-    }
-  }
-
-  return null;
-}
-
-function printDbWarning(message) {
-  console.error(`\x1b[31m[create-forgeon add jwt-auth] ${message}\x1b[0m`);
 }
 
 function patchApiPackage(targetRoot) {
@@ -201,13 +39,11 @@ function patchApiPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
-function patchAppModule(targetRoot, dbAdapter) {
+function patchAppModule(targetRoot) {
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
   if (!fs.existsSync(filePath)) {
     return;
   }
-
-  const withPrismaStore = dbAdapter?.supported === true && dbAdapter?.id === 'db-prisma';
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes("from '@forgeon/auth-api';")) {
@@ -215,7 +51,7 @@ function patchAppModule(targetRoot, dbAdapter) {
       content = ensureLineAfter(
         content,
         "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
-        "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
       );
     } else if (
       content.includes("import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';")
@@ -223,7 +59,7 @@ function patchAppModule(targetRoot, dbAdapter) {
       content = ensureLineAfter(
         content,
         "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
-        "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
       );
     } else if (
       content.includes("import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';")
@@ -231,7 +67,7 @@ function patchAppModule(targetRoot, dbAdapter) {
       content = ensureLineAfter(
         content,
         "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
-        "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
       );
     } else if (
       content.includes("import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';")
@@ -239,38 +75,22 @@ function patchAppModule(targetRoot, dbAdapter) {
       content = ensureLineAfter(
         content,
         "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
-        "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
       );
     } else {
       content = ensureLineAfter(
         content,
         "import { ConfigModule } from '@nestjs/config';",
-        "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
       );
     }
-  }
-
-  if (withPrismaStore && !content.includes("./auth/prisma-auth-refresh-token.store")) {
-    content = ensureLineBefore(
-      content,
-      "import { HealthController } from './health/health.controller';",
-      "import { PrismaAuthRefreshTokenStore } from './auth/prisma-auth-refresh-token.store';",
-    );
   }
 
   content = ensureLoadItem(content, 'authConfig');
   content = ensureValidatorSchema(content, 'authEnvSchema');
 
   if (!content.includes('ForgeonAuthModule.register(')) {
-    const moduleBlock = withPrismaStore
-      ? `    ForgeonAuthModule.register({
-      imports: [DbPrismaModule],
-      refreshTokenStoreProvider: {
-        provide: AUTH_REFRESH_TOKEN_STORE,
-        useClass: PrismaAuthRefreshTokenStore,
-      },
-    }),`
-      : `    ForgeonAuthModule.register(),`;
+    const moduleBlock = '    ForgeonAuthModule.register(),';
 
     if (content.includes('    ForgeonI18nModule.register({')) {
       content = ensureLineBefore(content, '    ForgeonI18nModule.register({', moduleBlock);
@@ -297,6 +117,7 @@ function patchHealthController(targetRoot) {
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
 
   if (!content.includes("from '@forgeon/auth-api';")) {
+    const nestCommonImport = content.match(/import\s*\{[^}]*\}\s*from '@nestjs\/common';/m)?.[0];
     if (content.includes("import { PrismaService } from '@forgeon/db-prisma';")) {
       content = ensureLineAfter(
         content,
@@ -306,7 +127,7 @@ function patchHealthController(targetRoot) {
     } else {
       content = ensureLineAfter(
         content,
-        "import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';",
+        nestCommonImport ?? "import { Controller, Get } from '@nestjs/common';",
         "import { AuthService } from '@forgeon/auth-api';",
       );
     }
@@ -323,6 +144,16 @@ function patchHealthController(targetRoot) {
     private readonly authService: AuthService,
   ) {`;
       content = content.replace(original, next);
+    } else {
+      const classAnchor = 'export class HealthController {';
+      if (content.includes(classAnchor)) {
+        content = content.replace(
+          classAnchor,
+          `${classAnchor}
+  constructor(private readonly authService: AuthService) {}
+`,
+        );
+      }
     }
   }
 
@@ -339,7 +170,12 @@ function patchHealthController(targetRoot) {
       const index = content.indexOf('private translate(');
       content = `${content.slice(0, index).trimEnd()}\n\n${method}\n${content.slice(index)}`;
     } else {
-      content = `${content.trimEnd()}\n${method}\n`;
+      const classEnd = content.lastIndexOf('\n}');
+      if (classEnd >= 0) {
+        content = `${content.slice(0, classEnd).trimEnd()}\n\n${method}\n${content.slice(classEnd)}`;
+      } else {
+        content = `${content.trimEnd()}\n${method}\n`;
+      }
     }
   }
 
@@ -488,22 +324,17 @@ function patchCompose(targetRoot) {
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchReadme(targetRoot, dbAdapter) {
+function patchReadme(targetRoot) {
   const readmePath = path.join(targetRoot, 'README.md');
   if (!fs.existsSync(readmePath)) {
     return;
   }
 
   const persistenceSummary =
-    dbAdapter?.supported && dbAdapter.id === 'db-prisma'
-      ? '- refresh token persistence: enabled (`db-prisma` adapter)'
-      : '- refresh token persistence: disabled (no supported DB adapter found)';
-  const dbFollowUp =
-    dbAdapter?.supported && dbAdapter.id === 'db-prisma'
-      ? '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`'
-      : `- to enable persistence later:
+    '- refresh token persistence: disabled by default (stateless mode)';
+  const dbFollowUp = `- to enable persistence later:
   1. install a DB module first (for now: \`create-forgeon add db-prisma --project .\`);
-  2. run \`create-forgeon add jwt-auth --project .\` again to auto-wire the adapter.`;
+  2. run \`pnpm forgeon:sync-integrations\` to auto-wire pair integrations.`;
 
   const section = `## JWT Auth Module
 
@@ -547,86 +378,17 @@ Default routes:
   fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchPrismaSchema(targetRoot) {
-  const schemaPath = path.join(targetRoot, 'apps', 'api', 'prisma', 'schema.prisma');
-  if (!fs.existsSync(schemaPath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
-  if (!content.includes('refreshTokenHash')) {
-    content = content.replace(
-      /email\s+String\s+@unique/g,
-      'email            String   @unique\n  refreshTokenHash String?',
-    );
-    fs.writeFileSync(schemaPath, `${content.trimEnd()}\n`, 'utf8');
-  }
-}
-
-function patchPrismaMigration(packageRoot, targetRoot) {
-  const migrationSource = path.join(
-    packageRoot,
-    'templates',
-    'module-presets',
-    'jwt-auth',
-    'apps',
-    'api',
-    'prisma',
-    'migrations',
-    '0002_auth_refresh_token_hash',
-  );
-  const migrationTarget = path.join(
-    targetRoot,
-    'apps',
-    'api',
-    'prisma',
-    'migrations',
-    '0002_auth_refresh_token_hash',
-  );
-
-  if (!fs.existsSync(migrationTarget) && fs.existsSync(migrationSource)) {
-    copyRecursive(migrationSource, migrationTarget);
-  }
-}
-
 export function applyJwtAuthModule({ packageRoot, targetRoot }) {
-  const dbAdapter = detectDbAdapter(targetRoot);
-  const supportsPrismaStore = dbAdapter?.supported === true && dbAdapter?.id === 'db-prisma';
-
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-api'));
 
-  const swaggerPackagePath = path.join(targetRoot, 'packages', 'swagger', 'package.json');
-  const authApiPackagePath = path.join(targetRoot, 'packages', 'auth-api', 'package.json');
-  if (fs.existsSync(swaggerPackagePath) && fs.existsSync(authApiPackagePath)) {
-    const authApiPackage = JSON.parse(fs.readFileSync(authApiPackagePath, 'utf8'));
-    ensureDependency(authApiPackage, '@nestjs/swagger', '^11.2.0');
-    writeJson(authApiPackagePath, authApiPackage);
-  }
-
-  if (supportsPrismaStore) {
-    copyFromPreset(
-      packageRoot,
-      targetRoot,
-      path.join('apps', 'api', 'src', 'auth', 'prisma-auth-refresh-token.store.ts'),
-    );
-    patchPrismaSchema(targetRoot);
-    patchPrismaMigration(packageRoot, targetRoot);
-  } else {
-    const detected = dbAdapter?.id ? `detected: ${dbAdapter.id}` : 'no DB adapter detected';
-    printDbWarning(
-      `jwt-auth installed without persistent refresh token store (${detected}). ` +
-        'Login/refresh works in stateless mode. Re-run add after supported DB module is installed.',
-    );
-  }
-
   patchApiPackage(targetRoot);
-  patchAppModule(targetRoot, dbAdapter);
+  patchAppModule(targetRoot);
   patchHealthController(targetRoot);
   patchWebApp(targetRoot);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
-  patchReadme(targetRoot, dbAdapter);
+  patchReadme(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'JWT_ACCESS_SECRET=forgeon-access-secret-change-me',

@@ -46,6 +46,23 @@ Reusable features should be added as fullstack add-modules:
 
 Reference: `docs/AI/MODULE_SPEC.md`.
 
+## Integration Sync Strategy
+
+- Integration orchestration is a default project toolchain command:
+  - `pnpm forgeon:sync-integrations`
+- Purpose:
+  - keep add-modules composable when installed in arbitrary order;
+  - apply module-to-module integration patches idempotently.
+- Rule:
+  - each add-module patches only itself;
+  - cross-module changes are allowed only in integration sync rules.
+- Current integration:
+  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync).
+- Pair sync is explicit (opt-in), not automatic after `add`.
+- Run `pnpm forgeon:sync-integrations` when you want to apply module-pair integrations.
+- Swagger auth decorators are intentionally not auto-patched.
+- Future option: this may return as an explicit optional command (not default automatic behavior).
+
 ## TypeScript Module Format Policy
 
 - `apps/api`, `packages/core`, and backend runtime packages use Node-oriented config:

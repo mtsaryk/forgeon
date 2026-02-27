@@ -5,6 +5,7 @@ Usage:
   npx create-forgeon@latest <project-name> [options]
   npx create-forgeon@latest add <module-id> [options]
   npx create-forgeon@latest add --list
+  npx create-forgeon@latest scan-integrations [options]
 
 Create options:
   --db-prisma <true|false>     Enable db-prisma module (default: true)
@@ -17,5 +18,8 @@ Create options:
 Add options:
   --project <path>             Target project path (default: current directory)
   --list                       List available modules
+
+Scan options:
+  --project <path>             Target project path (default: current directory)
 `);
 }
