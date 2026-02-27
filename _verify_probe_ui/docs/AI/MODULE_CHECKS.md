@@ -15,7 +15,6 @@ If a module can be validated through a safe API call, it must provide:
 - `core-errors`: `GET /api/health/error` (returns error envelope, expected `409`)
 - `core-validation`: `GET /api/health/validation` without `value` (expected `400`)
 - `db-prisma` (when installed): `POST /api/health/db` (creates probe user and returns it, expected `201`)
-- `jwt-auth`: `GET /api/health/auth` (returns token store mode and demo auth probe metadata)
 
 ## Rules For Future Modules
 
@@ -24,6 +23,6 @@ If a module can be validated through a safe API call, it must provide:
 - If probe writes data, it must use clearly marked probe/test records.
 - Probe should not require hidden setup beyond documented env/dependencies.
 - `create-forgeon add <module>` must wire both API probe and web probe UI when feasible.
-- Web probes should be appended to the existing probe UI structure in `apps/web/src/App.tsx`:
-  - add new action button at the end of `<div className="actions">`
-  - add new result block before the `networkError` render block
+- Web probes must be inserted into the shared probe container markers in `apps/web/src/App.tsx`:
+  - actions marker: `{/* forgeon:probes:actions:start/end */}`
+  - results marker: `{/* forgeon:probes:results:start/end */}`

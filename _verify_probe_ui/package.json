@@ -1,0 +1,30 @@
+{
+  "name": "verify-probe-ui",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @forgeon/api --filter @forgeon/web dev",
+    "build": "pnpm -r build",
+    "forgeon:sync-integrations": "node scripts/forgeon-sync-integrations.mjs",
+    "docker:up": "docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build",
+    "docker:down": "docker compose -f infra/docker/compose.yml down -v",
+    "i18n:sync": "pnpm --filter @forgeon/i18n-contracts i18n:sync",
+    "i18n:check": "pnpm --filter @forgeon/i18n-contracts i18n:check",
+    "i18n:types": "pnpm --filter @forgeon/i18n-contracts i18n:types",
+    "i18n:add": "node scripts/i18n-add.mjs",
+    "postinstall": "pnpm --filter @forgeon/api prisma:generate"
+  },
+  "devDependencies": {
+    "ts-morph": "^24.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}

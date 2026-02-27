@@ -324,6 +324,11 @@ function patchWebApp(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = content
+    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
 
   if (!content.includes('dbProbeResult')) {
     const stateAnchor = '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);';
@@ -337,23 +342,29 @@ function patchWebApp(targetRoot) {
   }
 
   if (!content.includes('Check database (create user)')) {
-    const buttonAnchor = "        <button onClick={() => runProbe(setValidationProbeResult, '/api/health/validation')>";
-    const buttonAnchorI18n = "        <button onClick={() => runProbe(setValidationProbeResult, '/health/validation')>";
-    const dbButton = content.includes(buttonAnchorI18n)
+    const dbButton = content.includes("runProbe(setHealthResult, '/health')")
       ? "        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>"
       : "        <button onClick={() => runProbe(setDbProbeResult, '/api/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>";
 
-    if (content.includes(buttonAnchor)) {
-      content = ensureLineAfter(content, buttonAnchor, dbButton);
-    } else if (content.includes(buttonAnchorI18n)) {
-      content = ensureLineAfter(content, buttonAnchorI18n, dbButton);
+    const actionsStart = content.indexOf('<div className="actions">');
+    if (actionsStart >= 0) {
+      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
+      if (actionsEnd >= 0) {
+        content = `${content.slice(0, actionsEnd)}\n${dbButton}${content.slice(actionsEnd)}`;
+      }
     }
   }
 
   if (!content.includes("{renderResult('DB probe response', dbProbeResult)}")) {
-    const resultAnchor = "{renderResult('Validation probe response', validationProbeResult)}";
-    if (content.includes(resultAnchor)) {
-      content = ensureLineAfter(content, resultAnchor, "      {renderResult('DB probe response', dbProbeResult)}");
+    const dbResultLine = "      {renderResult('DB probe response', dbProbeResult)}";
+    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
+    if (content.includes(networkLine)) {
+      content = content.replace(networkLine, `${dbResultLine}\n${networkLine}`);
+    } else {
+      const resultAnchor = "{renderResult('Validation probe response', validationProbeResult)}";
+      if (content.includes(resultAnchor)) {
+        content = ensureLineAfter(content, resultAnchor, dbResultLine);
+      }
     }
   }
 

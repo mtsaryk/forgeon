@@ -1,0 +1,42 @@
+{
+  "actions": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "update": "Update",
+    "confirm": "Confirm",
+    "retry": "Retry"
+  },
+  "nav": {
+    "back": "Back",
+    "next": "Next",
+    "close": "Close"
+  },
+  "state": {
+    "loading": "Loading...",
+    "empty": "No data",
+    "selected": "Selected"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "disabled": "Disabled",
+    "archived": "Archived"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "now": "Now"
+  },
+  "misc": {
+    "yes": "Yes",
+    "no": "No",
+    "on": "On",
+    "off": "Off"
+  }
+}

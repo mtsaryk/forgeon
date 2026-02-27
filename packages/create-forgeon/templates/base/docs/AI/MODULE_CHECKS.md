@@ -23,3 +23,6 @@ If a module can be validated through a safe API call, it must provide:
 - If probe writes data, it must use clearly marked probe/test records.
 - Probe should not require hidden setup beyond documented env/dependencies.
 - `create-forgeon add <module>` must wire both API probe and web probe UI when feasible.
+- Web probes should be appended to the existing probe UI structure in `apps/web/src/App.tsx`:
+  - add new action button at the end of `<div className="actions">`
+  - add new result block before the `networkError` render block

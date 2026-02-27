@@ -2,9 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 
-const JWT_README_START = '<!-- forgeon:jwt-auth:start -->';
-const JWT_README_END = '<!-- forgeon:jwt-auth:end -->';
-
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'jwt-auth', relativePath);
   if (!fs.existsSync(source)) {
@@ -356,30 +353,58 @@ function patchWebApp(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = content
+    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
+    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
+
   if (!content.includes('authProbeResult')) {
-    content = content.replace(
-      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      `  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);
+    if (content.includes('  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);')) {
+      content = content.replace(
+        '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
+        `  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);
   const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);`,
-    );
+      );
+    } else if (content.includes('  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);')) {
+      content = content.replace(
+        '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
+        `  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);
+  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);`,
+      );
+    }
   }
 
   if (!content.includes('Check JWT auth probe')) {
     const path = content.includes("runProbe(setHealthResult, '/health')") ? '/health/auth' : '/api/health/auth';
-    content = content.replace(
-      /<button onClick=\{\(\) => runProbe\(setErrorProbeResult,[\s\S]*?<\/button>/m,
-      (match) =>
-        `${match}
-        <button onClick={() => runProbe(setAuthProbeResult, '${path}')}>Check JWT auth probe</button>`,
-    );
+    const authButton = `        <button onClick={() => runProbe(setAuthProbeResult, '${path}')}>Check JWT auth probe</button>`;
+    const actionsStart = content.indexOf('<div className="actions">');
+    if (actionsStart >= 0) {
+      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
+      if (actionsEnd >= 0) {
+        content = `${content.slice(0, actionsEnd)}\n${authButton}${content.slice(actionsEnd)}`;
+      }
+    }
   }
 
   if (!content.includes("renderResult('Auth probe response', authProbeResult)")) {
-    content = content.replace(
-      "{renderResult('DB probe response', dbProbeResult)}",
-      `{renderResult('DB probe response', dbProbeResult)}
+    const authResultLine = "      {renderResult('Auth probe response', authProbeResult)}";
+    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
+    if (content.includes(networkLine)) {
+      content = content.replace(networkLine, `${authResultLine}\n${networkLine}`);
+    } else if (content.includes("{renderResult('DB probe response', dbProbeResult)}")) {
+      content = content.replace(
+        "{renderResult('DB probe response', dbProbeResult)}",
+        `{renderResult('DB probe response', dbProbeResult)}
       {renderResult('Auth probe response', authProbeResult)}`,
-    );
+      );
+    } else if (content.includes("{renderResult('Validation probe response', validationProbeResult)}")) {
+      content = content.replace(
+        "{renderResult('Validation probe response', validationProbeResult)}",
+        `{renderResult('Validation probe response', validationProbeResult)}
+      {renderResult('Auth probe response', authProbeResult)}`,
+      );
+    }
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
@@ -480,8 +505,7 @@ function patchReadme(targetRoot, dbAdapter) {
   1. install a DB module first (for now: \`create-forgeon add db-prisma --project .\`);
   2. run \`create-forgeon add jwt-auth --project .\` again to auto-wire the adapter.`;
 
-  const section = `${JWT_README_START}
-## JWT Auth Module
+  const section = `## JWT Auth Module
 
 The jwt-auth add-module provides:
 - \`@forgeon/auth-contracts\` shared auth routes/types/error codes
@@ -501,13 +525,19 @@ Default routes:
 - \`POST /api/auth/login\`
 - \`POST /api/auth/refresh\`
 - \`POST /api/auth/logout\`
-- \`GET /api/auth/me\`
-${JWT_README_END}`;
+- \`GET /api/auth/me\``;
 
   let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
-  const sectionPattern = new RegExp(`${JWT_README_START}[\\s\\S]*?${JWT_README_END}`, 'm');
-  if (sectionPattern.test(content)) {
-    content = content.replace(sectionPattern, section);
+  const sectionHeading = '## JWT Auth Module';
+  if (content.includes(sectionHeading)) {
+    const start = content.indexOf(sectionHeading);
+    const tail = content.slice(start + sectionHeading.length);
+    const nextHeadingMatch = tail.match(/\n##\s+/);
+    const end =
+      nextHeadingMatch && nextHeadingMatch.index !== undefined
+        ? start + sectionHeading.length + nextHeadingMatch.index + 1
+        : content.length;
+    content = `${content.slice(0, start)}${section}\n\n${content.slice(end).replace(/^\n+/, '')}`;
   } else if (content.includes('## Prisma In Docker Start')) {
     content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);
   } else {
@@ -565,6 +595,14 @@ export function applyJwtAuthModule({ packageRoot, targetRoot }) {
 
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-api'));
+
+  const swaggerPackagePath = path.join(targetRoot, 'packages', 'swagger', 'package.json');
+  const authApiPackagePath = path.join(targetRoot, 'packages', 'auth-api', 'package.json');
+  if (fs.existsSync(swaggerPackagePath) && fs.existsSync(authApiPackagePath)) {
+    const authApiPackage = JSON.parse(fs.readFileSync(authApiPackagePath, 'utf8'));
+    ensureDependency(authApiPackage, '@nestjs/swagger', '^11.2.0');
+    writeJson(authApiPackagePath, authApiPackage);
+  }
 
   if (supportsPrismaStore) {
     copyFromPreset(

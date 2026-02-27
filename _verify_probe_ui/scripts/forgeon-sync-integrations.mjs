@@ -54,14 +54,8 @@ function syncJwtSwagger({ rootDir, changedFiles }) {
   );
   const loginDtoPath = path.join(rootDir, 'packages', 'auth-api', 'src', 'dto', 'login.dto.ts');
   const refreshDtoPath = path.join(rootDir, 'packages', 'auth-api', 'src', 'dto', 'refresh.dto.ts');
-  const authApiPackagePath = path.join(rootDir, 'packages', 'auth-api', 'package.json');
 
-  if (
-    !fs.existsSync(controllerPath) ||
-    !fs.existsSync(loginDtoPath) ||
-    !fs.existsSync(refreshDtoPath) ||
-    !fs.existsSync(authApiPackagePath)
-  ) {
+  if (!fs.existsSync(controllerPath) || !fs.existsSync(loginDtoPath) || !fs.existsSync(refreshDtoPath)) {
     return { applied: false, reason: 'jwt-auth source files are missing' };
   }
 
@@ -158,16 +152,6 @@ function syncJwtSwagger({ rootDir, changedFiles }) {
   changedFiles.add(controllerPath);
   changedFiles.add(loginDtoPath);
   changedFiles.add(refreshDtoPath);
-
-  const authApiPackage = JSON.parse(fs.readFileSync(authApiPackagePath, 'utf8'));
-  if (!authApiPackage.dependencies) {
-    authApiPackage.dependencies = {};
-  }
-  if (!authApiPackage.dependencies['@nestjs/swagger']) {
-    authApiPackage.dependencies['@nestjs/swagger'] = '^11.2.0';
-    fs.writeFileSync(authApiPackagePath, `${JSON.stringify(authApiPackage, null, 2)}\n`, 'utf8');
-    changedFiles.add(authApiPackagePath);
-  }
 
   return { applied: true };
 }
