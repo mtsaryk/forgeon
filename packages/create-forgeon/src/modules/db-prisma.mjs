@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 
-function copyFromBase(packageRoot, targetRoot, relativePath) {
-  const source = path.join(packageRoot, 'templates', 'base', relativePath);
+function copyFromPreset(packageRoot, targetRoot, relativePath) {
+  const source = path.join(packageRoot, 'templates', 'module-presets', 'db-prisma', relativePath);
   if (!fs.existsSync(source)) {
-    throw new Error(`Missing db-prisma source template: ${source}`);
+    throw new Error(`Missing db-prisma preset template: ${source}`);
   }
   const destination = path.join(targetRoot, relativePath);
   copyRecursive(source, destination);
@@ -256,8 +256,9 @@ function patchHealthController(targetRoot) {
     if (constructorMatch) {
       const original = constructorMatch[0];
       const inner = constructorMatch[1].trimEnd();
-      const separator = inner.length > 0 ? ',' : '';
-      const next = `constructor(${inner}${separator}
+      const normalizedInner = inner.replace(/,\s*$/, '');
+      const separator = normalizedInner.length > 0 ? ',' : '';
+      const next = `constructor(${normalizedInner}${separator}
     private readonly prisma: PrismaService,
   ) {`;
       content = content.replace(original, next);
@@ -293,6 +294,49 @@ function patchHealthController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
+function patchWebApp(targetRoot) {
+  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+
+  if (!content.includes('dbProbeResult')) {
+    const stateAnchor = '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);';
+    if (content.includes(stateAnchor)) {
+      content = ensureLineAfter(
+        content,
+        stateAnchor,
+        '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
+      );
+    }
+  }
+
+  if (!content.includes('Check database (create user)')) {
+    const buttonAnchor = "        <button onClick={() => runProbe(setValidationProbeResult, '/api/health/validation')>";
+    const buttonAnchorI18n = "        <button onClick={() => runProbe(setValidationProbeResult, '/health/validation')>";
+    const dbButton = content.includes(buttonAnchorI18n)
+      ? "        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>"
+      : "        <button onClick={() => runProbe(setDbProbeResult, '/api/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>";
+
+    if (content.includes(buttonAnchor)) {
+      content = ensureLineAfter(content, buttonAnchor, dbButton);
+    } else if (content.includes(buttonAnchorI18n)) {
+      content = ensureLineAfter(content, buttonAnchorI18n, dbButton);
+    }
+  }
+
+  if (!content.includes("{renderResult('DB probe response', dbProbeResult)}")) {
+    const resultAnchor = "{renderResult('Validation probe response', validationProbeResult)}";
+    if (content.includes(resultAnchor)) {
+      content = ensureLineAfter(content, resultAnchor, "      {renderResult('DB probe response', dbProbeResult)}");
+    }
+  }
+
+  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
 function patchApiDockerfile(targetRoot) {
   const dockerfilePath = path.join(targetRoot, 'apps', 'api', 'Dockerfile');
   if (!fs.existsSync(dockerfilePath)) {
@@ -300,34 +344,24 @@ function patchApiDockerfile(targetRoot) {
   }
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureLineAfter(
-    content,
-    'COPY apps/api/package.json apps/api/package.json',
-    'COPY apps/api/prisma apps/api/prisma',
-  );
-  content = ensureLineAfter(
-    content,
-    'COPY packages/core/package.json packages/core/package.json',
-    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
-  );
+  content = ensureLineAfter(content, 'COPY apps/api/package.json apps/api/package.json', 'COPY apps/api/prisma apps/api/prisma');
+  content = ensureLineAfter(content, 'COPY packages/core/package.json packages/core/package.json', 'COPY packages/db-prisma/package.json packages/db-prisma/package.json');
   content = ensureLineAfter(content, 'COPY packages/core packages/core', 'COPY packages/db-prisma packages/db-prisma');
 
-  content = content.replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n?/gm, '');
-  content = ensureLineBefore(
-    content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
-    'RUN pnpm --filter @forgeon/db-prisma build',
-  );
-
-  if (!content.includes('RUN pnpm --filter @forgeon/api prisma:generate')) {
-    content = ensureLineBefore(
-      content,
-      'RUN pnpm --filter @forgeon/api build',
-      'RUN pnpm --filter @forgeon/api prisma:generate',
+  content = content
+    .replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n?/gm, '')
+    .replace(/^RUN pnpm --filter @forgeon\/api prisma:generate\r?\n?/gm, '')
+    .replace(/^CMD \["node", "apps\/api\/dist\/main\.js"\]\r?\n?/gm, '')
+    .replace(
+      /^CMD \["sh", "-c", "pnpm --filter @forgeon\/api prisma:migrate:deploy && node apps\/api\/dist\/main\.js"\]\r?\n?/gm,
+      '',
     );
-  }
 
-  fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
+  content = ensureLineBefore(content, 'RUN pnpm --filter @forgeon/api build', 'RUN pnpm --filter @forgeon/db-prisma build');
+  content = ensureLineBefore(content, 'RUN pnpm --filter @forgeon/api build', 'RUN pnpm --filter @forgeon/api prisma:generate');
+  content = `${content.trimEnd()}\nCMD ["sh", "-c", "pnpm --filter @forgeon/api prisma:migrate:deploy && node apps/api/dist/main.js"]\n`;
+
+  fs.writeFileSync(dockerfilePath, content, 'utf8');
 }
 
 function patchCompose(targetRoot) {
@@ -337,12 +371,51 @@ function patchCompose(targetRoot) {
   }
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
+
+  const dbServiceBlock = `  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: \${POSTGRES_USER}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      POSTGRES_DB: \${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+`;
+
+  if (!/\n\s{2}db:\n/.test(content)) {
+    content = content.replace(/^services:\n/m, `services:\n${dbServiceBlock}\n`);
+  }
+
   if (!content.includes('DATABASE_URL: ${DATABASE_URL}')) {
     content = content.replace(
       /^(\s+API_PREFIX:.*)$/m,
       `$1
       DATABASE_URL: \${DATABASE_URL}`,
     );
+  }
+
+  if (!content.includes('depends_on:') || !content.includes('condition: service_healthy')) {
+    content = content.replace(
+      /^(\s{2}api:\n[\s\S]*?^\s{4}environment:\n(?:\s{6}.+\n)+)/m,
+      `$1    depends_on:
+      db:
+        condition: service_healthy
+`,
+    );
+  }
+
+  if (!/^volumes:\n/m.test(content)) {
+    content = `${content.trimEnd()}\n\nvolumes:\n  db_data:\n`;
+  } else if (!/^\s{2}db_data:\s*$/m.test(content)) {
+    content = `${content.trimEnd()}\n  db_data:\n`;
   }
 
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
@@ -381,13 +454,14 @@ Configuration (env):
 }
 
 export function applyDbPrismaModule({ packageRoot, targetRoot }) {
-  copyFromBase(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
-  copyFromBase(packageRoot, targetRoot, path.join('apps', 'api', 'prisma'));
+  copyFromPreset(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
+  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'api', 'prisma'));
 
   patchApiPackage(targetRoot);
   patchRootPackage(targetRoot);
   patchAppModule(targetRoot);
   patchHealthController(targetRoot);
+  patchWebApp(targetRoot);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);
@@ -396,6 +470,9 @@ export function applyDbPrismaModule({ packageRoot, targetRoot }) {
     'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app?schema=public',
   ]);
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
+    'POSTGRES_USER=postgres',
+    'POSTGRES_PASSWORD=postgres',
+    'POSTGRES_DB=app',
     'DATABASE_URL=postgresql://postgres:postgres@db:5432/app?schema=public',
   ]);
 }

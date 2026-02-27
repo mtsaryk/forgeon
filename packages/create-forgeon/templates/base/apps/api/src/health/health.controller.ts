@@ -1,11 +1,9 @@
-import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
-import { PrismaService } from '@forgeon/db-prisma';
+import { BadRequestException, ConflictException, Controller, Get, Query } from '@nestjs/common';
 import { I18nService } from 'nestjs-i18n';
 
 @Controller('health')
 export class HealthController {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -44,22 +42,6 @@ export class HealthController {
       status: 'ok',
       validated: true,
       value,
-    };
-  }
-
-  @Post('db')
-  async getDbProbe() {
-    const token = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
-    const email = `health-probe-${token}@example.local`;
-    const user = await this.prisma.user.create({
-      data: { email },
-      select: { id: true, email: true, createdAt: true },
-    });
-
-    return {
-      status: 'ok',
-      feature: 'db-prisma',
-      user,
     };
   }
 

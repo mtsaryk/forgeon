@@ -7,14 +7,29 @@ export function applyI18nDisabled(targetRoot) {
   removeIfExists(path.join(targetRoot, 'packages', 'i18n-contracts'));
   removeIfExists(path.join(targetRoot, 'packages', 'i18n-web'));
   removeIfExists(path.join(targetRoot, 'resources', 'i18n'));
+  removeIfExists(path.join(targetRoot, 'scripts', 'i18n-add.mjs'));
 
   const apiPackagePath = path.join(targetRoot, 'apps', 'api', 'package.json');
   if (fs.existsSync(apiPackagePath)) {
     const apiPackage = JSON.parse(fs.readFileSync(apiPackagePath, 'utf8'));
 
     if (apiPackage.scripts) {
-      apiPackage.scripts.predev =
-        'pnpm --filter @forgeon/core build && pnpm --filter @forgeon/db-prisma build';
+      const currentPredev = typeof apiPackage.scripts.predev === 'string' ? apiPackage.scripts.predev : '';
+      const nextSteps = currentPredev
+        .split('&&')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .filter(
+          (step) =>
+            step !== 'pnpm --filter @forgeon/i18n-contracts build' &&
+            step !== 'pnpm --filter @forgeon/i18n build',
+        );
+
+      if (nextSteps.length > 0) {
+        apiPackage.scripts.predev = nextSteps.join(' && ');
+      } else {
+        delete apiPackage.scripts.predev;
+      }
     }
 
     if (apiPackage.dependencies) {
@@ -70,8 +85,37 @@ export function applyI18nDisabled(targetRoot) {
     const webPackage = JSON.parse(fs.readFileSync(webPackagePath, 'utf8'));
 
     if (webPackage.scripts) {
-      delete webPackage.scripts.predev;
-      delete webPackage.scripts.prebuild;
+      const removeI18nBuildSteps = (scriptValue) => {
+        if (typeof scriptValue !== 'string') {
+          return scriptValue;
+        }
+
+        const next = scriptValue
+          .split('&&')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .filter(
+            (step) =>
+              step !== 'pnpm --filter @forgeon/i18n-contracts build' &&
+              step !== 'pnpm --filter @forgeon/i18n-web build',
+          );
+
+        return next.length > 0 ? next.join(' && ') : undefined;
+      };
+
+      const nextPredev = removeI18nBuildSteps(webPackage.scripts.predev);
+      if (nextPredev) {
+        webPackage.scripts.predev = nextPredev;
+      } else {
+        delete webPackage.scripts.predev;
+      }
+
+      const nextPrebuild = removeI18nBuildSteps(webPackage.scripts.prebuild);
+      if (nextPrebuild) {
+        webPackage.scripts.prebuild = nextPrebuild;
+      } else {
+        delete webPackage.scripts.prebuild;
+      }
     }
 
     if (webPackage.dependencies) {
@@ -112,7 +156,6 @@ export function applyI18nDisabled(targetRoot) {
     appModulePath,
     `import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';
 import { CoreConfigModule, CoreErrorsModule, coreConfig, coreEnvSchema, createEnvValidator } from '@forgeon/core';
 import { HealthController } from './health/health.controller';
 
@@ -120,13 +163,12 @@ import { HealthController } from './health/health.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [coreConfig, dbPrismaConfig],
-      validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema]),
+      load: [coreConfig],
+      validate: createEnvValidator([coreEnvSchema]),
       envFilePath: '.env',
     }),
     CoreConfigModule,
     CoreErrorsModule,
-    DbPrismaModule,
   ],
   controllers: [HealthController],
 })
@@ -145,19 +187,16 @@ export class AppModule {}
   );
   fs.writeFileSync(
     healthControllerPath,
-    `import { BadRequestException, ConflictException, Controller, Get, Post, Query } from '@nestjs/common';
-import { PrismaService } from '@forgeon/db-prisma';
+    `import { BadRequestException, ConflictException, Controller, Get, Query } from '@nestjs/common';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
-
   @Get()
-  getHealth(@Query('lang') _lang?: string) {
+  getHealth() {
     return {
       status: 'ok',
       message: 'OK',
-      i18n: 'English',
+      i18n: 'disabled',
     };
   }
 
@@ -186,22 +225,6 @@ export class HealthController {
       status: 'ok',
       validated: true,
       value,
-    };
-  }
-
-  @Post('db')
-  async getDbProbe() {
-    const token = \`\${Date.now()}-\${Math.floor(Math.random() * 1_000_000)}\`;
-    const email = \`health-probe-\${token}@example.local\`;
-    const user = await this.prisma.user.create({
-      data: { email },
-      select: { id: true, email: true, createdAt: true },
-    });
-
-    return {
-      status: 'ok',
-      feature: 'db-prisma',
-      user,
     };
   }
 }

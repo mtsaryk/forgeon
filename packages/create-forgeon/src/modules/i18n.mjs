@@ -169,11 +169,6 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(
     content,
     'COPY packages/core/package.json packages/core/package.json',
-    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
-  );
-  content = ensureLineAfter(
-    content,
-    'COPY packages/db-prisma/package.json packages/db-prisma/package.json',
     'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
   );
   content = ensureLineAfter(
@@ -181,16 +176,7 @@ function patchApiDockerfile(targetRoot) {
     'COPY packages/i18n-contracts/package.json packages/i18n-contracts/package.json',
     'COPY packages/i18n/package.json packages/i18n/package.json',
   );
-  content = ensureLineAfter(
-    content,
-    'COPY packages/core packages/core',
-    'COPY packages/db-prisma packages/db-prisma',
-  );
-  content = ensureLineAfter(
-    content,
-    'COPY packages/db-prisma packages/db-prisma',
-    'COPY packages/i18n-contracts packages/i18n-contracts',
-  );
+  content = ensureLineAfter(content, 'COPY packages/core packages/core', 'COPY packages/i18n-contracts packages/i18n-contracts');
   content = ensureLineAfter(
     content,
     'COPY packages/i18n-contracts packages/i18n-contracts',
@@ -199,7 +185,6 @@ function patchApiDockerfile(targetRoot) {
 
   content = content
     .replace(/^RUN pnpm --filter @forgeon\/core build\r?\n?/gm, '')
-    .replace(/^RUN pnpm --filter @forgeon\/db-prisma build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n-contracts build\r?\n?/gm, '')
     .replace(/^RUN pnpm --filter @forgeon\/i18n build\r?\n?/gm, '');
 
@@ -210,17 +195,16 @@ function patchApiDockerfile(targetRoot) {
   );
   content = ensureLineBefore(
     content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
-    'RUN pnpm --filter @forgeon/db-prisma build',
-  );
-  content = ensureLineBefore(
-    content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
+    content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+      ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+      : 'RUN pnpm --filter @forgeon/api build',
     'RUN pnpm --filter @forgeon/i18n-contracts build',
   );
   content = ensureLineBefore(
     content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
+    content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+      ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+      : 'RUN pnpm --filter @forgeon/api build',
     'RUN pnpm --filter @forgeon/i18n build',
   );
 
@@ -291,8 +275,10 @@ function patchCompose(targetRoot) {
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes('I18N_DEFAULT_LANG: ${I18N_DEFAULT_LANG}')) {
+    const hasDatabaseUrl = /^(\s+DATABASE_URL:.*)$/m.test(content);
+    const anchorPattern = hasDatabaseUrl ? /^(\s+DATABASE_URL:.*)$/m : /^(\s+API_PREFIX:.*)$/m;
     content = content.replace(
-      /^(\s+DATABASE_URL:.*)$/m,
+      anchorPattern,
       `$1
       I18N_DEFAULT_LANG: \${I18N_DEFAULT_LANG}
       I18N_FALLBACK_LANG: \${I18N_FALLBACK_LANG}`,
@@ -311,13 +297,11 @@ function patchApiPackage(targetRoot) {
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   ensureBuildSteps(packageJson, 'predev', [
     'pnpm --filter @forgeon/core build',
-    'pnpm --filter @forgeon/db-prisma build',
     'pnpm --filter @forgeon/i18n-contracts build',
     'pnpm --filter @forgeon/i18n build',
   ]);
   ensureDependency(packageJson, '@forgeon/i18n', 'workspace:*');
   ensureDependency(packageJson, '@forgeon/i18n-contracts', 'workspace:*');
-  ensureDependency(packageJson, '@forgeon/db-prisma', 'workspace:*');
   ensureDependency(packageJson, 'nestjs-i18n', '^10.5.1');
   writeJson(packagePath, packageJson);
 }
@@ -544,7 +528,6 @@ function patchRootPackage(targetRoot) {
 
 export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromBase(packageRoot, targetRoot, path.join('scripts', 'i18n-add.mjs'));
-  copyFromBase(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
   copyFromBase(packageRoot, targetRoot, path.join('resources', 'i18n'));
 

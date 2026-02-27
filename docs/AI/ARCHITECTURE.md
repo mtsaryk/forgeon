@@ -8,16 +8,19 @@
 - `resources/*` - static assets (translations)
 
 Canonical stack is fixed in this stage:
-- NestJS + React + Prisma/Postgres + Docker
+- NestJS + React + Docker
 - Proxy preset can be `caddy`, `nginx`, or `none`
+- DB module `db-prisma` is default-on, but can be disabled at scaffold time
 
 ## Environment Flags
 
 - `PORT` - API port (default 3000)
 - `API_PREFIX` - global API prefix (default `api`)
-- `DATABASE_URL` - Prisma Postgres connection
 - `I18N_DEFAULT_LANG` - default language
 - `I18N_FALLBACK_LANG` - fallback language
+
+Module-owned env:
+- `DATABASE_URL` - added by `db-prisma`
 
 ## Config Strategy
 
@@ -28,12 +31,12 @@ Canonical stack is fixed in this stage:
 
 ## Default DB Stack
 
-Current default is Prisma + Postgres.
+Current default DB module is Prisma + Postgres (`db-prisma`).
 
 - Prisma schema and migrations live in `apps/api/prisma`
 - DB access is encapsulated via `DbPrismaModule` in `@forgeon/db-prisma`
-- `db-prisma` is treated as default-applied behavior in scaffold generation.
-- Future direction: this default DB layer may be extracted to an explicit add-module/preset and optionally controlled by a CLI flag.
+- `db-prisma` is default-applied during scaffold generation (`db-prisma=true`) and can be skipped (`db-prisma=false`).
+- Projects generated without DB can add it later: `create-forgeon add db-prisma --project .`
 - Additional DB presets are out of scope for the current milestone.
 
 ## Module Strategy
@@ -45,6 +48,18 @@ Reusable features should be added as fullstack add-modules:
 - `web` package (React integration)
 
 Reference: `docs/AI/MODULE_SPEC.md`.
+
+## Integration Sync Strategy
+
+- Integration orchestration is a default project toolchain command:
+  - `pnpm forgeon:sync-integrations`
+- Purpose:
+  - keep add-modules composable when installed in arbitrary order;
+  - apply module-to-module integration patches idempotently.
+- Current integration:
+  - `jwt-auth + swagger` (Swagger decorators on auth controller/DTOs).
+  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync).
+- `create-forgeon add <module>` runs sync automatically as best-effort.
 
 ## TypeScript Module Format Policy
 

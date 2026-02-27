@@ -1,21 +1,4 @@
 services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: ../..
@@ -24,14 +7,7 @@ services:
     environment:
       PORT: ${PORT}
       API_PREFIX: ${API_PREFIX}
-      DATABASE_URL: ${DATABASE_URL}
       I18N_DEFAULT_LANG: ${I18N_DEFAULT_LANG}
       I18N_FALLBACK_LANG: ${I18N_FALLBACK_LANG}
-    depends_on:
-      db:
-        condition: service_healthy
     ports:
       - "3000:3000"
-
-volumes:
-  db_data:

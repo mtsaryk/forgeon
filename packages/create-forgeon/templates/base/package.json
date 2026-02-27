@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @forgeon/api --filter @forgeon/web dev",
     "build": "pnpm -r build",
-    "postinstall": "pnpm --filter @forgeon/api prisma:generate",
+    "forgeon:sync-integrations": "node scripts/forgeon-sync-integrations.mjs",
     "create:forgeon": "node scripts/create-forgeon.mjs",
     "docker:up": "docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build",
     "docker:down": "docker compose -f infra/docker/compose.yml down -v"
+  },
+  "devDependencies": {
+    "ts-morph": "^24.0.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

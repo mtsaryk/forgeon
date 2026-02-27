@@ -17,3 +17,9 @@ Add a new language from existing namespaces:
 Useful follow-up commands:
 - `pnpm i18n:sync`
 - `pnpm i18n:check`
+
+## DB Module Note
+
+- `db-prisma` is a full add-module (default-on at scaffold).
+- Generate DB-neutral project with `--db-prisma false`.
+- Add DB later with `create-forgeon add db-prisma --project .`.

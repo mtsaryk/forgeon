@@ -7,6 +7,7 @@ Usage:
   npx create-forgeon@latest add --list
 
 Create options:
+  --db-prisma <true|false>     Enable db-prisma module (default: true)
   --i18n <true|false>          Enable i18n (default: true)
   --proxy <caddy|nginx|none>   Reverse proxy preset (default: caddy)
   --install                    Run pnpm install after generation

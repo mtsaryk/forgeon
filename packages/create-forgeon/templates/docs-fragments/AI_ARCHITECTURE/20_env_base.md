@@ -2,7 +2,6 @@
 
 - `PORT` - API port (default 3000)
 - `API_PREFIX` - global API prefix (default `api`)
-- `DATABASE_URL` - DB connection string for Prisma
 
 ## Config Strategy
 

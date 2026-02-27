@@ -6,14 +6,17 @@ import { applyI18nDisabled, applyProxyPreset, patchDockerEnvForI18n } from '../p
 import { applyModulePreset } from '../modules/executor.mjs';
 import { generateDocs } from './docs.mjs';
 
-function writeApiEnvExample(targetRoot, i18nEnabled) {
+function writeApiEnvExample(targetRoot, i18nEnabled, dbPrismaEnabled) {
   const apiEnvExamplePath = path.join(targetRoot, 'apps', 'api', '.env.example');
   const apiEnvLines = [
     'NODE_ENV=development',
     'PORT=3000',
     'API_PREFIX=api',
-    'DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app?schema=public',
   ];
+
+  if (dbPrismaEnabled) {
+    apiEnvLines.push('DATABASE_URL=postgresql://postgres:postgres@localhost:5432/app?schema=public');
+  }
 
   if (i18nEnabled) {
     apiEnvLines.push('I18N_DEFAULT_LANG=en');
@@ -42,6 +45,7 @@ export function scaffoldProject({
   projectName,
   frontend,
   db,
+  dbPrismaEnabled,
   i18nEnabled,
   proxy,
 }) {
@@ -56,6 +60,14 @@ export function scaffoldProject({
     applyI18nDisabled(targetRoot);
   }
 
-  writeApiEnvExample(targetRoot, i18nEnabled);
-  generateDocs(targetRoot, { frontend, db, dockerEnabled: true, i18nEnabled, proxy }, packageRoot);
+  if (dbPrismaEnabled) {
+    applyModulePreset({ moduleId: 'db-prisma', targetRoot, packageRoot });
+  }
+
+  writeApiEnvExample(targetRoot, i18nEnabled, dbPrismaEnabled);
+  generateDocs(
+    targetRoot,
+    { frontend, db, dbPrismaEnabled, dockerEnabled: true, i18nEnabled, proxy },
+    packageRoot,
+  );
 }

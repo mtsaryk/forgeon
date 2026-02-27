@@ -27,6 +27,7 @@ describe('generateDocs', () => {
         {
           frontend: 'react',
           db: 'prisma',
+          dbPrismaEnabled: false,
           dockerEnabled: true,
           i18nEnabled: false,
           proxy: 'none',
@@ -38,24 +39,26 @@ describe('generateDocs', () => {
       const projectDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'PROJECT.md'));
       const architectureDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'ARCHITECTURE.md'));
 
-      assert.match(readme, /Docker\/infra: `enabled`/);
+      assert.match(readme, /db-prisma`: `disabled`/);
+      assert.match(readme, /No DB module is enabled by default/);
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: none/);
       assert.match(readme, /Error Handling \(`core-errors`\)/);
       assert.doesNotMatch(readme, /i18n Configuration/);
+      assert.doesNotMatch(readme, /Prisma In Container Start/);
 
       assert.match(projectDoc, /### Docker mode/);
       assert.match(projectDoc, /Active proxy preset: `none`/);
       assert.match(projectDoc, /CoreErrorsModule/);
       assert.doesNotMatch(projectDoc, /packages\/i18n/);
 
-      assert.match(architectureDoc, /infra\/\*/);
+      assert.match(architectureDoc, /generated without `db-prisma`/);
       assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
       assert.match(architectureDoc, /API_PREFIX/);
       assert.match(architectureDoc, /Config Strategy/);
       assert.match(architectureDoc, /TypeScript Module Policy/);
       assert.match(architectureDoc, /tsconfig\.base\.esm\.json/);
-      assert.match(architectureDoc, /DbPrismaModule/);
+      assert.doesNotMatch(architectureDoc, /DbPrismaModule/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -70,6 +73,7 @@ describe('generateDocs', () => {
         {
           frontend: 'react',
           db: 'prisma',
+          dbPrismaEnabled: true,
           dockerEnabled: true,
           i18nEnabled: true,
           proxy: 'caddy',
@@ -84,6 +88,8 @@ describe('generateDocs', () => {
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: Caddy/);
       assert.match(readme, /i18n Configuration/);
+      assert.match(readme, /db-prisma`: `enabled`/);
+      assert.match(readme, /Prisma In Container Start/);
       assert.match(readme, /Error Handling \(`core-errors`\)/);
 
       assert.match(projectDoc, /`infra` - Docker Compose \(always\) \+ proxy preset \(`caddy`\)/);

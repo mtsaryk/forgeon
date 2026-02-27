@@ -4,9 +4,9 @@ Canonical monorepo scaffold focused on one stable stack:
 
 - NestJS API
 - React + Vite web
-- Prisma + Postgres
 - Docker runtime (always generated)
 - Proxy preset: `caddy` (default), `nginx`, or `none`
+- DB layer: `db-prisma` add-module (enabled by default, can be disabled at scaffold time)
 
 Current release line: `0.1.0`.
 
@@ -20,6 +20,7 @@ Current release line: `0.1.0`.
    ```bash
    docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up db -d
    ```
+   Skip this step if project was generated with `--db-prisma false`.
 3. Run API + web in dev mode:
    ```bash
    pnpm dev
@@ -37,7 +38,8 @@ docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml 
 ## Generator
 
 ```bash
-npx create-forgeon@latest my-app --i18n true --proxy caddy
+npx create-forgeon@latest my-app --i18n true --db-prisma true --proxy caddy
+npx create-forgeon@latest my-app --db-prisma false --proxy caddy
 ```
 
 Local invocation:
@@ -53,6 +55,19 @@ npx create-forgeon@latest add --list
 npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
+
+## Integration Sync
+
+After installing modules in any order, run:
+
+```bash
+pnpm forgeon:sync-integrations
+```
+
+Current sync rule:
+- `jwt-auth + swagger`: auto-applies Swagger decorators to auth controller and DTOs.
+
+`create-forgeon add <module>` triggers sync automatically as best-effort.
 
 ## Validation (`core-validation`)
 

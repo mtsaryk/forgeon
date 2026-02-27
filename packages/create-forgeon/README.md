@@ -11,7 +11,8 @@ CLI package for generating Forgeon fullstack monorepo projects.
 ## Usage
 
 ```bash
-npx create-forgeon@latest my-app --i18n true --proxy caddy
+npx create-forgeon@latest my-app --i18n true --db-prisma true --proxy caddy
+npx create-forgeon@latest my-app --db-prisma false --proxy caddy
 ```
 
 If flags are omitted, the CLI asks interactive questions.
@@ -23,10 +24,17 @@ npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
 
+```bash
+cd my-app
+pnpm forgeon:sync-integrations
+```
+
 ## Notes
 
-- Canonical stack is fixed: NestJS + React + Prisma/Postgres + Docker.
+- Canonical runtime stack is fixed: NestJS + React + Docker.
+- DB is module-driven: `db-prisma` is default-on and can be disabled at scaffold time.
 - Reverse proxy options: `caddy` (default), `nginx`, `none`.
 - `add i18n` is implemented and applies backend/frontend i18n wiring.
 - `add jwt-auth` is implemented and auto-detects DB adapter support for refresh-token persistence.
+- Integration sync is bundled by default and runs after `add` commands (best-effort).
 - Planned modules write docs notes under `docs/AI/MODULES/`.

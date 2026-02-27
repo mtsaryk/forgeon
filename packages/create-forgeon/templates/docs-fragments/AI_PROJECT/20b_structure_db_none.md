@@ -1,0 +1,2 @@
+- `db-prisma` is not installed in this preset (`db-prisma=false`)
+- add later with: `create-forgeon add db-prisma --project .`

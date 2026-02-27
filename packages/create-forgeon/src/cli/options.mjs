@@ -1,6 +1,6 @@
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { DEFAULT_OPTIONS, DEFAULT_PROXY } from '../constants.mjs';
+import { DEFAULT_DB_PRISMA_ENABLED, DEFAULT_OPTIONS, DEFAULT_PROXY } from '../constants.mjs';
 import { promptSelect } from './prompt-select.mjs';
 
 const REMOVED_FLAGS = new Set(['frontend', 'db', 'docker']);
@@ -37,6 +37,7 @@ export function parseCliArgs(argv) {
       }
       if (key === 'install') options.install = false;
       if (key === 'i18n') options.i18n = false;
+      if (key === 'db-prisma') options.dbPrisma = false;
       continue;
     }
 
@@ -51,6 +52,11 @@ export function parseCliArgs(argv) {
       if (value === undefined && args[i + 1] && !args[i + 1].startsWith('-')) {
         value = args[i + 1];
         i += 1;
+      }
+
+      if (key === 'db-prisma') {
+        options.dbPrisma = value;
+        continue;
       }
 
       if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -82,6 +88,17 @@ export async function promptForMissingOptions(options) {
     }
   }
 
+  if (!nextOptions.yes && nextOptions.dbPrisma === undefined) {
+    nextOptions.dbPrisma = await promptSelect({
+      message: 'Enable db-prisma:',
+      defaultValue: DEFAULT_DB_PRISMA_ENABLED ? 'true' : 'false',
+      choices: [
+        { label: 'true', value: 'true' },
+        { label: 'false', value: 'false' },
+      ],
+    });
+  }
+
   if (!nextOptions.yes && nextOptions.i18n === undefined) {
     nextOptions.i18n = await promptSelect({
       message: 'Enable i18n:',
@@ -106,10 +123,14 @@ export async function promptForMissingOptions(options) {
   }
 
   if (nextOptions.yes) {
+    if (nextOptions.dbPrisma === undefined) nextOptions.dbPrisma = DEFAULT_DB_PRISMA_ENABLED ? 'true' : 'false';
     if (nextOptions.i18n === undefined) nextOptions.i18n = 'true';
     if (!nextOptions.proxy) nextOptions.proxy = DEFAULT_PROXY;
   }
 
+  if (nextOptions.dbPrisma === undefined) {
+    nextOptions.dbPrisma = DEFAULT_DB_PRISMA_ENABLED ? 'true' : 'false';
+  }
   if (nextOptions.i18n === undefined) {
     nextOptions.i18n = 'true';
   }

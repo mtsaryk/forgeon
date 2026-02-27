@@ -42,17 +42,23 @@ function writeDocFromFragments({
 
 export function generateDocs(targetRoot, options, packageRoot) {
   const fragmentsRoot = path.resolve(packageRoot, 'templates', 'docs-fragments');
+  const dbLabel = options.dbPrismaEnabled ? getDatabaseLabel(options.db) : 'none (add db-prisma later)';
   const variables = {
     FRONTEND_LABEL: getFrontendLabel(options.frontend),
-    DB_LABEL: getDatabaseLabel(options.db),
+    DB_LABEL: dbLabel,
     I18N_STATUS: options.i18nEnabled ? 'enabled' : 'disabled',
+    DB_PRISMA_STATUS: options.dbPrismaEnabled ? 'enabled' : 'disabled',
     DOCKER_STATUS: 'enabled',
     PROXY_LABEL: options.proxy,
     PROXY_CONFIG_PATH: getProxyConfigPath(options.proxy),
   };
 
   const readmeFragments = ['00_title', '10_stack', '20_quick_start_dev_intro'];
-  readmeFragments.push('21_quick_start_dev_db_docker');
+  if (options.dbPrismaEnabled) {
+    readmeFragments.push('21_quick_start_dev_db_docker');
+  } else {
+    readmeFragments.push('21_quick_start_dev_no_db');
+  }
   readmeFragments.push('22_quick_start_dev_outro');
   readmeFragments.push(
     options.proxy === 'none' ? '30_quick_start_docker_none' : '30_quick_start_docker',
@@ -64,7 +70,9 @@ export function generateDocs(targetRoot, options, packageRoot) {
   } else {
     readmeFragments.push('31_proxy_preset_none');
   }
-  readmeFragments.push('32_prisma_container_start');
+  if (options.dbPrismaEnabled) {
+    readmeFragments.push('32_prisma_container_start');
+  }
   if (options.i18nEnabled) {
     readmeFragments.push('40_i18n');
   }
@@ -72,6 +80,11 @@ export function generateDocs(targetRoot, options, packageRoot) {
   readmeFragments.push('90_next_steps');
 
   const aiProjectFragments = ['00_title', '10_what_is', '20_structure_base'];
+  if (options.dbPrismaEnabled) {
+    aiProjectFragments.push('20b_structure_db_prisma');
+  } else {
+    aiProjectFragments.push('20b_structure_db_none');
+  }
   if (options.i18nEnabled) {
     aiProjectFragments.push('21_structure_i18n');
   }
@@ -95,12 +108,20 @@ export function generateDocs(targetRoot, options, packageRoot) {
     aiArchitectureFragments.push('12_layout_i18n_resources');
   }
   aiArchitectureFragments.push('20_env_base');
+  if (options.dbPrismaEnabled) {
+    aiArchitectureFragments.push('20b_env_db_prisma');
+  }
   if (options.i18nEnabled) {
     aiArchitectureFragments.push('21_env_i18n');
   }
   aiArchitectureFragments.push('22_ts_module_policy');
   aiArchitectureFragments.push('23_error_handling');
-  aiArchitectureFragments.push('30_default_db', '31_docker_runtime', '32_scope_freeze');
+  if (options.dbPrismaEnabled) {
+    aiArchitectureFragments.push('30_default_db');
+  } else {
+    aiArchitectureFragments.push('30_default_db_none');
+  }
+  aiArchitectureFragments.push('31_docker_runtime', '32_scope_freeze');
   aiArchitectureFragments.push('40_docs_generation', '50_extension_points');
 
   writeDocFromFragments({

@@ -66,3 +66,6 @@ Must contain:
 - If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/AI/MODULE_CHECKS.md`).
 - If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
 - If module is added before i18n, namespace templates must still be prepared and applied when i18n is installed later.
+- Module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.
+- `create-forgeon add <module-id>` should trigger integration sync as best-effort after install.
+- Modules must not assume `db-prisma` is present unless they explicitly require it; DB integrations should be optional and synced when DB is added later.

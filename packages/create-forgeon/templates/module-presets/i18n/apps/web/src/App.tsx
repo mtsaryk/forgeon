@@ -17,7 +17,6 @@ export default function App() {
   const [healthResult, setHealthResult] = useState<ProbeResult | null>(null);
   const [errorProbeResult, setErrorProbeResult] = useState<ProbeResult | null>(null);
   const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);
-  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
 
   const changeLocale = (nextLocale: I18nLocale) => {
@@ -93,14 +92,10 @@ export default function App() {
         <button onClick={() => runProbe(setValidationProbeResult, '/health/validation')}>
           Check validation (expect 400)
         </button>
-        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>
-          Check database (create user)
-        </button>
       </div>
       {renderResult('Health response', healthResult)}
       {renderResult('Error probe response', errorProbeResult)}
       {renderResult('Validation probe response', validationProbeResult)}
-      {renderResult('DB probe response', dbProbeResult)}
       {networkError ? <p className="error">{networkError}</p> : null}
     </main>
   );

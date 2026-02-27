@@ -261,6 +261,7 @@ describe('addModule', () => {
         projectName: 'demo-i18n',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -394,13 +395,17 @@ describe('addModule', () => {
       assert.doesNotMatch(i18nTs, /I18N_DEFAULT_LANG/);
 
       const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');
+      assert.match(rootPackage, /"forgeon:sync-integrations"/);
       assert.match(rootPackage, /"i18n:sync"/);
       assert.match(rootPackage, /"i18n:check"/);
       assert.match(rootPackage, /"i18n:types"/);
       assert.match(rootPackage, /"i18n:add"/);
+      assert.match(rootPackage, /"ts-morph":/);
 
       const i18nAddScriptPath = path.join(projectRoot, 'scripts', 'i18n-add.mjs');
       assert.equal(fs.existsSync(i18nAddScriptPath), true);
+      const syncScriptPath = path.join(projectRoot, 'scripts', 'forgeon-sync-integrations.mjs');
+      assert.equal(fs.existsSync(syncScriptPath), true);
 
       const caddyDockerfile = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', 'caddy.Dockerfile'),
@@ -444,6 +449,7 @@ describe('addModule', () => {
         projectName: 'demo-logger',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -536,6 +542,7 @@ describe('addModule', () => {
         projectName: 'demo-swagger',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -629,6 +636,7 @@ describe('addModule', () => {
         projectName: 'demo-swagger-i18n',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: true,
         proxy: 'caddy',
       });
@@ -642,11 +650,19 @@ describe('addModule', () => {
       assert.equal(result.applied, true);
 
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
-      assert.match(appModule, /load: \[coreConfig,\s*dbPrismaConfig,\s*i18nConfig,\s*swaggerConfig\]/);
-      assert.match(
-        appModule,
-        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*i18nEnvSchema,\s*swaggerEnvSchema\]\)/,
-      );
+      const loadMatch = appModule.match(/load: \[([^\]]+)\]/);
+      assert.ok(loadMatch);
+      assert.match(loadMatch[1], /coreConfig/);
+      assert.match(loadMatch[1], /dbPrismaConfig/);
+      assert.match(loadMatch[1], /i18nConfig/);
+      assert.match(loadMatch[1], /swaggerConfig/);
+
+      const validateMatch = appModule.match(/validate: createEnvValidator\(\[([^\]]+)\]\)/);
+      assert.ok(validateMatch);
+      assert.match(validateMatch[1], /coreEnvSchema/);
+      assert.match(validateMatch[1], /dbPrismaEnvSchema/);
+      assert.match(validateMatch[1], /i18nEnvSchema/);
+      assert.match(validateMatch[1], /swaggerEnvSchema/);
       assert.match(appModule, /ForgeonSwaggerModule/);
       assert.match(appModule, /ForgeonI18nModule/);
     } finally {
@@ -667,6 +683,7 @@ describe('addModule', () => {
         projectName: 'demo-swagger-logger',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: true,
         proxy: 'caddy',
       });
@@ -686,14 +703,21 @@ describe('addModule', () => {
       assert.equal(loggerResult.applied, true);
 
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
-      assert.match(
-        appModule,
-        /load: \[coreConfig,\s*dbPrismaConfig,\s*i18nConfig,\s*swaggerConfig,\s*loggerConfig\]/,
-      );
-      assert.match(
-        appModule,
-        /validate: createEnvValidator\(\[coreEnvSchema,\s*dbPrismaEnvSchema,\s*i18nEnvSchema,\s*swaggerEnvSchema,\s*loggerEnvSchema\]\)/,
-      );
+      const loadMatch = appModule.match(/load: \[([^\]]+)\]/);
+      assert.ok(loadMatch);
+      assert.match(loadMatch[1], /coreConfig/);
+      assert.match(loadMatch[1], /dbPrismaConfig/);
+      assert.match(loadMatch[1], /i18nConfig/);
+      assert.match(loadMatch[1], /swaggerConfig/);
+      assert.match(loadMatch[1], /loggerConfig/);
+
+      const validateMatch = appModule.match(/validate: createEnvValidator\(\[([^\]]+)\]\)/);
+      assert.ok(validateMatch);
+      assert.match(validateMatch[1], /coreEnvSchema/);
+      assert.match(validateMatch[1], /dbPrismaEnvSchema/);
+      assert.match(validateMatch[1], /i18nEnvSchema/);
+      assert.match(validateMatch[1], /swaggerEnvSchema/);
+      assert.match(validateMatch[1], /loggerEnvSchema/);
       assert.match(appModule, /ForgeonSwaggerModule/);
       assert.match(appModule, /ForgeonLoggerModule/);
     } finally {
@@ -714,6 +738,7 @@ describe('addModule', () => {
         projectName: 'demo-logger-i18n',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -770,6 +795,7 @@ describe('addModule', () => {
         projectName: 'demo-swagger-i18n-order',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -826,6 +852,7 @@ describe('addModule', () => {
         projectName: 'demo-mixed-order',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -879,6 +906,7 @@ describe('addModule', () => {
         projectName: 'demo-jwt-db',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: true,
         proxy: 'caddy',
       });
@@ -944,6 +972,7 @@ describe('addModule', () => {
         projectName: 'demo-jwt-nodb',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -995,6 +1024,7 @@ describe('addModule', () => {
           projectName: `demo-db-${sequence.join('-')}`,
           frontend: 'react',
           db: 'prisma',
+        dbPrismaEnabled: true,
           i18nEnabled: false,
           proxy: 'caddy',
         });
@@ -1023,6 +1053,7 @@ describe('addModule', () => {
         projectName: 'demo-db-last',
         frontend: 'react',
         db: 'prisma',
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });

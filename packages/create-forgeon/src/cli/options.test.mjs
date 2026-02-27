@@ -6,6 +6,7 @@ describe('parseCliArgs', () => {
   it('parses positional name and supported inline options', () => {
     const { options, positional } = parseCliArgs([
       'demo-app',
+      '--db-prisma=false',
       '--i18n=false',
       '--proxy=caddy',
       '--install',
@@ -13,6 +14,7 @@ describe('parseCliArgs', () => {
     ]);
 
     assert.equal(positional[0], 'demo-app');
+    assert.equal(options.dbPrisma, 'false');
     assert.equal(options.i18n, 'false');
     assert.equal(options.proxy, 'caddy');
     assert.equal(options.install, true);
@@ -20,10 +22,11 @@ describe('parseCliArgs', () => {
   });
 
   it('parses separated option values and negated i18n flag', () => {
-    const { options } = parseCliArgs(['--proxy', 'none', '--no-i18n', '--help']);
+    const { options } = parseCliArgs(['--proxy', 'none', '--no-i18n', '--no-db-prisma', '--help']);
 
     assert.equal(options.proxy, 'none');
     assert.equal(options.i18n, false);
+    assert.equal(options.dbPrisma, false);
     assert.equal(options.help, true);
   });
 

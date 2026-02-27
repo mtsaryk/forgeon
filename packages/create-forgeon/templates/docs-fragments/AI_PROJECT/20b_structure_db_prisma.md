@@ -1,0 +1,1 @@
+- `packages/db-prisma` - DB module (`DbPrismaModule`, Prisma service + config)

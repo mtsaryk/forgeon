@@ -3,7 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { printHelp } from './cli/help.mjs';
 import { parseCliArgs, promptForMissingOptions } from './cli/options.mjs';
-import { DEFAULT_DB, DEFAULT_FRONTEND, DEFAULT_PROXY, FIXED_DOCKER_ENABLED } from './constants.mjs';
+import {
+  DEFAULT_DB,
+  DEFAULT_DB_PRISMA_ENABLED,
+  DEFAULT_FRONTEND,
+  DEFAULT_PROXY,
+  FIXED_DOCKER_ENABLED,
+} from './constants.mjs';
 import { runInstall } from './core/install.mjs';
 import { scaffoldProject } from './core/scaffold.mjs';
 import { validatePresetSupport } from './core/validate.mjs';
@@ -30,6 +36,7 @@ export async function runCreateForgeon(argv = process.argv.slice(2)) {
 
   const frontend = (promptedOptions.frontend ?? DEFAULT_FRONTEND).toString().toLowerCase();
   const db = (promptedOptions.db ?? DEFAULT_DB).toString().toLowerCase();
+  const dbPrismaEnabled = parseBoolean(promptedOptions.dbPrisma, DEFAULT_DB_PRISMA_ENABLED);
   const i18nEnabled = parseBoolean(promptedOptions.i18n, true);
   const dockerEnabled = FIXED_DOCKER_ENABLED;
   const proxy = (promptedOptions.proxy ?? DEFAULT_PROXY).toString().toLowerCase();
@@ -54,6 +61,7 @@ export async function runCreateForgeon(argv = process.argv.slice(2)) {
     projectName,
     frontend,
     db,
+    dbPrismaEnabled,
     i18nEnabled,
     proxy,
   });
@@ -65,7 +73,8 @@ export async function runCreateForgeon(argv = process.argv.slice(2)) {
   console.log('Forgeon scaffold generated.');
   console.log(`- path: ${targetRoot}`);
   console.log(`- frontend: ${frontend}`);
-  console.log(`- db: ${db}`);
+  console.log(`- db: ${dbPrismaEnabled ? db : 'none'}`);
+  console.log(`- db-prisma: ${dbPrismaEnabled}`);
   console.log(`- i18n: ${i18nEnabled}`);
   console.log(`- docker: ${dockerEnabled}`);
   console.log(`- proxy: ${proxy}`);

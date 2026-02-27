@@ -1,0 +1,1 @@
+- `DATABASE_URL` - DB connection string for Prisma

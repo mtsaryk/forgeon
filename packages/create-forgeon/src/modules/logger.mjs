@@ -238,9 +238,12 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/logger packages/logger');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/logger build\r?\n?/gm, '');
+  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+    : 'RUN pnpm --filter @forgeon/api build';
   content = ensureLineBefore(
     content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
+    buildAnchor,
     'RUN pnpm --filter @forgeon/logger build',
   );
 

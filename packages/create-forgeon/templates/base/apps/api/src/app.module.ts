@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';
 import {
   CoreConfigModule,
   CoreErrorsModule,
@@ -18,13 +17,12 @@ const i18nPath = join(__dirname, '..', '..', '..', 'resources', 'i18n');
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [coreConfig, dbPrismaConfig, i18nConfig],
-      validate: createEnvValidator([coreEnvSchema, dbPrismaEnvSchema, i18nEnvSchema]),
+      load: [coreConfig, i18nConfig],
+      validate: createEnvValidator([coreEnvSchema, i18nEnvSchema]),
       envFilePath: '.env',
     }),
     CoreConfigModule,
     CoreErrorsModule,
-    DbPrismaModule,
     ForgeonI18nModule.register({
       path: i18nPath,
     }),

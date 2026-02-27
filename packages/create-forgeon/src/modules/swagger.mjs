@@ -241,9 +241,12 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/swagger packages/swagger');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/swagger build\r?\n?/gm, '');
+  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+    : 'RUN pnpm --filter @forgeon/api build';
   content = ensureLineBefore(
     content,
-    'RUN pnpm --filter @forgeon/api prisma:generate',
+    buildAnchor,
     'RUN pnpm --filter @forgeon/swagger build',
   );
 
@@ -258,8 +261,10 @@ function patchCompose(targetRoot) {
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes('SWAGGER_ENABLED: ${SWAGGER_ENABLED}')) {
+    const hasDatabaseUrl = /^(\s+DATABASE_URL:.*)$/m.test(content);
+    const anchorPattern = hasDatabaseUrl ? /^(\s+DATABASE_URL:.*)$/m : /^(\s+API_PREFIX:.*)$/m;
     content = content.replace(
-      /^(\s+DATABASE_URL:.*)$/m,
+      anchorPattern,
       `$1
       SWAGGER_ENABLED: \${SWAGGER_ENABLED}
       SWAGGER_PATH: \${SWAGGER_PATH}

@@ -4,7 +4,7 @@ This is a living plan. Scope and priorities may change.
 
 ## Current Foundation (Implemented)
 
-- [x] Canonical scaffold: NestJS API + React web + Prisma/Postgres + Docker
+- [x] Canonical scaffold: NestJS API + React web + Docker (+ default-on `db-prisma` module)
 - [x] Proxy preset selection: `caddy | nginx | none`
 - [x] `@forgeon/core`:
   - [x] `core-config` (typed env config + validation)

@@ -28,6 +28,19 @@ docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml 
 
 Open `http://localhost:8080`.
 
+## Integration Sync
+
+Use integration sync to reconcile module cross-wiring when modules are installed in any order.
+
+```bash
+pnpm forgeon:sync-integrations
+```
+
+Current sync coverage:
+- `jwt-auth + swagger`: adds OpenAPI decorators for auth controller/DTOs.
+
+`create-forgeon add <module>` also runs integration sync automatically (best effort).
+
 ## i18n Configuration
 
 Set in env (when i18n module is installed):

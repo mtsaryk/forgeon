@@ -14,7 +14,7 @@ If a module can be validated through a safe API call, it must provide:
 
 - `core-errors`: `GET /api/health/error` (returns error envelope, expected `409`)
 - `core-validation`: `GET /api/health/validation` without `value` (expected `400`)
-- `db-prisma`: `POST /api/health/db` (creates probe user and returns it, expected `201`)
+- `db-prisma` (when installed): `POST /api/health/db` (creates probe user and returns it, expected `201`)
 - `jwt-auth`: `GET /api/health/auth` (returns token store mode and demo auth probe metadata)
 
 ## Rules For Future Modules
