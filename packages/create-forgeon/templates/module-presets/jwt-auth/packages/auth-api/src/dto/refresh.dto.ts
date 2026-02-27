@@ -1,4 +1,4 @@
-import { RefreshRequest } from '@forgeon/auth-contracts';
+import type { RefreshRequest } from '@forgeon/auth-contracts';
 import { IsString, MinLength } from 'class-validator';
 
 export class RefreshDto implements RefreshRequest {

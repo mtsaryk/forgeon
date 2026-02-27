@@ -1,5 +1,5 @@
-import {
-  AUTH_ERROR_CODES,
+import type {
+  AuthErrorCode,
   AuthUser,
   LoginResponse,
   RefreshResponse,
@@ -18,6 +18,15 @@ import { LoginDto, RefreshDto } from './dto';
 import { AuthJwtPayload } from './auth.types';
 
 type JwtExpiresIn = NonNullable<JwtSignOptions['expiresIn']>;
+
+const AUTH_ERROR_CODES: Record<
+  'invalidCredentials' | 'tokenExpired' | 'refreshInvalid',
+  AuthErrorCode
+> = {
+  invalidCredentials: 'AUTH_INVALID_CREDENTIALS',
+  tokenExpired: 'AUTH_TOKEN_EXPIRED',
+  refreshInvalid: 'AUTH_REFRESH_INVALID',
+};
 
 @Injectable()
 export class AuthService {

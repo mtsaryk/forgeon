@@ -94,6 +94,13 @@ function assertJwtAuthWiring(projectRoot, withPrismaStore) {
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## JWT Auth Module/);
+
+  const authServiceSource = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.service.ts'),
+    'utf8',
+  );
+  assert.match(authServiceSource, /import type \{/);
+  assert.doesNotMatch(authServiceSource, /import\s*\{\s*AUTH_ERROR_CODES/);
 }
 
 function stripDbPrismaArtifacts(projectRoot) {

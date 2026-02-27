@@ -1,4 +1,4 @@
-import { LoginRequest } from '@forgeon/auth-contracts';
+import type { LoginRequest } from '@forgeon/auth-contracts';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 
 export class LoginDto implements LoginRequest {

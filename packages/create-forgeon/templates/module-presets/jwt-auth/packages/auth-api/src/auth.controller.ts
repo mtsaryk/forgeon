@@ -1,4 +1,4 @@
-import { AuthUser } from '@forgeon/auth-contracts';
+import type { AuthUser } from '@forgeon/auth-contracts';
 import {
   Body,
   Controller,
