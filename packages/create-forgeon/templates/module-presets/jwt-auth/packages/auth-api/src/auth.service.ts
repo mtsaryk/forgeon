@@ -7,6 +7,7 @@ import {
 } from '@forgeon/auth-contracts';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { JwtSignOptions } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
 import {
   AUTH_REFRESH_TOKEN_STORE,
@@ -15,6 +16,8 @@ import {
 import { AuthConfigService } from './auth-config.service';
 import { LoginDto, RefreshDto } from './dto';
 import { AuthJwtPayload } from './auth.types';
+
+type JwtExpiresIn = NonNullable<JwtSignOptions['expiresIn']>;
 
 @Injectable()
 export class AuthService {
@@ -123,11 +126,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.accessSecret,
-        expiresIn: this.configService.accessExpiresIn,
+        expiresIn: this.toJwtExpiresIn(this.configService.accessExpiresIn),
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.refreshSecret,
-        expiresIn: this.configService.refreshExpiresIn,
+        expiresIn: this.toJwtExpiresIn(this.configService.refreshExpiresIn),
       }),
     ]);
 
@@ -151,5 +154,13 @@ export class AuthService {
       email: payload.email,
       roles: Array.isArray(payload.roles) ? payload.roles : ['user'],
     };
+  }
+
+  private toJwtExpiresIn(value: string): JwtExpiresIn {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) {
+      return Number(trimmed);
+    }
+    return trimmed as JwtExpiresIn;
   }
 }
