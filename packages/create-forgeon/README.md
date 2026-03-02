@@ -37,4 +37,4 @@ pnpm forgeon:sync-integrations
 - `add i18n` is implemented and applies backend/frontend i18n wiring.
 - `add jwt-auth` is implemented and auto-detects DB adapter support for refresh-token persistence.
 - Integration sync is bundled by default and runs after `add` commands (best-effort).
-- Planned modules write docs notes under `docs/AI/MODULES/`.
+- Module notes are written under `modules/<module-id>/README.md`.

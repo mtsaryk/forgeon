@@ -13,7 +13,7 @@ A canonical fullstack monorepo scaffold intended to be reused as a project start
 - `packages/i18n` - reusable nestjs-i18n integration package
 - `infra` - Docker Compose + proxy preset (`caddy|nginx|none`)
 - `resources/i18n` - translation dictionaries
-- `docs` - documentation, AI prompts, and module contracts
+- `docs` - documentation, internal design notes, and module contracts
 
 ## Run Modes
 

@@ -47,7 +47,7 @@ Reusable features should be added as fullstack add-modules:
 - `api` package (NestJS integration)
 - `web` package (React integration)
 
-Reference: `docs/AI/MODULE_SPEC.md`.
+Reference: `docs/Blueprint/MODULE_SPEC.md`.
 
 ## Integration Sync Strategy
 
@@ -59,10 +59,11 @@ Reference: `docs/AI/MODULE_SPEC.md`.
 - Rule:
   - each add-module patches only itself;
   - cross-module changes are allowed only in integration sync rules.
-- Current integration:
-  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync).
-- Pair sync is explicit (opt-in), not automatic after `add`.
-- Run `pnpm forgeon:sync-integrations` when you want to apply module-pair integrations.
+- Current integrations:
+  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync)
+  - `jwt-auth + rbac` (demo RBAC claims wiring in auth contracts and payloads)
+- `create-forgeon add <module>` scans only the relevant pending integration groups and offers them interactively.
+- Integrations are never applied silently; users can apply them from the prompt or later with `pnpm forgeon:sync-integrations`.
 - Swagger auth decorators are intentionally not auto-patched.
 - Future option: this may return as an explicit optional command (not default automatic behavior).
 

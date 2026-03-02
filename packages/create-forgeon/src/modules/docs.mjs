@@ -21,12 +21,12 @@ function readModuleFragment(packageRoot, moduleId, fragmentName, variables) {
 }
 
 function ensureModuleIndex(targetRoot) {
-  const indexPath = path.join(targetRoot, 'docs', 'AI', 'MODULES', 'README.md');
+  const indexPath = path.join(targetRoot, 'modules', 'README.md');
   if (!fs.existsSync(indexPath)) {
     fs.mkdirSync(path.dirname(indexPath), { recursive: true });
     fs.writeFileSync(
       indexPath,
-      '# MODULES\n\nGenerated notes for module presets added via `create-forgeon add`.\n',
+      '# Modules\n\nUser-facing notes for modules added via `create-forgeon add`.\n',
       'utf8',
     );
   }
@@ -34,8 +34,8 @@ function ensureModuleIndex(targetRoot) {
 }
 
 function updateModuleIndex(indexPath, preset) {
-  const relativePath = `${preset.id}.md`;
-  const nextLine = `- \`${preset.id}\` - ${preset.label} (${preset.implemented ? 'implemented' : 'planned'})`;
+  const relativePath = `./${preset.id}/README.md`;
+  const nextLine = `- [\`${preset.id}\`](${relativePath}) - ${preset.label} (${preset.implemented ? 'implemented' : 'planned'})`;
   const current = fs.readFileSync(indexPath, 'utf8').replace(/\r\n/g, '\n');
 
   if (current.includes(`\`${preset.id}\``)) {
@@ -59,7 +59,7 @@ export function writeModuleDocs({ packageRoot, targetRoot, preset }) {
     .map((fragmentName) => readModuleFragment(packageRoot, preset.id, fragmentName, variables))
     .filter(Boolean);
 
-  const outputPath = path.join(targetRoot, 'docs', 'AI', 'MODULES', `${preset.id}.md`);
+  const outputPath = path.join(targetRoot, 'modules', preset.id, 'README.md');
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${sections.join('\n\n').trimEnd()}\n`, 'utf8');
 

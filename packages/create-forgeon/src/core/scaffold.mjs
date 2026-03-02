@@ -50,6 +50,10 @@ export function scaffoldProject({
   proxy,
 }) {
   copyRecursive(templateRoot, targetRoot);
+  const generatedDocsPath = path.join(targetRoot, 'docs');
+  if (fs.existsSync(generatedDocsPath)) {
+    fs.rmSync(generatedDocsPath, { recursive: true, force: true });
+  }
   patchRootPackageJson(targetRoot, projectName);
   applyProxyPreset(targetRoot, proxy);
 

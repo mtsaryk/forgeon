@@ -292,6 +292,8 @@ describe('addModule', () => {
       assert.equal(result.applied, false);
       assert.match(result.message, /planned/);
       assert.equal(fs.existsSync(result.docsPath), true);
+      assert.match(result.docsPath, /modules[\\/].+[\\/]README\.md$/);
+      assert.equal(fs.existsSync(path.join(targetRoot, 'modules', 'README.md')), true);
 
       const note = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(note, /Queue Worker/);
@@ -336,6 +338,8 @@ describe('addModule', () => {
         i18nEnabled: false,
         proxy: 'caddy',
       });
+
+      assert.equal(fs.existsSync(path.join(projectRoot, 'docs')), false);
 
       const result = addModule({
         moduleId: 'i18n',

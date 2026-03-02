@@ -57,7 +57,7 @@ export function addModule({ moduleId, targetRoot, packageRoot, writeDocs = true 
         targetRoot,
         preset,
       })
-    : path.join(targetRoot, 'docs', 'AI', 'MODULES', `${preset.id}.md`);
+    : path.join(targetRoot, 'modules', preset.id, 'README.md');
 
   return {
     preset,

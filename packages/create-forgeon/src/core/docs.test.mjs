@@ -36,29 +36,16 @@ describe('generateDocs', () => {
       );
 
       const readme = readFile(path.join(targetRoot, 'README.md'));
-      const projectDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'PROJECT.md'));
-      const architectureDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'ARCHITECTURE.md'));
 
       assert.match(readme, /db-prisma`: `disabled`/);
       assert.match(readme, /No DB module is enabled by default/);
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: none/);
       assert.match(readme, /Error Handling \(`core-errors`\)/);
+      assert.match(readme, /Module notes index: `modules\/README\.md`/);
       assert.doesNotMatch(readme, /i18n Configuration/);
       assert.doesNotMatch(readme, /Prisma In Container Start/);
-
-      assert.match(projectDoc, /### Docker mode/);
-      assert.match(projectDoc, /Active proxy preset: `none`/);
-      assert.match(projectDoc, /CoreErrorsModule/);
-      assert.doesNotMatch(projectDoc, /packages\/i18n/);
-
-      assert.match(architectureDoc, /generated without `db-prisma`/);
-      assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
-      assert.match(architectureDoc, /API_PREFIX/);
-      assert.match(architectureDoc, /Config Strategy/);
-      assert.match(architectureDoc, /TypeScript Module Policy/);
-      assert.match(architectureDoc, /tsconfig\.base\.esm\.json/);
-      assert.doesNotMatch(architectureDoc, /DbPrismaModule/);
+      assert.equal(fs.existsSync(path.join(targetRoot, 'docs')), false);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -82,8 +69,6 @@ describe('generateDocs', () => {
       );
 
       const readme = readFile(path.join(targetRoot, 'README.md'));
-      const projectDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'PROJECT.md'));
-      const architectureDoc = readFile(path.join(targetRoot, 'docs', 'AI', 'ARCHITECTURE.md'));
 
       assert.match(readme, /Quick Start \(Docker\)/);
       assert.match(readme, /Proxy Preset: Caddy/);
@@ -91,18 +76,8 @@ describe('generateDocs', () => {
       assert.match(readme, /db-prisma`: `enabled`/);
       assert.match(readme, /Prisma In Container Start/);
       assert.match(readme, /Error Handling \(`core-errors`\)/);
-
-      assert.match(projectDoc, /`infra` - Docker Compose \(always\) \+ proxy preset \(`caddy`\)/);
-      assert.match(projectDoc, /Main proxy config: `infra\/caddy\/Caddyfile`/);
-      assert.match(projectDoc, /CoreExceptionFilter/);
-
-      assert.match(architectureDoc, /infra\/\*/);
-      assert.match(architectureDoc, /I18N_DEFAULT_LANG/);
-      assert.doesNotMatch(architectureDoc, /I18N_ENABLED/);
-      assert.match(architectureDoc, /Active reverse proxy preset: `caddy`/);
-      assert.match(architectureDoc, /TypeScript Module Policy/);
-      assert.match(architectureDoc, /tsconfig\.base\.node\.json/);
-      assert.match(architectureDoc, /DbPrismaModule/);
+      assert.match(readme, /Module-specific notes: `modules\/<module-id>\/README\.md`/);
+      assert.equal(fs.existsSync(path.join(targetRoot, 'docs')), false);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

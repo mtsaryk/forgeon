@@ -114,5 +114,5 @@ export async function runIntegrationFlow({
 
 export function printModuleAdded(moduleId, docsPath) {
   console.log(colorize('green', `✔ Module added: ${moduleId}`));
-  console.log(`- docs: ${docsPath}`);
+  console.log(`- readme: ${docsPath}`);
 }

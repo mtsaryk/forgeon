@@ -52,3 +52,32 @@ Current decision:
 
 - not part of `rbac`
 - if needed later, it should be a separate module
+
+### Generated project context file for AI agents
+
+Potential future scaffold output:
+
+- generate a compact project-context file in each generated project
+- purpose: give coding agents a fast entrypoint for project structure, installed modules, routes, env keys, and integration links
+
+Intent:
+
+- preserve quick machine-readable or machine-friendly project context
+- avoid copying Forgeon's internal `docs/*` tree into user projects
+- keep generated project docs minimal for humans while still giving agents a fast orientation file
+
+Possible shape:
+
+- a single generated file near project root
+- similar in purpose to `docs/Agents.md`, but project-scoped and user-safe
+- should describe:
+  - enabled modules
+  - key routes
+  - env keys
+  - known integrations
+  - important follow-up commands
+
+Current decision:
+
+- not implemented
+- keep as a future generator task after the template docs removal work

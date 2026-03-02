@@ -75,7 +75,7 @@ This is a living plan. Scope and priorities may change.
     - [ ] `files-access`
     - [ ] `files-quotas`
     - [ ] `files-image`
-  - [ ] see `docs/AI/FILES_DESIGN.md`
+  - [ ] see `docs/Blueprint/FILES_DESIGN.md`
 
 ### P1 (Strongly Recommended)
 

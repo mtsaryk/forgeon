@@ -58,16 +58,17 @@ npx create-forgeon@latest add jwt-auth --project ./my-app
 
 ## Integration Sync
 
-After installing modules in any order, run:
+After installing modules in any order, you can run:
 
 ```bash
 pnpm forgeon:sync-integrations
 ```
 
-Current sync rule:
-- `jwt-auth + swagger`: auto-applies Swagger decorators to auth controller and DTOs.
+Current sync rules:
+- `jwt-auth + db-prisma`: wires persistent refresh-token storage
+- `jwt-auth + rbac`: adds demo RBAC claims to auth payloads
 
-`create-forgeon add <module>` triggers sync automatically as best-effort.
+`create-forgeon add <module>` scans relevant pending integrations and offers them interactively. It does not apply them silently.
 
 ## Validation (`core-validation`)
 
@@ -82,5 +83,5 @@ Use standard `class-validator` decorators in DTOs; the global pipe and envelope 
 ## Docs
 
 - Project docs index: `docs/README.md`
-- Module contract spec: `docs/AI/MODULE_SPEC.md`
+- Agent context: `docs/Agents.md`
 

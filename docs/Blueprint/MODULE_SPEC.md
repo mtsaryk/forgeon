@@ -66,12 +66,12 @@ Must contain:
 - No duplicate error-code enums across api/web.
 - Contracts package can be imported from both sides without circular dependencies.
 - Contracts package exports are stable from `dist/index` entrypoint.
-- Module has docs under `docs/AI/MODULES/<module-id>.md`.
+- Module has docs under `docs/Blueprint/MODULES/<module-id>.md`.
 - Module docs must explain: why it exists, what it adds, how it works, how to use it, how to configure it, and current operational limits.
-- If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/AI/MODULE_CHECKS.md`).
+- If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/Blueprint/MODULE_CHECKS.md`).
 - If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
 - If module is added before i18n, namespace templates must still be prepared and applied when i18n is installed later.
 - Module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.
-- `create-forgeon add <module-id>` does not auto-apply pair integrations.
-- Pair integrations are applied explicitly via `pnpm forgeon:sync-integrations`.
+- `create-forgeon add <module-id>` may scan and offer relevant pending pair integrations, but it must not apply them silently.
+- Pair integrations can be applied from the post-add prompt or later via `pnpm forgeon:sync-integrations`.
 - Modules must not assume `db-prisma` is present unless they explicitly require it; DB integrations should be optional and synced when DB is added later.
