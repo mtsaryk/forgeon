@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addModule } from './executor.mjs';
-import { syncIntegrations } from './sync-integrations.mjs';
+import { scanIntegrations, syncIntegrations } from './sync-integrations.mjs';
 import { scaffoldProject } from '../core/scaffold.mjs';
 
 function mkTmp(prefix) {
@@ -1140,6 +1140,80 @@ describe('addModule', () => {
       assert.match(readme, /refresh token persistence: disabled/);
       assert.match(readme, /create-forgeon add db-prisma/);
 
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('detects and applies jwt-auth + rbac claims integration explicitly', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-rbac-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-rbac');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-rbac',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'rbac',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const scan = scanIntegrations({
+        targetRoot: projectRoot,
+        relatedModuleId: 'jwt-auth',
+      });
+      assert.equal(scan.groups.some((group) => group.id === 'auth-rbac-claims'), true);
+
+      const syncResult = syncIntegrations({
+        targetRoot: projectRoot,
+        packageRoot,
+        groupIds: ['auth-rbac-claims'],
+      });
+      const claimsPair = syncResult.summary.find((item) => item.id === 'auth-rbac-claims');
+      assert.ok(claimsPair);
+      assert.equal(claimsPair.result.applied, true);
+
+      const authContracts = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'auth-contracts', 'src', 'index.ts'),
+        'utf8',
+      );
+      assert.match(authContracts, /permissions\?: string\[\];/);
+
+      const authService = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.service.ts'),
+        'utf8',
+      );
+      assert.match(authService, /permissions: \['health\.rbac'\]/);
+      assert.match(authService, /permissions: user\.permissions,/);
+      assert.match(
+        authService,
+        /permissions: Array\.isArray\(payload\.permissions\) \? payload\.permissions : \[\],/,
+      );
+
+      const authController = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.controller.ts'),
+        'utf8',
+      );
+      assert.match(
+        authController,
+        /permissions: Array\.isArray\(payload\.permissions\) \? payload\.permissions : \[\],/,
+      );
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

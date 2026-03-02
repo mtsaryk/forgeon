@@ -1,8 +1,0 @@
-{
-  "pages": {
-    "home": {
-      "title": "Forgeon Fullstack Scaffold",
-      "description": "Canonical fullstack starter with NestJS, React, and Prisma."
-    }
-  }
-}

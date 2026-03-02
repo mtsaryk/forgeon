@@ -27,16 +27,16 @@ This is a living plan. Scope and priorities may change.
 
 ### P0 (Immediate Must-Have)
 
-- [ ] `logger`
-  - [ ] canonical logger module
-  - [ ] requestId / correlationId propagation
-  - [ ] structured log conventions
+- [x] `logger`
+  - [x] canonical logger module
+  - [x] requestId / correlationId propagation
+  - [x] structured log conventions
 
-- [ ] `openapi / swagger`
-  - [ ] env toggle: `SWAGGER_ENABLED`
-  - [ ] standard setup
+- [x] `openapi / swagger`
+  - [x] env toggle: `SWAGGER_ENABLED`
+  - [x] standard setup
   - [ ] bearer integration hook for jwt-auth
-  - [ ] `/docs` route
+  - [x] `/docs` route
 
 - [x] `jwt-auth`
   - [x] module split: contracts/api
@@ -47,29 +47,35 @@ This is a living plan. Scope and priorities may change.
     - [x] red warning + stateless mode when DB is missing/unsupported
   - [ ] web package split (`auth-web`) on next iteration
 
-- [ ] `rbac / permissions`
-  - [ ] decorators: `@Roles()`, `@Permissions()`
-  - [ ] guard + policy helper
-  - [ ] contracts: `Role`, `Permission`
-  - [ ] integration with jwt-auth claims
+- [x] `rbac / permissions`
+  - [x] decorators: `@Roles()`, `@Permissions()`
+  - [x] guard + policy helper
+  - [x] backend-only runtime package (`@forgeon/rbac`)
+  - [x] integration with jwt-auth demo claims via pair sync
 
 - [ ] `redis/queue foundation`
   - [ ] base Redis config/service
   - [ ] queue baseline (BullMQ or equivalent)
   - [ ] retry and dead-letter conventions
 
-- [ ] `rate-limit`
-  - [ ] Nest Throttler add-module
-  - [ ] policies: route / user / ip
-  - [ ] error code: `TOO_MANY_REQUESTS`
-  - [ ] reverse-proxy-aware mode (`trust proxy`)
+- [x] `rate-limit`
+  - [x] Nest Throttler add-module
+  - [x] baseline in-memory policy
+  - [x] error code: `TOO_MANY_REQUESTS`
+  - [x] reverse-proxy-aware mode (`trust proxy`)
 
 - [ ] `files` (upload + storage)
-  - [ ] upload endpoints + DTO + guards
-  - [ ] storage presets: local + S3-compatible (MinIO/R2)
-  - [ ] MIME/size validation
-  - [ ] optional image processing subpackage (`sharp`)
-  - [ ] error codes: `UPLOAD_INVALID_TYPE`, `UPLOAD_TOO_LARGE`, `UPLOAD_QUOTA`
+  - [ ] `files v1` base module
+    - [ ] DB-backed metadata record
+    - [ ] local storage driver
+    - [ ] upload endpoint + probe flow
+    - [ ] MIME/size validation
+  - [ ] future split already accepted:
+    - [ ] `files-s3`
+    - [ ] `files-access`
+    - [ ] `files-quotas`
+    - [ ] `files-image`
+  - [ ] see `docs/AI/FILES_DESIGN.md`
 
 ### P1 (Strongly Recommended)
 

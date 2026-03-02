@@ -3,6 +3,8 @@
 - `AI/PROJECT.md` - project overview and run modes
 - `AI/ARCHITECTURE.md` - monorepo design and extension model
 - `AI/ROADMAP.md` - implementation roadmap and feature priorities
+- `AI/IDEAS.md` - backlog of future ideas that are intentionally not implemented yet
+- `AI/FILES_DESIGN.md` - internal design plan for the files module family
 - `AI/MODULE_SPEC.md` - fullstack module contract (`contracts/api/web`)
 - `AI/MODULE_CHECKS.md` - required runtime probe hooks for modules
 - `AI/VALIDATION.md` - DTO/env validation standards

@@ -53,6 +53,9 @@ function detectModules(rootDir) {
     jwtAuth:
       fs.existsSync(path.join(rootDir, 'packages', 'auth-api', 'package.json')) ||
       appModuleText.includes("from '@forgeon/auth-api'"),
+    rbac:
+      fs.existsSync(path.join(rootDir, 'packages', 'rbac', 'package.json')) ||
+      appModuleText.includes("from '@forgeon/rbac'"),
     dbPrisma:
       fs.existsSync(path.join(rootDir, 'packages', 'db-prisma', 'package.json')) ||
       appModuleText.includes("from '@forgeon/db-prisma'"),
@@ -179,6 +182,109 @@ function syncJwtDbPrisma({ rootDir, changedFiles }) {
   return { applied: true };
 }
 
+function syncJwtRbacClaims({ rootDir, changedFiles }) {
+  const authContractsPath = path.join(rootDir, 'packages', 'auth-contracts', 'src', 'index.ts');
+  const authServicePath = path.join(rootDir, 'packages', 'auth-api', 'src', 'auth.service.ts');
+  const authControllerPath = path.join(rootDir, 'packages', 'auth-api', 'src', 'auth.controller.ts');
+  const readmePath = path.join(rootDir, 'README.md');
+
+  if (!fs.existsSync(authContractsPath) || !fs.existsSync(authServicePath) || !fs.existsSync(authControllerPath)) {
+    return { applied: false, reason: 'auth package files are missing' };
+  }
+
+  let touched = false;
+
+  let authContracts = fs.readFileSync(authContractsPath, 'utf8').replace(/\r\n/g, '\n');
+  const originalAuthContracts = authContracts;
+  if (!authContracts.includes('permissions?: string[];')) {
+    authContracts = authContracts.replace(
+      '  roles: string[];',
+      `  roles: string[];
+  permissions?: string[];`,
+    );
+  }
+  if (authContracts !== originalAuthContracts) {
+    fs.writeFileSync(authContractsPath, `${authContracts.trimEnd()}\n`, 'utf8');
+    changedFiles.add(authContractsPath);
+    touched = true;
+  }
+
+  let authService = fs.readFileSync(authServicePath, 'utf8').replace(/\r\n/g, '\n');
+  const originalAuthService = authService;
+  authService = authService.replace(
+    /roles: \['user'\],/g,
+    `roles: ['admin'],
+      permissions: ['health.rbac'],`,
+  );
+  if (!authService.includes('permissions: user.permissions,')) {
+    authService = authService.replace(
+      '      roles: user.roles,',
+      `      roles: user.roles,
+      permissions: user.permissions,`,
+    );
+  }
+  if (!authService.includes('permissions: Array.isArray(payload.permissions) ? payload.permissions : [],')) {
+    authService = authService.replace(
+      "      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],",
+      `      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],
+      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],`,
+    );
+  }
+  if (!authService.includes('demoPermissions: [')) {
+    authService = authService.replace(
+      "      demoEmail: this.configService.demoEmail,",
+      `      demoEmail: this.configService.demoEmail,
+      demoPermissions: ['health.rbac'],`,
+    );
+  }
+  if (authService !== originalAuthService) {
+    fs.writeFileSync(authServicePath, `${authService.trimEnd()}\n`, 'utf8');
+    changedFiles.add(authServicePath);
+    touched = true;
+  }
+
+  let authController = fs.readFileSync(authControllerPath, 'utf8').replace(/\r\n/g, '\n');
+  const originalAuthController = authController;
+  if (!authController.includes('permissions: Array.isArray(payload.permissions) ? payload.permissions : [],')) {
+    authController = authController.replace(
+      "      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],",
+      `      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],
+      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],`,
+    );
+  }
+  if (authController !== originalAuthController) {
+    fs.writeFileSync(authControllerPath, `${authController.trimEnd()}\n`, 'utf8');
+    changedFiles.add(authControllerPath);
+    touched = true;
+  }
+
+  if (fs.existsSync(readmePath)) {
+    let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
+    const originalReadme = readme;
+    if (!readme.includes('- RBAC integration: demo auth tokens include `health.rbac` permission')) {
+      const marker = 'Default demo credentials:';
+      if (readme.includes(marker)) {
+        readme = readme.replace(
+          marker,
+          `- RBAC integration: demo auth tokens include \`health.rbac\` permission
+
+Default demo credentials:`,
+        );
+      }
+    }
+    if (readme !== originalReadme) {
+      fs.writeFileSync(readmePath, `${readme.trimEnd()}\n`, 'utf8');
+      changedFiles.add(readmePath);
+      touched = true;
+    }
+  }
+
+  if (!touched) {
+    return { applied: false, reason: 'already synced' };
+  }
+  return { applied: true };
+}
+
 function run() {
   const rootDir = process.cwd();
   const changedFiles = new Set();
@@ -193,6 +299,18 @@ function run() {
   } else {
     summary.push({
       feature: 'jwt-auth + db-prisma',
+      result: { applied: false, reason: 'required modules are not both installed' },
+    });
+  }
+
+  if (detected.jwtAuth && detected.rbac) {
+    summary.push({
+      feature: 'jwt-auth + rbac',
+      result: syncJwtRbacClaims({ rootDir, changedFiles }),
+    });
+  } else {
+    summary.push({
+      feature: 'jwt-auth + rbac',
       result: { applied: false, reason: 'required modules are not both installed' },
     });
   }

@@ -94,7 +94,7 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
   );
   const targetScript = path.join(targetRoot, 'scripts', 'forgeon-sync-integrations.mjs');
 
-  if (fs.existsSync(sourceScript) && !fs.existsSync(targetScript)) {
+  if (fs.existsSync(sourceScript)) {
     fs.mkdirSync(path.dirname(targetScript), { recursive: true });
     fs.copyFileSync(sourceScript, targetScript);
   }
