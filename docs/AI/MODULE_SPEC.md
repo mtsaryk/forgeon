@@ -4,11 +4,15 @@
 
 Define one repeatable fullstack pattern for Forgeon add-modules.
 
-Each feature module should be split into:
+Most feature modules should be split into:
 
 1. `@forgeon/<feature>-contracts`
 2. `@forgeon/<feature>-api`
 3. `@forgeon/<feature>-web`
+
+Exception:
+
+- backend-only infrastructure or security modules may use a single runtime package (`@forgeon/<feature>`) when shared contracts and a dedicated web package add no real value.
 
 ## 1) Contracts Package
 

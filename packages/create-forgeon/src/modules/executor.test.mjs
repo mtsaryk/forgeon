@@ -81,6 +81,37 @@ function assertRateLimitWiring(projectRoot) {
   assert.match(readme, /## Rate Limit Module/);
 }
 
+function assertRbacWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /ForgeonRbacModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/rbac/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/rbac build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/rbac\/package\.json packages\/rbac\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/rbac packages\/rbac/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/rbac build/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /UseGuards/);
+  assert.match(healthController, /ForgeonRbacGuard/);
+  assert.match(healthController, /@Get\('rbac'\)/);
+  assert.match(healthController, /@Permissions\('health\.rbac'\)/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check RBAC access/);
+  assert.match(appTsx, /RBAC probe response/);
+  assert.match(appTsx, /x-forgeon-permissions/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## RBAC \/ Permissions Module/);
+}
+
 function assertJwtAuthWiring(projectRoot, withPrismaStore) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/auth-api/);
@@ -598,6 +629,41 @@ describe('addModule', () => {
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /## Idea \/ Why/);
       assert.match(moduleDoc, /## Configuration/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies rbac module on top of scaffold without i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-rbac-');
+    const projectRoot = path.join(targetRoot, 'demo-rbac');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-rbac',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'rbac',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertRbacWiring(projectRoot);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /## Idea \/ Why/);
+      assert.match(moduleDoc, /## How It Works/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -1250,6 +1316,43 @@ describe('addModule', () => {
       const classEnd = healthController.lastIndexOf('\n}');
       const rateLimitProbe = healthController.indexOf("@Get('rate-limit')");
       assert.equal(rateLimitProbe > classStart && rateLimitProbe < classEnd, true);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps rbac wiring valid after mixed module installation order', () => {
+    const targetRoot = mkTmp('forgeon-module-rbac-order-');
+    const projectRoot = path.join(targetRoot, 'demo-rbac-order');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-rbac-order',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      for (const moduleId of ['jwt-auth', 'logger', 'rate-limit', 'rbac', 'swagger', 'i18n', 'db-prisma']) {
+        addModule({ moduleId, targetRoot: projectRoot, packageRoot });
+      }
+
+      assertRbacWiring(projectRoot);
+
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+      const classStart = healthController.indexOf('export class HealthController {');
+      const classEnd = healthController.lastIndexOf('\n}');
+      const rbacProbe = healthController.indexOf("@Get('rbac')");
+      assert.equal(rbacProbe > classStart && rbacProbe < classEnd, true);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

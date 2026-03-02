@@ -422,6 +422,7 @@ function restoreKnownWebProbes(targetRoot, previousAppContent) {
       return;
     }
     const anchors = [
+      '  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);',
       '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
       '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
       '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
@@ -458,6 +459,7 @@ function restoreKnownWebProbes(targetRoot, previousAppContent) {
       return;
     }
     const anchors = [
+      "      {renderResult('RBAC probe response', rbacProbeResult)}",
       "      {renderResult('Rate limit probe response', rateLimitProbeResult)}",
       "      {renderResult('Auth probe response', authProbeResult)}",
       "      {renderResult('DB probe response', dbProbeResult)}",
@@ -496,6 +498,15 @@ function restoreKnownWebProbes(targetRoot, previousAppContent) {
       "        <button onClick={() => runProbe(setRateLimitProbeResult, '/health/rate-limit')}>\n          Check rate limit (click repeatedly)\n        </button>",
     );
     ensureProbeResult("      {renderResult('Rate limit probe response', rateLimitProbeResult)}");
+  }
+
+  if (previousAppContent.includes('Check RBAC access')) {
+    ensureProbeState('  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);');
+    ensureProbeButton(
+      'Check RBAC access',
+      "        <button\n          onClick={() =>\n            runProbe(setRbacProbeResult, '/health/rbac', {\n              headers: { 'x-forgeon-permissions': 'health.rbac' },\n            })\n          }\n        >\n          Check RBAC access\n        </button>",
+    );
+    ensureProbeResult("      {renderResult('RBAC probe response', rbacProbeResult)}");
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
