@@ -6,6 +6,7 @@ import { applyDbPrismaModule } from './db-prisma.mjs';
 import { applyI18nModule } from './i18n.mjs';
 import { applyJwtAuthModule } from './jwt-auth.mjs';
 import { applyLoggerModule } from './logger.mjs';
+import { applyRateLimitModule } from './rate-limit.mjs';
 import { applySwaggerModule } from './swagger.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
@@ -29,6 +30,7 @@ const MODULE_APPLIERS = {
   i18n: applyI18nModule,
   'jwt-auth': applyJwtAuthModule,
   logger: applyLoggerModule,
+  'rate-limit': applyRateLimitModule,
   swagger: applySwaggerModule,
 };
 

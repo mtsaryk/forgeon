@@ -37,9 +37,9 @@ pnpm forgeon:sync-integrations
 ```
 
 Current sync coverage:
-- `jwt-auth + swagger`: adds OpenAPI decorators for auth controller/DTOs.
+- `jwt-auth + db-prisma`: wires persistent refresh-token storage for auth.
 
-`create-forgeon add <module>` also runs integration sync automatically (best effort).
+`create-forgeon add <module>` scans for relevant integration groups and can apply them immediately.
 
 ## i18n Configuration
 

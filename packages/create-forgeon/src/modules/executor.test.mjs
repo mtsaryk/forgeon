@@ -42,6 +42,45 @@ function assertDbPrismaWiring(projectRoot) {
   assert.match(healthController, /PrismaService/);
 }
 
+function assertRateLimitWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /rateLimitConfig/);
+  assert.match(appModule, /rateLimitEnvSchema/);
+  assert.match(appModule, /ForgeonRateLimitModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/rate-limit/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/rate-limit build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/rate-limit\/package\.json packages\/rate-limit\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/rate-limit packages\/rate-limit/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/rate-limit build/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /THROTTLE_ENABLED: \$\{THROTTLE_ENABLED\}/);
+  assert.match(compose, /THROTTLE_LIMIT: \$\{THROTTLE_LIMIT\}/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /THROTTLE_ENABLED=true/);
+  assert.match(apiEnv, /THROTTLE_TTL=10/);
+  assert.match(apiEnv, /THROTTLE_LIMIT=3/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Get\('rate-limit'\)/);
+  assert.match(healthController, /TOO_MANY_REQUESTS/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check rate limit \(click repeatedly\)/);
+  assert.match(appTsx, /Rate limit probe response/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Rate Limit Module/);
+}
+
 function assertJwtAuthWiring(projectRoot, withPrismaStore) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/auth-api/);
@@ -524,6 +563,41 @@ describe('addModule', () => {
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Logger/);
       assert.match(moduleDoc, /Status: implemented/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies rate-limit module on top of scaffold without i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-rate-limit-');
+    const projectRoot = path.join(targetRoot, 'demo-rate-limit');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-rate-limit',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'rate-limit',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertRateLimitWiring(projectRoot);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /## Idea \/ Why/);
+      assert.match(moduleDoc, /## Configuration/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -1139,6 +1213,43 @@ describe('addModule', () => {
         fs.readFileSync(path.join(projectRoot, 'packages', 'auth-api', 'package.json'), 'utf8'),
       );
       assert.equal(Object.hasOwn(authApiPackage.dependencies ?? {}, '@nestjs/swagger'), false);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps rate-limit wiring valid after mixed module installation order', () => {
+    const targetRoot = mkTmp('forgeon-module-rate-limit-order-');
+    const projectRoot = path.join(targetRoot, 'demo-rate-limit-order');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-rate-limit-order',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      for (const moduleId of ['jwt-auth', 'logger', 'swagger', 'rate-limit', 'i18n', 'db-prisma']) {
+        addModule({ moduleId, targetRoot: projectRoot, packageRoot });
+      }
+
+      assertRateLimitWiring(projectRoot);
+
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+      const classStart = healthController.indexOf('export class HealthController {');
+      const classEnd = healthController.lastIndexOf('\n}');
+      const rateLimitProbe = healthController.indexOf("@Get('rate-limit')");
+      assert.equal(rateLimitProbe > classStart && rateLimitProbe < classEnd, true);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

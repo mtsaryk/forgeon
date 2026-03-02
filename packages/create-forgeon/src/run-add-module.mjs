@@ -17,6 +17,73 @@ function printModuleList() {
   }
 }
 
+function toSortedObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+function collectDependencyManifestState(targetRoot) {
+  const state = new Map();
+  if (!fs.existsSync(targetRoot)) {
+    return state;
+  }
+
+  const queue = [targetRoot];
+  const skipDirs = new Set(['node_modules', '.git', 'dist', 'build']);
+
+  while (queue.length > 0) {
+    const currentDir = queue.shift();
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (!skipDirs.has(entry.name)) {
+          queue.push(path.join(currentDir, entry.name));
+        }
+        continue;
+      }
+
+      if (!entry.isFile() || entry.name !== 'package.json') {
+        continue;
+      }
+
+      const filePath = path.join(currentDir, entry.name);
+      const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const snapshot = {
+        name: packageJson.name ?? null,
+        dependencies: toSortedObject(packageJson.dependencies),
+        devDependencies: toSortedObject(packageJson.devDependencies),
+        optionalDependencies: toSortedObject(packageJson.optionalDependencies),
+        peerDependencies: toSortedObject(packageJson.peerDependencies),
+        onlyBuiltDependencies: Array.isArray(packageJson.pnpm?.onlyBuiltDependencies)
+          ? [...packageJson.pnpm.onlyBuiltDependencies].sort()
+          : [],
+      };
+
+      state.set(path.relative(targetRoot, filePath), JSON.stringify(snapshot));
+    }
+  }
+
+  return state;
+}
+
+function getChangedDependencyManifestPaths(beforeState, afterState) {
+  const changed = [];
+
+  for (const [filePath, nextSnapshot] of afterState.entries()) {
+    if (beforeState.get(filePath) !== nextSnapshot) {
+      changed.push(filePath);
+    }
+  }
+
+  return changed.sort();
+}
+
 function ensureSyncTooling({ packageRoot, targetRoot }) {
   const sourceScript = path.join(
     packageRoot,
@@ -67,6 +134,7 @@ export async function runAddModule(argv = process.argv.slice(2)) {
   const srcDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(srcDir, '..');
   const targetRoot = path.resolve(process.cwd(), options.project);
+  const dependencyManifestStateBefore = collectDependencyManifestState(targetRoot);
 
   const result = addModule({
     moduleId: options.moduleId,
@@ -80,4 +148,13 @@ export async function runAddModule(argv = process.argv.slice(2)) {
     packageRoot,
     relatedModuleId: result.preset.id,
   });
+
+  const dependencyManifestStateAfter = collectDependencyManifestState(targetRoot);
+  const changedDependencyManifestPaths = getChangedDependencyManifestPaths(
+    dependencyManifestStateBefore,
+    dependencyManifestStateAfter,
+  );
+  if (changedDependencyManifestPaths.length > 0) {
+    console.log('Next: run pnpm install');
+  }
 }

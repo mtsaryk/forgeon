@@ -405,7 +405,108 @@ function patchRootPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
+function restoreKnownWebProbes(targetRoot, previousAppContent) {
+  if (!previousAppContent) {
+    return;
+  }
+
+  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+
+  const ensureProbeState = (stateLine) => {
+    if (content.includes(stateLine)) {
+      return;
+    }
+    const anchors = [
+      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
+      '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
+      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
+      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
+    ];
+    const anchor = anchors.find((line) => content.includes(line));
+    if (anchor) {
+      content = ensureLineAfter(content, anchor, stateLine);
+    }
+  };
+
+  const ensureProbeButton = (buttonText, buttonCode) => {
+    if (content.includes(buttonText)) {
+      return;
+    }
+    const actionsStart = content.indexOf('<div className="actions">');
+    if (actionsStart < 0) {
+      return;
+    }
+    const actionsEnd = content.indexOf('\n      </div>', actionsStart);
+    if (actionsEnd < 0) {
+      return;
+    }
+    content = `${content.slice(0, actionsEnd)}\n${buttonCode}${content.slice(actionsEnd)}`;
+  };
+
+  const ensureProbeResult = (resultLine) => {
+    if (content.includes(resultLine)) {
+      return;
+    }
+    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
+    if (content.includes(networkLine)) {
+      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
+      return;
+    }
+    const anchors = [
+      "      {renderResult('Rate limit probe response', rateLimitProbeResult)}",
+      "      {renderResult('Auth probe response', authProbeResult)}",
+      "      {renderResult('DB probe response', dbProbeResult)}",
+      "      {renderResult('Validation probe response', validationProbeResult)}",
+    ];
+    const anchor = anchors.find((line) => content.includes(line));
+    if (anchor) {
+      content = ensureLineAfter(content, anchor, resultLine);
+    }
+  };
+
+  if (previousAppContent.includes('Check database (create user)')) {
+    ensureProbeState('  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);');
+    ensureProbeButton(
+      'Check database (create user)',
+      "        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>",
+    );
+    ensureProbeResult("      {renderResult('DB probe response', dbProbeResult)}");
+  }
+
+  if (previousAppContent.includes('Check JWT auth probe')) {
+    ensureProbeState('  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);');
+    ensureProbeButton(
+      'Check JWT auth probe',
+      "        <button onClick={() => runProbe(setAuthProbeResult, '/health/auth')}>Check JWT auth probe</button>",
+    );
+    ensureProbeResult("      {renderResult('Auth probe response', authProbeResult)}");
+  }
+
+  if (previousAppContent.includes('Check rate limit (click repeatedly)')) {
+    ensureProbeState(
+      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
+    );
+    ensureProbeButton(
+      'Check rate limit (click repeatedly)',
+      "        <button onClick={() => runProbe(setRateLimitProbeResult, '/health/rate-limit')}>\n          Check rate limit (click repeatedly)\n        </button>",
+    );
+    ensureProbeResult("      {renderResult('Rate limit probe response', rateLimitProbeResult)}");
+  }
+
+  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
 export function applyI18nModule({ packageRoot, targetRoot }) {
+  const existingWebAppPath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
+  const previousAppContent = fs.existsSync(existingWebAppPath)
+    ? fs.readFileSync(existingWebAppPath, 'utf8')
+    : '';
+
   copyFromBase(packageRoot, targetRoot, path.join('scripts', 'i18n-add.mjs'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
   copyFromBase(packageRoot, targetRoot, path.join('resources', 'i18n'));
@@ -415,6 +516,7 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'App.tsx'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'i18n.ts'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'main.tsx'));
+  restoreKnownWebProbes(targetRoot, previousAppContent);
 
   patchI18nPackage(targetRoot);
   patchApiPackage(targetRoot);
