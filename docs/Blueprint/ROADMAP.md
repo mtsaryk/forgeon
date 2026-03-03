@@ -22,6 +22,13 @@ This is a living plan. Scope and priorities may change.
 - [x] `*-contracts` and `*-web` packages are ESM-first
 - [x] API runtime modules use Node-oriented TS config
 - [x] no cross-package imports via `/src/*`; only package entrypoints
+- [x] module prerequisites should move to a capability-driven dependency doctrine
+- [x] only two dependency classes are canonical:
+  - [x] hard prerequisite
+  - [x] optional integration
+- [x] non-TTY dependency install is opt-in only:
+  - [x] `--with-required`
+  - [x] `--provider <capability>=<module>`
 
 ## Updated Priority Backlog
 
@@ -76,8 +83,21 @@ This is a living plan. Scope and priorities may change.
     - [ ] `files-quotas`
     - [ ] `files-image`
   - [ ] see `docs/Blueprint/FILES_DESIGN.md`
+  - [ ] implement using `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 
 ### P1 (Strongly Recommended)
+
+- [ ] dependency doctrine refactor for existing modules
+  - [ ] add capability metadata to module definitions
+  - [ ] refactor `create-forgeon add` prerequisite resolution
+  - [ ] replace concrete-module prerequisite assumptions where possible
+  - [ ] add non-TTY support for `--with-required` and `--provider`
+  - [ ] standardize optional integration warnings
+
+- [ ] `jwt-auth` persistence boundary refactor
+  - [ ] move from `db-prisma` assumption to `db-adapter`
+  - [ ] keep Prisma as the first provider implementation
+  - [ ] make future DB providers pluggable through the same conceptual boundary
 
 - [ ] `testing baseline`
   - [ ] unit + e2e presets

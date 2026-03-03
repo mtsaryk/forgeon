@@ -49,6 +49,8 @@ Reusable features should be added as fullstack add-modules:
 
 Reference: `docs/Blueprint/MODULE_SPEC.md`.
 
+Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
+
 ## Integration Sync Strategy
 
 - Integration orchestration is a default project toolchain command:
@@ -66,6 +68,39 @@ Reference: `docs/Blueprint/MODULE_SPEC.md`.
 - Integrations are never applied silently; users can apply them from the prompt or later with `pnpm forgeon:sync-integrations`.
 - Swagger auth decorators are intentionally not auto-patched.
 - Future option: this may return as an explicit optional command (not default automatic behavior).
+
+## Dependency Resolution Strategy
+
+Module dependency handling is capability-driven.
+
+Canonical rules:
+
+- hard prerequisites are expressed as capabilities whenever possible
+- provider modules declare which capabilities they provide
+- the CLI resolves missing prerequisites explicitly
+
+TTY behavior:
+
+- detect missing hard prerequisite
+- if it is a capability, ask the user to choose a provider
+- after provider resolution, show a concrete install plan
+- execute only after explicit confirmation
+
+Non-TTY behavior:
+
+- fail by default when a hard prerequisite is missing
+- allow explicit recursive prerequisite install only with:
+  - `--with-required`
+- require explicit provider mapping for ambiguous capabilities:
+  - `--provider <capability>=<module>`
+
+Silent dependency installation is not allowed.
+
+Optional integrations:
+
+- do not block installation
+- are announced as explicit follow-up opportunities
+- should include a short human-readable benefit summary and exact follow-up commands
 
 ## TypeScript Module Format Policy
 

@@ -4,6 +4,8 @@
 
 Define one repeatable fullstack pattern for Forgeon add-modules.
 
+Dependency handling rules are defined in `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
+
 Most feature modules should be split into:
 
 1. `@forgeon/<feature>-contracts`
@@ -66,7 +68,9 @@ Must contain:
 - No duplicate error-code enums across api/web.
 - Contracts package can be imported from both sides without circular dependencies.
 - Contracts package exports are stable from `dist/index` entrypoint.
-- Module has docs under `docs/Blueprint/MODULES/<module-id>.md`.
+- Generated project user-facing docs live in:
+  - root `README.md`
+  - `modules/<module-id>/README.md`
 - Module docs must explain: why it exists, what it adds, how it works, how to use it, how to configure it, and current operational limits.
 - If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/Blueprint/MODULE_CHECKS.md`).
 - If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
@@ -74,4 +78,10 @@ Must contain:
 - Module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.
 - `create-forgeon add <module-id>` may scan and offer relevant pending pair integrations, but it must not apply them silently.
 - Pair integrations can be applied from the post-add prompt or later via `pnpm forgeon:sync-integrations`.
-- Modules must not assume `db-prisma` is present unless they explicitly require it; DB integrations should be optional and synced when DB is added later.
+- Module prerequisites must be expressed as capabilities where possible, not concrete providers.
+- Modules must not assume `db-prisma` is present unless the provider itself is intentionally hard-coded for a temporary stage.
+- New module work should prefer `db-adapter` over `db-prisma` as the dependency boundary.
+- Hard prerequisites must follow the accepted dependency doctrine:
+  - TTY: interactive provider resolution + explicit plan
+  - non-TTY: fail by default unless `--with-required` is provided
+- Optional integrations must not block installation and should be surfaced as explicit post-install warnings with follow-up commands.

@@ -54,22 +54,47 @@ Requirements:
 - contracts is source of truth for routes, DTOs, errors
 - if feasible, add module probe hooks in API (`/api/health/*`) and web diagnostics UI
 - if i18n is enabled, add module namespace files and wire them for both API and web
-- add docs note under docs/Blueprint/MODULES/<module-id>.md
+- add user-facing module note under modules/<module-id>/README.md
+- follow docs/Blueprint/DEPENDENCY_DOCTRINE.md for prerequisites and optional integrations
 - keep backward compatibility
 ```
 
-## Implement JWT Auth Module
+## Refactor Module Dependency Handling
 
 ```text
-Implement `create-forgeon add jwt-auth` as an idempotent add-module.
+Refactor existing and new add-modules to the capability-driven dependency doctrine.
 Requirements:
-- split into `@forgeon/auth-contracts` and `@forgeon/auth-api`
-- include login/refresh/logout/me endpoints + jwt strategy/guard
-- add auth probe hook (`GET /api/health/auth`) and web probe button
-- detect available DB adapter during install:
-  - if supported adapter is found, auto-wire refresh token persistence
-  - if DB is missing/unsupported, print red warning and install stateless mode
-- update root README in generated project with follow-up steps to enable persistence later
+- introduce module metadata for:
+  - provides
+  - requires
+  - optionalIntegrations
+- model hard prerequisites as capabilities instead of concrete modules where possible
+- in TTY:
+  - resolve missing capabilities interactively
+  - show a concrete install plan
+  - require explicit confirmation
+- in non-TTY:
+  - fail by default
+  - allow explicit recursive prerequisite install only with `--with-required`
+  - require explicit provider mapping with `--provider <capability>=<module>`
+- for optional integrations:
+  - print a yellow warning after install
+  - list involved modules in cyan
+  - explain what the integration enables
+  - print exact follow-up commands
+- keep all patching idempotent
+- update internal docs when doctrine changes
+```
+
+## Refactor JWT Auth Persistence Boundary
+
+```text
+Refactor jwt-auth persistence integration from a concrete DB module assumption to a capability boundary.
+Requirements:
+- replace the conceptual dependency `db-prisma` with `db-adapter`
+- keep current Prisma behavior working during transition
+- restructure sync logic so future DB providers can plug in without redefining jwt-auth semantics
+- preserve current explicit integration flow (`pnpm forgeon:sync-integrations`)
 ```
 
 ## Deferred TODOs

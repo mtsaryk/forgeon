@@ -10,6 +10,12 @@ Read this first, then open the relevant detail doc under `docs/Blueprint/` only 
 - avoid re-deriving architecture decisions from scattered internal docs
 - preserve stable conventions for add-modules, integrations, and docs
 
+Primary detail specs to consult when touching module installation behavior:
+
+- `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
+- `docs/Blueprint/MODULE_SPEC.md`
+- `docs/Blueprint/ARCHITECTURE.md`
+
 ## Canonical Stack
 
 - Monorepo: `pnpm` workspaces
@@ -167,6 +173,22 @@ If a module can be verified safely at runtime:
 - it must add an API probe
 - it must add a web probe trigger and a visible result block
 
+Dependency handling is governed by `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
+
+Accepted rules:
+
+- hard dependencies are modeled as capabilities, not concrete modules
+- only two dependency classes exist:
+  - hard prerequisite
+  - optional integration
+- hard prerequisites:
+  - in TTY: use explicit interactive resolution
+  - in non-TTY: fail unless `--with-required` is provided
+- non-TTY provider selection is explicit via:
+  - `--provider <capability>=<module>`
+- silent auto-install is forbidden
+- optional integrations never block installation and must be presented as explicit follow-up opportunities
+
 ## Integration Sync Strategy
 
 Cross-module patching belongs to sync rules, not to individual module installers.
@@ -209,6 +231,7 @@ Important rules:
 - do not auto-patch Swagger decorators into other modules
 - do not rely on hidden cross-module mutations inside `add <module>`
 - if a new module needs cross-module behavior, add a sync rule instead
+- when a capability boundary exists, refactor sync logic toward that capability instead of hard-coding one provider
 
 ## Implemented Modules
 
@@ -425,7 +448,7 @@ The exact schema may evolve, but the stable conceptual shape should include:
 ### Current Recommendation Before Coding
 
 - build `files v1` as DB-backed
-- require a DB adapter for the canonical path
+- require capability `db-adapter` for the canonical path
 - prefer `db-prisma` first
 - if no DB exists, the module should warn and refuse canonical install unless an explicit reduced mode is designed later
 
@@ -435,7 +458,7 @@ Immediate next engineering targets:
 
 1. Finalize the implementation plan for `files v1`
 2. Decide the exact `files` metadata schema and first DTO shape
-3. Decide whether `files` hard-refuses install without a DB adapter
+3. Implement `files` using the accepted capability-driven dependency doctrine
 4. Implement `files` as the next add-module
 5. After `files`, continue with:
    - `queue`
@@ -448,6 +471,11 @@ Documentation follow-up:
 
 6. Keep generated-project documentation README-driven (`README.md` + `modules/<module-id>/README.md`)
 7. Add the future project-scoped agent context file once its format is defined
+8. Refactor existing modules to the capability-driven dependency doctrine:
+   - introduce capability metadata (`provides`, `requires`, `optionalIntegrations`)
+   - replace concrete-module prerequisite assumptions
+   - retrofit non-TTY dependency flags
+9. Refactor `jwt-auth` persistence assumptions from `db-prisma` to `db-adapter`
 
 ## Internal Detail Docs
 
@@ -457,6 +485,7 @@ Use these only when the task needs more detail than this file:
 - `docs/Blueprint/ARCHITECTURE.md`
 - `docs/Blueprint/ROADMAP.md`
 - `docs/Blueprint/FILES_DESIGN.md`
+- `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 - `docs/Blueprint/MODULE_SPEC.md`
 - `docs/Blueprint/MODULE_CHECKS.md`
 - `docs/Blueprint/VALIDATION.md`
