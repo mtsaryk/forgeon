@@ -1500,6 +1500,10 @@ describe('addModule', () => {
 
       assertDbPrismaWiring(projectRoot);
 
+      const moduleDoc = fs.readFileSync(dbResult.docsPath, 'utf8');
+      assert.match(moduleDoc, /db-adapter/);
+      assert.match(moduleDoc, /current canonical implementation for `db-adapter`/);
+
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
       assert.match(appModule, /ForgeonLoggerModule/);
       assert.match(appModule, /ForgeonSwaggerModule/);

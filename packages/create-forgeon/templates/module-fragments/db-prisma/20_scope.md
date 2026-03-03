@@ -1,6 +1,6 @@
 ## Applied Scope
 
-- Adds `packages/db-prisma` workspace package
+- Adds `packages/db-prisma` workspace package as the current `db-adapter` provider
 - Restores/creates `apps/api/prisma` schema and migrations
 - Wires db config/env schema into API `ConfigModule` load/validation
 - Registers `DbPrismaModule` in API `AppModule`
@@ -12,3 +12,5 @@
   - `infra/docker/.env.example`
   - `infra/docker/compose.yml`
 
+Current provider note:
+- Other DB providers may be added later, but this module is the current canonical implementation for `db-adapter`

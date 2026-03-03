@@ -4,7 +4,7 @@ const MODULE_PRESETS = {
     label: 'DB Prisma',
     category: 'database-layer',
     implemented: true,
-    description: 'Prisma/Postgres module wiring with env config, scripts, and DB probe endpoint.',
+    description: 'Current Prisma/Postgres provider for the db-adapter capability, including env config, scripts, and DB probe wiring.',
     detectionPaths: ['packages/db-prisma/package.json'],
     provides: ['db-adapter'],
     requires: [],

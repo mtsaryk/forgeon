@@ -325,7 +325,9 @@ function patchReadme(targetRoot) {
 
   const section = `## DB Prisma Module
 
-The db-prisma add-module provides:
+The db-prisma add-module is the current implementation of the \`db-adapter\` capability.
+
+It provides:
 - \`@forgeon/db-prisma\` package wiring
 - Prisma scripts in \`apps/api/package.json\`
 - DB probe endpoint (\`POST /api/health/db\`)

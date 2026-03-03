@@ -488,6 +488,38 @@ Documentation follow-up:
    - standardize capability-based prerequisite handling where module logic is still provider-specific
 9. Refactor `jwt-auth` persistence assumptions from `db-prisma` to `db-adapter`
 
+## Staged Refactor Plan (Temporary)
+
+This is a temporary execution plan for normalizing existing modules under the dependency doctrine and shared module standards.
+
+Remove or collapse this section after the refactor series is complete.
+
+1. [x] `db-prisma`
+- make it the clean reference provider for capability `db-adapter`
+- normalize metadata, docs wording, README notes, and tests
+
+2. [ ] `jwt-auth` + auth persistence integration
+- move conceptual persistence boundary from `db-prisma` to `db-adapter`
+- keep Prisma as the first concrete provider implementation
+
+3. [ ] `rbac`
+- normalize metadata and optional integration behavior with `jwt-auth`
+
+4. [ ] `swagger`
+- verify fully independent install behavior and remove any misleading assumptions
+
+5. [ ] `logger`
+- normalize lightweight infrastructure-module structure and docs
+
+6. [ ] `i18n`
+- normalize multi-package module structure, tooling docs, and install behavior
+
+7. [ ] `rate-limit`
+- normalize metadata, docs, and probe behavior under the same doctrine
+
+8. [ ] integration-layer cleanup
+- unify integration descriptors, warning output, and shared install behavior
+
 ## Internal Detail Docs
 
 Use these only when the task needs more detail than this file:
