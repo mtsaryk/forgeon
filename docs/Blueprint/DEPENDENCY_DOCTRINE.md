@@ -194,7 +194,7 @@ CLI presentation rules:
 
 The warning should include:
 
-1. the list of involved modules
+1. the list of involved modules and/or capabilities
 2. a short plain-language summary of what the integration enables
 3. exact follow-up commands for doing it later
 
@@ -203,7 +203,7 @@ Example shape:
 ```text
 Warning: optional integration available
 
-Modules:
+Modules / capabilities:
 - jwt-auth
 - rbac
 
@@ -257,7 +257,8 @@ Priority refactors:
 
 Current state:
 
-- current optional integration is modeled as `jwt-auth + db-prisma`
+- current conceptual optional integration is modeled as `jwt-auth + db-adapter`
+- the first concrete provider implementation remains `db-prisma`
 
 Target state:
 

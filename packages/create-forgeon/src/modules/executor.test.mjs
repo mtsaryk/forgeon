@@ -79,6 +79,8 @@ function assertRateLimitWiring(projectRoot) {
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Rate Limit Module/);
+  assert.match(readme, /installs independently/i);
+  assert.match(readme, /no optional integration sync is required/i);
 }
 
 function assertRbacWiring(projectRoot) {
@@ -110,6 +112,8 @@ function assertRbacWiring(projectRoot) {
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## RBAC \/ Permissions Module/);
+  assert.match(readme, /installs independently/i);
+  assert.match(readme, /jwt-auth.*optional/i);
 }
 
 function assertJwtAuthWiring(projectRoot, withPrismaStore) {
@@ -476,6 +480,13 @@ describe('addModule', () => {
       assert.match(rootPackage, /"i18n:types"/);
       assert.match(rootPackage, /"i18n:add"/);
 
+      const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(rootReadme, /## I18n Module/);
+      assert.match(rootReadme, /installs independently/i);
+      assert.match(rootReadme, /multi-package split/i);
+      assert.match(rootReadme, /pnpm i18n:sync/);
+      assert.match(rootReadme, /pnpm i18n:add <locale>/);
+
       const i18nAddScriptPath = path.join(projectRoot, 'scripts', 'i18n-add.mjs');
       assert.equal(fs.existsSync(i18nAddScriptPath), true);
       const syncScriptPath = path.join(projectRoot, 'scripts', 'forgeon-sync-integrations.mjs');
@@ -505,6 +516,11 @@ describe('addModule', () => {
       assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/core build/);
       assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/db-prisma build/);
       assert.match(apiDockerfile, /COPY packages\/db-prisma\/package\.json packages\/db-prisma\/package\.json/);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /I18n/);
+      assert.match(moduleDoc, /installs independently/i);
+      assert.match(moduleDoc, /helper commands are part of the module surface/i);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -577,6 +593,15 @@ describe('addModule', () => {
       assert.match(apiEnv, /LOGGER_HTTP_ENABLED=true/);
       assert.match(apiEnv, /LOGGER_REQUEST_ID_HEADER=x-request-id/);
 
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+      assert.doesNotMatch(healthController, /logger/i);
+
+      const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+      assert.doesNotMatch(appTsx, /Check logger/i);
+
       const dockerEnv = fs.readFileSync(
         path.join(projectRoot, 'infra', 'docker', '.env.example'),
         'utf8',
@@ -592,12 +617,16 @@ describe('addModule', () => {
 
       const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(rootReadme, /## Logger Module/);
+      assert.match(rootReadme, /installs independently/i);
+      assert.match(rootReadme, /does not add a dedicated API\/web probe/i);
       assert.match(rootReadme, /LOGGER_LEVEL=log/);
+      assert.match(rootReadme, /stdout\/stderr/i);
       assert.match(rootReadme, /docker compose logs api/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Logger/);
       assert.match(moduleDoc, /Status: implemented/);
+      assert.match(moduleDoc, /no dedicated probe is added by design/i);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -633,6 +662,8 @@ describe('addModule', () => {
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /## Idea \/ Why/);
       assert.match(moduleDoc, /## Configuration/);
+      assert.match(moduleDoc, /installs independently/i);
+      assert.match(moduleDoc, /No follow-up integration sync is required/i);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -756,12 +787,15 @@ describe('addModule', () => {
 
       const rootReadme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(rootReadme, /## Swagger \/ OpenAPI Module/);
+      assert.match(rootReadme, /installs independently/i);
+      assert.match(rootReadme, /decorators.*manual/i);
       assert.match(rootReadme, /SWAGGER_ENABLED=false/);
       assert.match(rootReadme, /localhost:3000\/api\/docs/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Swagger \/ OpenAPI/);
       assert.match(moduleDoc, /Status: implemented/);
+      assert.match(moduleDoc, /feature-specific Swagger decorators remain manual/i);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -1098,10 +1132,13 @@ describe('addModule', () => {
 
       const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(readme, /refresh token persistence: enabled/);
+      assert.match(readme, /db-adapter/);
+      assert.match(readme, /current provider: `db-prisma`/);
       assert.match(readme, /0002_auth_refresh_token_hash/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Status: implemented/);
+      assert.match(moduleDoc, /db-adapter/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -1142,6 +1179,7 @@ describe('addModule', () => {
 
       const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(readme, /refresh token persistence: disabled/);
+      assert.match(readme, /db-adapter/);
       assert.match(readme, /create-forgeon add db-prisma/);
 
     } finally {

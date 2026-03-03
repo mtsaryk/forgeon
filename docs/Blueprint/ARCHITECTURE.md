@@ -62,7 +62,7 @@ Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
   - each add-module patches only itself;
   - cross-module changes are allowed only in integration sync rules.
 - Current integrations:
-  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync)
+  - `jwt-auth + db-adapter` (current provider: `db-prisma`; persistent refresh-token store wiring + schema/migration sync)
   - `jwt-auth + rbac` (demo RBAC claims wiring in auth contracts and payloads)
 - `create-forgeon add <module>` scans only the relevant pending integration groups and offers them interactively.
 - Integrations are never applied silently; users can apply them from the prompt or later with `pnpm forgeon:sync-integrations`.

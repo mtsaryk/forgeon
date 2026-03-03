@@ -1,6 +1,7 @@
 ## Idea / Why
 
 This module adds a simple first-line request throttle to the API.
+It installs independently and does not require another add-module to provide immediate value.
 
 It exists to reduce three common classes of problems:
 

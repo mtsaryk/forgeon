@@ -86,15 +86,28 @@ Requirements:
 - update internal docs when doctrine changes
 ```
 
-## Refactor JWT Auth Persistence Boundary
+## Continue JWT Auth Persistence Provider Boundary
 
 ```text
-Refactor jwt-auth persistence integration from a concrete DB module assumption to a capability boundary.
+Continue the jwt-auth persistence integration refactor after the conceptual move to `db-adapter`.
 Requirements:
-- replace the conceptual dependency `db-prisma` with `db-adapter`
-- keep current Prisma behavior working during transition
-- restructure sync logic so future DB providers can plug in without redefining jwt-auth semantics
+- keep the `db-adapter` capability as the public conceptual boundary
+- keep current Prisma behavior working as the first provider implementation
+- isolate provider-specific sync logic so future DB providers can plug in without redefining jwt-auth semantics
 - preserve current explicit integration flow (`pnpm forgeon:sync-integrations`)
+```
+
+## Refactor Auth Persistence Sync To Provider Strategy Model
+
+```text
+Refactor the auth-persistence integration implementation to use provider-specific strategies behind one capability-level integration group.
+Requirements:
+- keep `auth-persistence` as one logical integration at the `db-adapter` boundary
+- introduce provider-specific strategy handlers (starting with `db-prisma`)
+- add a dispatcher that selects the active DB adapter implementation
+- keep current Prisma-backed behavior unchanged for users
+- make future DB providers pluggable without changing jwt-auth semantics or user-facing docs
+- preserve the explicit integration flow (`pnpm forgeon:sync-integrations`)
 ```
 
 ## Deferred TODOs

@@ -181,6 +181,9 @@ The logger add-module provides:
 - HTTP access logs with method/path/status/duration/ip/requestId
 - Nest logger integration via \`app.useLogger(...)\`
 
+It installs independently and intentionally does not add a dedicated API/web probe.
+Its verification path is operational: inspect API stdout/stderr in dev or container logs in Docker.
+
 Configuration (env):
 - \`LOGGER_LEVEL=log\` (\`error|warn|log|debug|verbose\`)
 - \`LOGGER_HTTP_ENABLED=true\`

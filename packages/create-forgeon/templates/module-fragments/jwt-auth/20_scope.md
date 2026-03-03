@@ -10,8 +10,10 @@ Implemented scope:
    - `JwtStrategy` + `JwtAuthGuard`
    - `authConfig` + `authEnvSchema` wiring through root `ConfigModule` validator chain
 3. DB behavior:
-   - if supported DB adapter is present (`db-prisma`), refresh token hash persistence is auto-wired
-   - if DB is missing/unsupported, module installs in stateless mode and prints red warning
+   - module install stays stateless by default
+   - refresh token hash persistence is enabled later through the `db-adapter` capability via `pnpm forgeon:sync-integrations`
+   - current DB adapter implementation for this integration is `db-prisma`
+   - if no DB adapter is installed, the module stays stateless and prints an optional integration warning with follow-up commands
 4. Module checks:
    - API probe endpoint: `GET /api/health/auth`
    - default web probe button + result block

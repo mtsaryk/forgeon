@@ -309,10 +309,10 @@ function patchReadme(targetRoot) {
   }
 
   const persistenceSummary =
-    '- refresh token persistence: disabled by default (stateless mode)';
+    '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)';
   const dbFollowUp = `- to enable persistence later:
-  1. install a DB module first (for now: \`create-forgeon add db-prisma --project .\`);
-  2. run \`pnpm forgeon:sync-integrations\` to auto-wire pair integrations.`;
+  1. install a DB adapter provider first (current provider: \`create-forgeon add db-prisma --project .\`);
+  2. run \`pnpm forgeon:sync-integrations\` to wire auth persistence to the active DB adapter implementation.`;
 
   const section = `## JWT Auth Module
 

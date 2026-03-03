@@ -10,3 +10,9 @@
 - `i18n:sync` for locale/namespace contracts sync from `resources/i18n`
 - `i18n:check` for contract/json/key consistency checks
 - `i18n:types` for translation key type generation
+- `i18n:add` for adding a new locale from the command line
+
+Operational notes:
+
+- this module owns the i18n helper commands
+- it does not use integration sync groups today because its work is self-contained within the localization stack

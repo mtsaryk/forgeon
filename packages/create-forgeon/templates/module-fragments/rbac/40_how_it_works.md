@@ -18,3 +18,8 @@ Failure path:
 
 - denied access throws `403`
 - the existing Forgeon error envelope wraps it as `FORBIDDEN`
+
+Integration note:
+
+- if `jwt-auth` is also installed, the optional `auth-rbac-claims` integration can expose demo permissions inside JWT payloads
+- that integration is explicit and is applied through `pnpm forgeon:sync-integrations`

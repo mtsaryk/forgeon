@@ -16,7 +16,8 @@ const MODULE_PRESETS = {
     label: 'I18n',
     category: 'localization',
     implemented: true,
-    description: 'Backend/frontend i18n wiring with locale contracts and translation resources.',
+    description:
+      'Independent backend/frontend i18n wiring with contracts, web helpers, shared translation resources, and locale maintenance scripts.',
     detectionPaths: ['packages/i18n/package.json'],
     provides: ['i18n-runtime'],
     requires: [],
@@ -28,7 +29,8 @@ const MODULE_PRESETS = {
     label: 'Logger',
     category: 'observability',
     implemented: true,
-    description: 'Structured API logger with request id middleware and HTTP logging interceptor.',
+    description:
+      'Independent structured API logger with request id middleware and HTTP logging interceptor; intentionally no dedicated runtime probe.',
     detectionPaths: ['packages/logger/package.json'],
     provides: ['logger-runtime'],
     requires: [],
@@ -40,7 +42,8 @@ const MODULE_PRESETS = {
     label: 'Swagger / OpenAPI',
     category: 'api-documentation',
     implemented: true,
-    description: 'OpenAPI docs setup with env-based toggle and route path.',
+    description:
+      'Independent OpenAPI docs setup with env-based toggle and route path; feature-level Swagger decorators remain manual.',
     detectionPaths: ['packages/swagger/package.json'],
     provides: ['openapi-runtime'],
     requires: [],
@@ -52,7 +55,8 @@ const MODULE_PRESETS = {
     label: 'JWT Auth',
     category: 'auth-security',
     implemented: true,
-    description: 'JWT auth preset with contracts/api module split, guard+strategy, and DB-aware refresh token storage wiring.',
+    description:
+      'JWT auth preset with contracts/api module split, guard+strategy, and optional db-adapter-backed refresh token persistence via integration sync.',
     detectionPaths: ['packages/auth-api/package.json'],
     provides: ['auth-runtime'],
     requires: [],
@@ -60,10 +64,11 @@ const MODULE_PRESETS = {
       {
         id: 'auth-persistence',
         title: 'Auth Persistence Integration',
-        modules: ['jwt-auth', 'db-prisma'],
-        requires: [{ type: 'module', id: 'db-prisma' }],
+        modules: ['jwt-auth', 'db-adapter'],
+        requires: [{ type: 'capability', id: 'db-adapter' }],
         description: [
-          'Persist refresh-token state through the current DB integration',
+          'Persist refresh-token state through the db-adapter capability boundary',
+          'Use the current DB adapter implementation (today: db-prisma) for refresh-token storage',
           'Enable stronger refresh-token invalidation flows after logout and rotation',
         ],
         followUpCommands: [
@@ -93,7 +98,8 @@ const MODULE_PRESETS = {
     label: 'Rate Limit',
     category: 'auth-security',
     implemented: true,
-    description: 'Request throttling preset with env-based limits, proxy-aware trust, and a runtime probe endpoint.',
+    description:
+      'Independent request throttling preset with env-based limits, proxy-aware trust, and a runtime probe endpoint.',
     detectionPaths: ['packages/rate-limit/package.json'],
     provides: ['rate-limit-runtime'],
     requires: [],
@@ -115,7 +121,8 @@ const MODULE_PRESETS = {
     label: 'RBAC / Permissions',
     category: 'auth-security',
     implemented: true,
-    description: 'Role and permission decorators with a Nest guard and a protected probe endpoint.',
+    description:
+      'Role and permission decorators with a Nest guard and a protected probe endpoint; installs independently and optionally integrates with jwt-auth.',
     detectionPaths: ['packages/rbac/package.json'],
     provides: ['rbac-runtime'],
     requires: [],

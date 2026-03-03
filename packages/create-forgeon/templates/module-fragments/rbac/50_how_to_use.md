@@ -17,3 +17,8 @@ Manual forbidden-path check:
 
 1. call `GET /api/health/rbac` without the `x-forgeon-permissions` header
 2. the request should return `403`
+
+Optional follow-up:
+
+1. install `jwt-auth` if you want RBAC claims in demo JWT payloads
+2. run `pnpm forgeon:sync-integrations`

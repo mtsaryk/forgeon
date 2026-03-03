@@ -7,6 +7,8 @@ npx create-forgeon@latest add rate-limit
 pnpm install
 ```
 
+This module installs independently. No follow-up integration sync is required.
+
 Verify:
 
 1. start the project

@@ -221,7 +221,8 @@ Current workflow:
 Current integration groups:
 
 1. `auth-persistence`
-- modules: `jwt-auth`, `db-prisma`
+- conceptual boundary: `jwt-auth` + `db-adapter`
+- current concrete provider: `db-prisma`
 - current effect:
   - patch `AppModule` to wire `AUTH_REFRESH_TOKEN_STORE` to `PrismaAuthRefreshTokenStore`
   - add `apps/api/src/auth/prisma-auth-refresh-token.store.ts`
@@ -259,6 +260,7 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `@forgeon/i18n-contracts`
     - `@forgeon/i18n-web`
   - adds backend/frontend i18n wiring and shared dictionaries in `resources/i18n/*`
+  - installs independently as a multi-package module
   - includes tooling:
     - `pnpm i18n:sync`
     - `pnpm i18n:check`
@@ -269,11 +271,13 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
   - package: `@forgeon/logger`
   - adds structured API logging, request IDs, and HTTP request logging
   - logs to stdout/stderr; file logging is intentionally out of scope
+  - no dedicated probe is added; operational verification through logs is the accepted exception
 
 - `swagger`
   - package: `@forgeon/swagger`
   - enables OpenAPI docs with env toggle
   - current route: `/api/docs`
+  - feature-level Swagger decorators are intentionally manual
   - bearer integration hooks are still pending
 
 - `jwt-auth`
@@ -287,11 +291,13 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `GET /api/auth/me`
     - `GET /api/health/auth`
   - by itself it installs auth cleanly
-  - persistence is not baked into module install; DB-backed refresh storage is wired through sync integrations
+  - persistence is not baked into module install; DB-backed refresh storage is wired through sync integrations at the `db-adapter` boundary
+  - current persistence provider implementation: `db-prisma`
 
 - `rate-limit`
   - package: `@forgeon/rate-limit`
   - adds request throttling with env-driven defaults
+  - installs independently; no optional integration sync is required in the current scaffold
   - env keys:
     - `THROTTLE_ENABLED`
     - `THROTTLE_TTL`
@@ -486,7 +492,7 @@ Documentation follow-up:
    - replace remaining concrete-module prerequisite assumptions
    - extend current metadata usage across all modules
    - standardize capability-based prerequisite handling where module logic is still provider-specific
-9. Refactor `jwt-auth` persistence assumptions from `db-prisma` to `db-adapter`
+9. Generalize the current `db-adapter` auth persistence integration so future DB providers can plug in without changing jwt-auth semantics
 
 ## Staged Refactor Plan (Temporary)
 
@@ -498,23 +504,24 @@ Remove or collapse this section after the refactor series is complete.
 - make it the clean reference provider for capability `db-adapter`
 - normalize metadata, docs wording, README notes, and tests
 
-2. [ ] `jwt-auth` + auth persistence integration
+2. [x] `jwt-auth` + auth persistence integration
 - move conceptual persistence boundary from `db-prisma` to `db-adapter`
 - keep Prisma as the first concrete provider implementation
 
-3. [ ] `rbac`
+3. [x] `rbac`
 - normalize metadata and optional integration behavior with `jwt-auth`
+ - keep install fully independent; `jwt-auth` remains optional integration only
 
-4. [ ] `swagger`
+4. [x] `swagger`
 - verify fully independent install behavior and remove any misleading assumptions
 
-5. [ ] `logger`
+5. [x] `logger`
 - normalize lightweight infrastructure-module structure and docs
 
-6. [ ] `i18n`
+6. [x] `i18n`
 - normalize multi-package module structure, tooling docs, and install behavior
 
-7. [ ] `rate-limit`
+7. [x] `rate-limit`
 - normalize metadata, docs, and probe behavior under the same doctrine
 
 8. [ ] integration-layer cleanup

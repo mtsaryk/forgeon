@@ -11,3 +11,7 @@
   - `infra/docker/.env.example`
   - `infra/docker/compose.yml` (api service env passthrough)
 
+Not included:
+
+- no auto-patching of Swagger decorators into feature modules
+- no implicit integration with `jwt-auth` or other add-modules

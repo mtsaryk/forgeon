@@ -9,3 +9,8 @@
 - Adds logger env keys to `apps/api/.env.example` and `infra/docker/.env.example`
 - Passes logger env keys through `infra/docker/compose.yml`
 
+Intentional exception:
+
+- no API `/api/health/*` probe is added
+- no web diagnostics button is added
+- this module is verified by observing structured logs

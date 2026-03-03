@@ -73,6 +73,7 @@ Must contain:
   - `modules/<module-id>/README.md`
 - Module docs must explain: why it exists, what it adds, how it works, how to use it, how to configure it, and current operational limits.
 - If module behavior can be runtime-checked, it also includes API+Web probe hooks (see `docs/Blueprint/MODULE_CHECKS.md`).
+- Infrastructure-only modules may explicitly skip probe hooks when operational verification is the correct check (for example, structured logging observed through stdout/stderr); this exception must be documented in both root and module README text.
 - If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
 - If module is added before i18n, namespace templates must still be prepared and applied when i18n is installed later.
 - Module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.

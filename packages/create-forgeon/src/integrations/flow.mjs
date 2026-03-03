@@ -125,7 +125,7 @@ export function printOptionalIntegrationsWarning(integrations) {
   for (const integration of integrations) {
     console.log(`\n${colorize('yellow', 'Warning: optional integration available')}`);
     console.log(`- ${integration.title}`);
-    console.log('Modules:');
+    console.log('Modules / capabilities:');
     for (const moduleId of integration.modules ?? []) {
       console.log(`- ${colorize('cyan', moduleId)}`);
     }

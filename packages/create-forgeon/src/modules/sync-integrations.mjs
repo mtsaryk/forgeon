@@ -97,10 +97,10 @@ const INTEGRATION_GROUPS = [
     title: 'Auth Persistence Integration',
     modules: ['jwt-auth', 'db-prisma'],
     description: [
-      'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE with PrismaAuthRefreshTokenStore',
+      'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE to the current db-adapter implementation (today: PrismaAuthRefreshTokenStore)',
       'Add apps/api/src/auth/prisma-auth-refresh-token.store.ts',
       'Extend Prisma User model with refreshTokenHash and add migration 0002_auth_refresh_token_hash',
-      'Update JWT auth README note about refresh-token persistence',
+      'Update JWT auth README note to reflect db-adapter-backed refresh-token persistence',
     ],
     isAvailable: (detected) => detected.jwtAuth && detected.dbPrisma,
     isPending: (rootDir) => isAuthPersistencePending(rootDir),
@@ -236,11 +236,11 @@ function syncJwtDbPrisma({ rootDir, packageRoot, changedFiles }) {
     let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
     const originalReadme = readme;
     readme = readme.replace(
-      '- refresh token persistence: disabled by default (stateless mode)',
-      '- refresh token persistence: enabled (`db-prisma` adapter)',
+      '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
+      '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
     );
     readme = readme.replace(
-      /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to auto-wire pair integrations\./m,
+      /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation\./m,
       '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
     );
     if (readme !== originalReadme) {

@@ -38,7 +38,7 @@ pnpm forgeon:sync-integrations
 
 Current sync coverage:
 - `jwt-auth + rbac`: extends demo auth tokens with the `health.rbac` permission.
-- `jwt-auth + db-prisma`: wires persistent refresh-token storage for auth.
+- `jwt-auth + db-adapter` (current provider: `db-prisma`): wires persistent refresh-token storage for auth.
 
 `create-forgeon add <module>` scans for relevant integration groups and can apply them immediately.
 

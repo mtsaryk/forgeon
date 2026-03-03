@@ -162,11 +162,11 @@ function syncJwtDbPrisma({ rootDir, changedFiles }) {
     let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
     const originalReadme = readme;
     readme = readme.replace(
-      '- refresh token persistence: disabled by default (stateless mode)',
-      '- refresh token persistence: enabled (`db-prisma` adapter)',
+      '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
+      '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
     );
     readme = readme.replace(
-      /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to auto-wire pair integrations\./m,
+      /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation\./m,
       '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
     );
     if (readme !== originalReadme) {
@@ -293,12 +293,12 @@ function run() {
 
   if (detected.jwtAuth && detected.dbPrisma) {
     summary.push({
-      feature: 'jwt-auth + db-prisma',
+      feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
       result: syncJwtDbPrisma({ rootDir, changedFiles }),
     });
   } else {
     summary.push({
-      feature: 'jwt-auth + db-prisma',
+      feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
       result: { applied: false, reason: 'required modules are not both installed' },
     });
   }

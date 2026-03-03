@@ -57,7 +57,7 @@ Reference: `docs/AI/MODULE_SPEC.md`.
   - each add-module patches only itself;
   - cross-module changes are allowed only in integration sync rules.
 - Current integration:
-  - `jwt-auth + db-prisma` (persistent refresh-token store wiring + schema/migration sync).
+  - `jwt-auth + db-adapter` (current provider: `db-prisma`; persistent refresh-token store wiring + schema/migration sync).
 - Pair sync is explicit (opt-in), not automatic after `add`.
 - Run `pnpm forgeon:sync-integrations` when you want to apply module-pair integrations.
 - Swagger auth decorators are intentionally not auto-patched.

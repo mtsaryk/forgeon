@@ -289,7 +289,7 @@ function patchReadme(targetRoot) {
 
   const section = `## Rate Limit Module
 
-The rate-limit add-module provides a simple first-line safeguard against burst traffic, accidental request loops, and brute-force style abuse.
+The rate-limit add-module installs independently and provides a simple first-line safeguard against burst traffic, accidental request loops, and brute-force style abuse.
 
 What it adds:
 - global request throttling for the API
@@ -310,7 +310,8 @@ Configuration (env):
 
 Operational notes:
 - \`THROTTLE_TRUST_PROXY=true\` is recommended behind reverse proxies
-- this is an in-memory throttle preset, not a distributed limiter`;
+- this is an in-memory throttle preset, not a distributed limiter
+- no optional integration sync is required for this module in the current scaffold`;
 
   if (content.includes('## Prisma In Docker Start')) {
     content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);

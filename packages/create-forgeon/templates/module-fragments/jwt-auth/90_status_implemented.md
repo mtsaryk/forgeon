@@ -3,5 +3,6 @@
 Status: implemented.
 
 Notes:
-- DB adapter auto-detection is currently implemented for `db-prisma`.
-- Unknown/missing DB adapter falls back to stateless refresh flow with explicit warning.
+- The persistence boundary is `db-adapter`, not a hard dependency on one concrete DB module.
+- The current DB adapter implementation for auth persistence is `db-prisma`.
+- If no DB adapter is installed, jwt-auth stays in stateless refresh mode and surfaces an optional integration warning.

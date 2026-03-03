@@ -10,6 +10,11 @@ Included parts:
 - shared dictionaries in `resources/i18n/*` (`en` by default) used by both API and web
 - default namespaces: `common`, `errors`, `validation`, `ui`, `notifications`, `meta`
 
+Important boundary:
+- this module installs independently
+- it is intentionally split across runtime, contracts, and web helper packages
+- translation maintenance flows are part of the module contract, not ad-hoc project scripts
+
 Utility commands:
 - `pnpm i18n:sync` - regenerate `I18N_LOCALES` and `I18N_NAMESPACES` from `resources/i18n`.
 - `pnpm i18n:check` - verify generated contracts, JSON validity, and missing/extra keys vs fallback locale.

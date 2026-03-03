@@ -405,6 +405,50 @@ function patchRootPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
+function patchReadme(targetRoot) {
+  const readmePath = path.join(targetRoot, 'README.md');
+  if (!fs.existsSync(readmePath)) {
+    return;
+  }
+
+  const marker = '## I18n Module';
+  let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
+  if (content.includes(marker)) {
+    return;
+  }
+
+  const section = `## I18n Module
+
+The i18n add-module provides a full backend + frontend localization baseline.
+
+It installs independently and uses a multi-package split:
+- \`@forgeon/i18n\` for Nest runtime wiring
+- \`@forgeon/i18n-contracts\` for generated locale/namespace contracts and maintenance scripts
+- \`@forgeon/i18n-web\` for React-side locale helpers
+
+Shared dictionaries:
+- stored under \`resources/i18n/<locale>/*.json\`
+- current default locale set: \`en\`
+
+Helper commands:
+- \`pnpm i18n:sync\`
+- \`pnpm i18n:check\`
+- \`pnpm i18n:types\`
+- \`pnpm i18n:add <locale>\`
+
+Module env:
+- \`I18N_DEFAULT_LANG=en\`
+- \`I18N_FALLBACK_LANG=en\``;
+
+  if (content.includes('## Prisma In Docker Start')) {
+    content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);
+  } else {
+    content = `${content.trimEnd()}\n\n${section}\n`;
+  }
+
+  fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
 function restoreKnownWebProbes(targetRoot, previousAppContent) {
   if (!previousAppContent) {
     return;
@@ -533,6 +577,7 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
   patchApiPackage(targetRoot);
   patchWebPackage(targetRoot);
   patchRootPackage(targetRoot);
+  patchReadme(targetRoot);
   patchAppModule(targetRoot);
   patchHealthController(targetRoot);
   patchApiDockerfile(targetRoot);

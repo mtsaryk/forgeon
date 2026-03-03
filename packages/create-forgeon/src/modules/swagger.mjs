@@ -181,6 +181,9 @@ function patchReadme(targetRoot) {
 
 The swagger add-module provides generated OpenAPI docs for the API.
 
+It installs independently and only wires the OpenAPI runtime.
+Feature-specific Swagger decorators (for example \`@ApiOperation\`, \`@ApiBody\`, \`@ApiResponse\`) remain manual and are not auto-patched into other modules.
+
 Configuration (env):
 - \`SWAGGER_ENABLED=false\`
 - \`SWAGGER_PATH=docs\`

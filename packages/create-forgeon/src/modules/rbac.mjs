@@ -282,6 +282,8 @@ function patchReadme(targetRoot) {
 
 The rbac add-module provides a minimal authorization layer for role and permission checks.
 
+It installs independently. \`jwt-auth\` is optional and only extends demo JWT claims through integration sync.
+
 What it adds:
 - \`@Roles(...)\` and \`@Permissions(...)\` decorators
 - \`ForgeonRbacGuard\`
@@ -298,6 +300,10 @@ How it works:
 How to verify:
 - the generated frontend button sends \`x-forgeon-permissions: health.rbac\` and should return \`200\`
 - the same route without that header should return \`403\`
+
+Optional integration:
+- if \`jwt-auth\` is installed too, run \`pnpm forgeon:sync-integrations\`
+- that enables demo JWT permissions for the same RBAC probe flow
 
 Current scope:
 - no policy engine

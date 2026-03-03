@@ -50,8 +50,9 @@ This is a living plan. Scope and priorities may change.
   - [x] access + refresh baseline
   - [x] guards/strategy integration
   - [x] DB-aware install behavior:
-    - [x] auto-wire refresh token persistence for `db-prisma`
-    - [x] red warning + stateless mode when DB is missing/unsupported
+    - [x] stateless baseline install without a DB adapter
+    - [x] optional auth persistence integration at the `db-adapter` boundary
+    - [x] current provider implementation for that integration: `db-prisma`
   - [ ] web package split (`auth-web`) on next iteration
 
 - [x] `rbac / permissions`
@@ -95,9 +96,10 @@ This is a living plan. Scope and priorities may change.
   - [ ] standardize optional integration warnings
 
 - [ ] `jwt-auth` persistence boundary refactor
-  - [ ] move from `db-prisma` assumption to `db-adapter`
-  - [ ] keep Prisma as the first provider implementation
+  - [x] move from `db-prisma` assumption to `db-adapter`
+  - [x] keep Prisma as the first provider implementation
   - [ ] make future DB providers pluggable through the same conceptual boundary
+  - [ ] refactor auth-persistence sync to a provider-strategy dispatcher before `files`
 
 - [ ] `testing baseline`
   - [ ] unit + e2e presets
@@ -188,7 +190,7 @@ Definition of Done:
 
 ## Explicit Dependencies and Order Constraints
 
-- `rbac` depends on `jwt-auth`
+- `rbac` installs independently and integrates optionally with `jwt-auth`
 - `rate-limit` should follow Redis/queue foundation for scalable mode
 - `mail` should reuse queue foundation where possible
 - `openapi` is most useful before/with `jwt-auth` and `http-client`

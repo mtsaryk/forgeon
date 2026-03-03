@@ -44,8 +44,8 @@ const TEST_PRESETS = [
       {
         id: 'auth-persistence',
         title: 'Auth Persistence Integration',
-        modules: ['jwt-auth', 'db-prisma'],
-        requires: [{ type: 'module', id: 'db-prisma' }],
+        modules: ['jwt-auth', 'db-adapter'],
+        requires: [{ type: 'capability', id: 'db-adapter' }],
         description: ['Persist refresh-token state'],
         followUpCommands: [
           'npx create-forgeon@latest add db-prisma',
@@ -130,7 +130,7 @@ describe('module dependency helpers', () => {
 
       assert.equal(pending.length, 1);
       assert.equal(pending[0].id, 'auth-persistence');
-      assert.equal(pending[0].missing[0].id, 'db-prisma');
+      assert.equal(pending[0].missing[0].id, 'db-adapter');
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
