@@ -13,7 +13,10 @@ export default function App() {
   const [networkError, setNetworkError] = useState<string | null>(null);
 
   const requestProbe = async (url: string, init?: RequestInit): Promise<ProbeResult> => {
-    const response = await fetch(url, init);
+    const response = await fetch(url, {
+      ...(init ?? {}),
+      cache: 'no-store',
+    });
     let body: unknown = null;
 
     try {

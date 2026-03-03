@@ -120,8 +120,10 @@ function patchHealthController(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = ensureImportLine(content, "import { Header } from '@nestjs/common';");
   if (!content.includes("@Get('rate-limit')")) {
     const method = `
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Get('rate-limit')
   getRateLimitProbe() {
     return {

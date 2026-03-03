@@ -27,7 +27,8 @@ export default function App() {
 
   const requestProbe = async (path: string, init?: RequestInit): Promise<ProbeResult> => {
     const response = await fetch(`/api${path}${toLangQuery(locale)}`, {
-      ...init,
+      ...(init ?? {}),
+      cache: 'no-store',
       headers: {
         ...(init?.headers ?? {}),
         'Accept-Language': locale,

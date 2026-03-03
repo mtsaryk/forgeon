@@ -70,10 +70,13 @@ function assertRateLimitWiring(projectRoot) {
     path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
     'utf8',
   );
+  assert.match(healthController, /import \{ Header \} from '@nestjs\/common';/);
+  assert.match(healthController, /@Header\('Cache-Control', 'no-store, no-cache, must-revalidate'\)/);
   assert.match(healthController, /@Get\('rate-limit'\)/);
   assert.match(healthController, /TOO_MANY_REQUESTS/);
 
   const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /cache: 'no-store'/);
   assert.match(appTsx, /Check rate limit \(click repeatedly\)/);
   assert.match(appTsx, /Rate limit probe response/);
 

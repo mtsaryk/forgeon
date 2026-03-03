@@ -45,6 +45,15 @@ ALTER TABLE "User"
 ADD COLUMN "refreshTokenHash" TEXT;
 `;
 
+const AUTH_PERSISTENCE_STRATEGIES = [
+  {
+    id: 'db-prisma',
+    providerLabel: 'db-prisma',
+    isDetected: (detected) => detected.dbPrisma,
+    apply: syncJwtDbPrisma,
+  },
+];
+
 function detectModules(rootDir) {
   const appModulePath = path.join(rootDir, 'apps', 'api', 'src', 'app.module.ts');
   const appModuleText = fs.existsSync(appModulePath) ? fs.readFileSync(appModulePath, 'utf8') : '';
@@ -72,6 +81,17 @@ function ensureLineAfter(content, anchorLine, lineToInsert) {
   }
   const insertAt = index + anchorLine.length;
   return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
+}
+
+function resolveAuthPersistenceStrategy(detected) {
+  const matched = AUTH_PERSISTENCE_STRATEGIES.filter((strategy) => strategy.isDetected(detected));
+  if (matched.length === 0) {
+    return { kind: 'none' };
+  }
+  if (matched.length > 1) {
+    return { kind: 'conflict', strategies: matched };
+  }
+  return { kind: 'single', strategy: matched[0] };
 }
 
 function syncJwtDbPrisma({ rootDir, changedFiles }) {
@@ -290,16 +310,21 @@ function run() {
   const changedFiles = new Set();
   const detected = detectModules(rootDir);
   const summary = [];
+  const authPersistence = resolveAuthPersistenceStrategy(detected);
 
-  if (detected.jwtAuth && detected.dbPrisma) {
+  if (detected.jwtAuth && authPersistence.kind === 'single') {
     summary.push({
-      feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
-      result: syncJwtDbPrisma({ rootDir, changedFiles }),
+      feature: `jwt-auth + db-adapter (current provider: ${authPersistence.strategy.providerLabel})`,
+      result: authPersistence.strategy.apply({ rootDir, changedFiles }),
     });
   } else {
+    const reason =
+      authPersistence.kind === 'conflict'
+        ? 'multiple db-adapter providers detected'
+        : 'required components are not both available';
     summary.push({
       feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
-      result: { applied: false, reason: 'required components are not both available' },
+      result: { applied: false, reason },
     });
   }
 

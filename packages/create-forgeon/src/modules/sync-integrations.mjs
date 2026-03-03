@@ -24,6 +24,25 @@ const PRISMA_AUTH_MIGRATION_TEMPLATE = path.join(
   '0002_auth_refresh_token_hash',
 );
 
+const AUTH_PERSISTENCE_STRATEGIES = [
+  {
+    id: 'db-prisma',
+    capability: 'db-adapter',
+    providerLabel: 'db-prisma',
+    participants: ['jwt-auth', 'db-adapter'],
+    relatedModules: ['jwt-auth', 'db-prisma'],
+    description: [
+      'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE to the current db-adapter implementation (today: PrismaAuthRefreshTokenStore)',
+      'Add apps/api/src/auth/prisma-auth-refresh-token.store.ts',
+      'Extend Prisma User model with refreshTokenHash and add migration 0002_auth_refresh_token_hash',
+      'Update JWT auth README note to reflect db-adapter-backed refresh-token persistence',
+    ],
+    isDetected: (detected) => detected.dbPrisma,
+    isPending: isAuthPersistencePending,
+    apply: syncJwtDbPrisma,
+  },
+];
+
 function ensureLineAfter(content, anchorLine, lineToInsert) {
   if (content.includes(lineToInsert)) {
     return content;
@@ -97,15 +116,10 @@ const INTEGRATION_GROUPS = [
     title: 'Auth Persistence Integration',
     participants: ['jwt-auth', 'db-adapter'],
     relatedModules: ['jwt-auth', 'db-prisma'],
-    description: [
-      'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE to the current db-adapter implementation (today: PrismaAuthRefreshTokenStore)',
-      'Add apps/api/src/auth/prisma-auth-refresh-token.store.ts',
-      'Extend Prisma User model with refreshTokenHash and add migration 0002_auth_refresh_token_hash',
-      'Update JWT auth README note to reflect db-adapter-backed refresh-token persistence',
-    ],
-    isAvailable: (detected) => detected.jwtAuth && detected.dbPrisma,
-    isPending: (rootDir) => isAuthPersistencePending(rootDir),
-    apply: syncJwtDbPrisma,
+    description: (detected) => getAuthPersistenceDescription(detected),
+    isAvailable: (detected) => detected.jwtAuth && hasSingleAuthPersistenceStrategy(detected),
+    isPending: (rootDir, detected) => isAuthPersistencePendingForDetected(rootDir, detected),
+    apply: applyAuthPersistenceSync,
   },
   {
     id: 'auth-rbac-claims',
@@ -141,6 +155,52 @@ function detectModules(rootDir) {
   };
 }
 
+function resolveAuthPersistenceStrategy(detected) {
+  const matched = AUTH_PERSISTENCE_STRATEGIES.filter((strategy) => strategy.isDetected(detected));
+  if (matched.length === 0) {
+    return { kind: 'none' };
+  }
+  if (matched.length > 1) {
+    return { kind: 'conflict', strategies: matched };
+  }
+  return { kind: 'single', strategy: matched[0] };
+}
+
+function hasSingleAuthPersistenceStrategy(detected) {
+  return resolveAuthPersistenceStrategy(detected).kind === 'single';
+}
+
+function getAuthPersistenceDescription(detected) {
+  const resolved = resolveAuthPersistenceStrategy(detected);
+  if (resolved.kind === 'single') {
+    return [...resolved.strategy.description];
+  }
+  return [
+    'Use the current db-adapter provider strategy to wire refresh-token persistence.',
+    'A supported db-adapter provider must be installed before this integration can apply.',
+  ];
+}
+
+function isAuthPersistencePendingForDetected(rootDir, detected) {
+  const resolved = resolveAuthPersistenceStrategy(detected);
+  if (resolved.kind !== 'single') {
+    return false;
+  }
+  return resolved.strategy.isPending(rootDir);
+}
+
+function applyAuthPersistenceSync({ rootDir, packageRoot, changedFiles }) {
+  const detected = detectModules(rootDir);
+  const resolved = resolveAuthPersistenceStrategy(detected);
+  if (resolved.kind === 'none') {
+    return { applied: false, reason: 'no supported db-adapter provider detected' };
+  }
+  if (resolved.kind === 'conflict') {
+    return { applied: false, reason: 'multiple db-adapter providers detected' };
+  }
+  return resolved.strategy.apply({ rootDir, packageRoot, changedFiles });
+}
+
 function getGroupParticipants(group) {
   return Array.isArray(group.participants) && group.participants.length > 0
     ? group.participants
@@ -153,6 +213,13 @@ function getGroupRelatedModules(group) {
   return Array.isArray(group.relatedModules) && group.relatedModules.length > 0
     ? group.relatedModules
     : getGroupParticipants(group);
+}
+
+function getGroupDescription(group, detected) {
+  if (typeof group.description === 'function') {
+    return group.description(detected);
+  }
+  return Array.isArray(group.description) ? group.description : [];
 }
 
 function syncJwtDbPrisma({ rootDir, packageRoot, changedFiles }) {
@@ -381,7 +448,7 @@ export function syncIntegrations({ targetRoot, packageRoot, groupIds = null }) {
   const detected = detectModules(rootDir);
   const summary = [];
   const available = INTEGRATION_GROUPS.filter(
-    (group) => group.isAvailable(detected) && group.isPending(rootDir),
+    (group) => group.isAvailable(detected) && group.isPending(rootDir, detected),
   );
   const selected = Array.isArray(groupIds)
     ? available.filter((group) => groupIds.includes(group.id))
@@ -391,7 +458,7 @@ export function syncIntegrations({ targetRoot, packageRoot, groupIds = null }) {
     summary.push({
       id: group.id,
       title: group.title,
-      modules: group.modules,
+      modules: getGroupParticipants(group),
       result: group.apply({ rootDir, packageRoot, changedFiles }),
     });
   }
@@ -402,7 +469,7 @@ export function syncIntegrations({ targetRoot, packageRoot, groupIds = null }) {
       id: group.id,
       title: group.title,
       modules: [...getGroupParticipants(group)],
-      description: [...group.description],
+      description: [...getGroupDescription(group, detected)],
     })),
     changedFiles: [...changedFiles].sort().map((filePath) => path.relative(rootDir, filePath)),
   };
@@ -414,7 +481,7 @@ export function scanIntegrations({ targetRoot, relatedModuleId = null }) {
   const available = INTEGRATION_GROUPS.filter(
     (group) =>
       group.isAvailable(detected) &&
-      group.isPending(rootDir) &&
+      group.isPending(rootDir, detected) &&
       (!relatedModuleId || getGroupRelatedModules(group).includes(relatedModuleId)),
   );
   return {
@@ -422,7 +489,7 @@ export function scanIntegrations({ targetRoot, relatedModuleId = null }) {
       id: group.id,
       title: group.title,
       modules: [...getGroupParticipants(group)],
-      description: [...group.description],
+      description: [...getGroupDescription(group, detected)],
     })),
   };
 }

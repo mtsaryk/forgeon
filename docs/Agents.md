@@ -226,6 +226,8 @@ Current integration groups:
 - integration descriptors now separate:
   - semantic participants: `jwt-auth`, `db-adapter`
   - concrete trigger modules: `jwt-auth`, `db-prisma`
+- sync implementation now uses a provider-strategy dispatcher at the `db-adapter` boundary
+- new DB providers should extend the strategy list instead of changing jwt-auth semantics
 - current effect:
   - patch `AppModule` to wire `AUTH_REFRESH_TOKEN_STORE` to `PrismaAuthRefreshTokenStore`
   - add `apps/api/src/auth/prisma-auth-refresh-token.store.ts`
@@ -495,7 +497,7 @@ Documentation follow-up:
    - replace remaining concrete-module prerequisite assumptions
    - extend current metadata usage across all modules
    - standardize capability-based prerequisite handling where module logic is still provider-specific
-9. Generalize the current `db-adapter` auth persistence integration so future DB providers can plug in without changing jwt-auth semantics
+9. Add new auth-persistence provider strategies as future DB adapters are implemented
 
 ## Staged Refactor Plan (Temporary)
 

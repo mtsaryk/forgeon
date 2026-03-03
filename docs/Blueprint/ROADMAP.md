@@ -98,8 +98,8 @@ This is a living plan. Scope and priorities may change.
 - [ ] `jwt-auth` persistence boundary refactor
   - [x] move from `db-prisma` assumption to `db-adapter`
   - [x] keep Prisma as the first provider implementation
-  - [ ] make future DB providers pluggable through the same conceptual boundary
-  - [ ] refactor auth-persistence sync to a provider-strategy dispatcher before `files`
+  - [x] refactor auth-persistence sync to a provider-strategy dispatcher before `files`
+  - [ ] add new DB provider strategies through the same conceptual boundary as new DB modules are implemented
 
 - [ ] `testing baseline`
   - [ ] unit + e2e presets
