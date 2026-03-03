@@ -1261,6 +1261,48 @@ describe('addModule', () => {
     }
   });
 
+  it('scans auth persistence as db-adapter participant while remaining triggerable from db-prisma install order', () => {
+    const targetRoot = mkTmp('forgeon-module-jwt-db-scan-');
+    const projectRoot = path.join(targetRoot, 'demo-jwt-db-scan');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-jwt-db-scan',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'jwt-auth',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'db-prisma',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const scan = scanIntegrations({
+        targetRoot: projectRoot,
+        relatedModuleId: 'db-prisma',
+      });
+      const persistenceGroup = scan.groups.find((group) => group.id === 'auth-persistence');
+
+      assert.ok(persistenceGroup);
+      assert.deepEqual(persistenceGroup.modules, ['jwt-auth', 'db-adapter']);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
   it('applies logger then jwt-auth on db/i18n-disabled scaffold without breaking health controller syntax', () => {
     const targetRoot = mkTmp('forgeon-module-jwt-nodb-noi18n-');
     const projectRoot = path.join(targetRoot, 'demo-jwt-nodb-noi18n');

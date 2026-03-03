@@ -299,7 +299,7 @@ function run() {
   } else {
     summary.push({
       feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
-      result: { applied: false, reason: 'required modules are not both installed' },
+      result: { applied: false, reason: 'required components are not both available' },
     });
   }
 
@@ -311,7 +311,7 @@ function run() {
   } else {
     summary.push({
       feature: 'jwt-auth + rbac',
-      result: { applied: false, reason: 'required modules are not both installed' },
+      result: { applied: false, reason: 'required components are not both available' },
     });
   }
 

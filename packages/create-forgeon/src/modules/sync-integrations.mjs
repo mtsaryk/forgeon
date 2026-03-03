@@ -95,7 +95,8 @@ const INTEGRATION_GROUPS = [
   {
     id: 'auth-persistence',
     title: 'Auth Persistence Integration',
-    modules: ['jwt-auth', 'db-prisma'],
+    participants: ['jwt-auth', 'db-adapter'],
+    relatedModules: ['jwt-auth', 'db-prisma'],
     description: [
       'Patch AppModule to wire AUTH_REFRESH_TOKEN_STORE to the current db-adapter implementation (today: PrismaAuthRefreshTokenStore)',
       'Add apps/api/src/auth/prisma-auth-refresh-token.store.ts',
@@ -109,7 +110,8 @@ const INTEGRATION_GROUPS = [
   {
     id: 'auth-rbac-claims',
     title: 'Auth Claims Integration',
-    modules: ['jwt-auth', 'rbac'],
+    participants: ['jwt-auth', 'rbac'],
+    relatedModules: ['jwt-auth', 'rbac'],
     description: [
       'Extend AuthUser with optional permissions in @forgeon/auth-contracts',
       'Add demo RBAC claims to jwt-auth login and token payloads',
@@ -137,6 +139,20 @@ function detectModules(rootDir) {
       fs.existsSync(path.join(rootDir, 'packages', 'db-prisma', 'package.json')) ||
       appModuleText.includes("from '@forgeon/db-prisma'"),
   };
+}
+
+function getGroupParticipants(group) {
+  return Array.isArray(group.participants) && group.participants.length > 0
+    ? group.participants
+    : Array.isArray(group.modules)
+      ? group.modules
+      : [];
+}
+
+function getGroupRelatedModules(group) {
+  return Array.isArray(group.relatedModules) && group.relatedModules.length > 0
+    ? group.relatedModules
+    : getGroupParticipants(group);
 }
 
 function syncJwtDbPrisma({ rootDir, packageRoot, changedFiles }) {
@@ -385,7 +401,7 @@ export function syncIntegrations({ targetRoot, packageRoot, groupIds = null }) {
     availableGroups: available.map((group) => ({
       id: group.id,
       title: group.title,
-      modules: [...group.modules],
+      modules: [...getGroupParticipants(group)],
       description: [...group.description],
     })),
     changedFiles: [...changedFiles].sort().map((filePath) => path.relative(rootDir, filePath)),
@@ -399,13 +415,13 @@ export function scanIntegrations({ targetRoot, relatedModuleId = null }) {
     (group) =>
       group.isAvailable(detected) &&
       group.isPending(rootDir) &&
-      (!relatedModuleId || group.modules.includes(relatedModuleId)),
+      (!relatedModuleId || getGroupRelatedModules(group).includes(relatedModuleId)),
   );
   return {
     groups: available.map((group) => ({
       id: group.id,
       title: group.title,
-      modules: [...group.modules],
+      modules: [...getGroupParticipants(group)],
       description: [...group.description],
     })),
   };

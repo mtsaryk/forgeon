@@ -223,6 +223,9 @@ Current integration groups:
 1. `auth-persistence`
 - conceptual boundary: `jwt-auth` + `db-adapter`
 - current concrete provider: `db-prisma`
+- integration descriptors now separate:
+  - semantic participants: `jwt-auth`, `db-adapter`
+  - concrete trigger modules: `jwt-auth`, `db-prisma`
 - current effect:
   - patch `AppModule` to wire `AUTH_REFRESH_TOKEN_STORE` to `PrismaAuthRefreshTokenStore`
   - add `apps/api/src/auth/prisma-auth-refresh-token.store.ts`
@@ -524,7 +527,7 @@ Remove or collapse this section after the refactor series is complete.
 7. [x] `rate-limit`
 - normalize metadata, docs, and probe behavior under the same doctrine
 
-8. [ ] integration-layer cleanup
+8. [x] integration-layer cleanup
 - unify integration descriptors, warning output, and shared install behavior
 
 ## Internal Detail Docs
