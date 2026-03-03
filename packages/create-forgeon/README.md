@@ -22,6 +22,7 @@ Project name stays text input; fixed-choice prompts use arrow-key selection (`Up
 npx create-forgeon@latest add --list
 npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
+npx create-forgeon@latest add files --with-required --provider db-adapter=db-prisma
 ```
 
 ```bash
@@ -38,3 +39,6 @@ pnpm forgeon:sync-integrations
 - `add jwt-auth` is implemented and auto-detects DB adapter support for refresh-token persistence.
 - Integration sync is bundled by default and runs after `add` commands (best-effort).
 - Module notes are written under `modules/<module-id>/README.md`.
+- Hard prerequisites are explicit:
+  - TTY mode prompts for provider resolution and install plan confirmation
+  - non-TTY mode can use `--with-required` plus `--provider <capability>=<module>`

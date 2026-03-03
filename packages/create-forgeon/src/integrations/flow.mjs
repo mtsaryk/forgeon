@@ -116,3 +116,28 @@ export function printModuleAdded(moduleId, docsPath) {
   console.log(colorize('green', `✔ Module added: ${moduleId}`));
   console.log(`- readme: ${docsPath}`);
 }
+
+export function printOptionalIntegrationsWarning(integrations) {
+  if (!Array.isArray(integrations) || integrations.length === 0) {
+    return;
+  }
+
+  for (const integration of integrations) {
+    console.log(`\n${colorize('yellow', 'Warning: optional integration available')}`);
+    console.log(`- ${integration.title}`);
+    console.log('Modules:');
+    for (const moduleId of integration.modules ?? []) {
+      console.log(`- ${colorize('cyan', moduleId)}`);
+    }
+    console.log('This enables:');
+    for (const line of integration.description ?? []) {
+      console.log(`- ${line}`);
+    }
+    if (Array.isArray(integration.followUpCommands) && integration.followUpCommands.length > 0) {
+      console.log('Apply later:');
+      for (const command of integration.followUpCommands) {
+        console.log(`- ${command}`);
+      }
+    }
+  }
+}

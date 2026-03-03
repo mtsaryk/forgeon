@@ -6,11 +6,15 @@ Usage:
 
 Options:
   --project <path>   Target project path (default: current directory)
+  --with-required    Allow recursive installation of hard prerequisites
+  --provider <capability>=<module>
+                     Explicit provider mapping for non-interactive dependency resolution
   --list             List available modules
   -h, --help         Show this help
 
 Note:
-  Pair integrations are explicit.
+  Hard prerequisites are resolved explicitly.
+  Pair integrations remain explicit follow-up actions.
   Run "pnpm forgeon:sync-integrations" in the target project after add-module steps.
 `);
 }

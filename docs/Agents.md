@@ -189,6 +189,17 @@ Accepted rules:
 - silent auto-install is forbidden
 - optional integrations never block installation and must be presented as explicit follow-up opportunities
 
+Current implementation status:
+
+- `create-forgeon add` already supports:
+  - `--with-required`
+  - `--provider <capability>=<module>`
+- module metadata now supports:
+  - `provides`
+  - `requires`
+  - `optionalIntegrations`
+- existing modules still need a follow-up pass to migrate provider-specific assumptions to capability-first rules where applicable
+
 ## Integration Sync Strategy
 
 Cross-module patching belongs to sync rules, not to individual module installers.
@@ -472,9 +483,9 @@ Documentation follow-up:
 6. Keep generated-project documentation README-driven (`README.md` + `modules/<module-id>/README.md`)
 7. Add the future project-scoped agent context file once its format is defined
 8. Refactor existing modules to the capability-driven dependency doctrine:
-   - introduce capability metadata (`provides`, `requires`, `optionalIntegrations`)
-   - replace concrete-module prerequisite assumptions
-   - retrofit non-TTY dependency flags
+   - replace remaining concrete-module prerequisite assumptions
+   - extend current metadata usage across all modules
+   - standardize capability-based prerequisite handling where module logic is still provider-specific
 9. Refactor `jwt-auth` persistence assumptions from `db-prisma` to `db-adapter`
 
 ## Internal Detail Docs

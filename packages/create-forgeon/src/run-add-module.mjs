@@ -3,9 +3,15 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { printAddHelp } from './cli/add-help.mjs';
 import { parseAddCliArgs } from './cli/add-options.mjs';
+import { promptSelect } from './cli/prompt-select.mjs';
 import { addModule } from './modules/executor.mjs';
+import { getPendingOptionalIntegrations, resolveModuleInstallPlan } from './modules/dependencies.mjs';
 import { listModulePresets } from './modules/registry.mjs';
-import { printModuleAdded, runIntegrationFlow } from './integrations/flow.mjs';
+import {
+  printModuleAdded,
+  printOptionalIntegrationsWarning,
+  runIntegrationFlow,
+} from './integrations/flow.mjs';
 import { writeJson } from './utils/fs.mjs';
 
 function printModuleList() {
@@ -114,6 +120,38 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
   writeJson(packagePath, packageJson);
 }
 
+function printInstallPlan(moduleSequence) {
+  if (!Array.isArray(moduleSequence) || moduleSequence.length === 0) {
+    return;
+  }
+
+  console.log('Install plan:');
+  moduleSequence.forEach((moduleId, index) => {
+    console.log(`${index + 1}. ${moduleId}`);
+  });
+}
+
+async function confirmInstallPlan(moduleSequence, requestedModuleId) {
+  if (moduleSequence.length <= 1) {
+    return true;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return true;
+  }
+
+  printInstallPlan(moduleSequence);
+  const picked = await promptSelect({
+    message: `Apply now for "${requestedModuleId}"?`,
+    defaultValue: 'cancel',
+    choices: [
+      { label: 'Yes, apply install plan', value: 'apply' },
+      { label: 'Cancel', value: 'cancel' },
+    ],
+  });
+  return picked === 'apply';
+}
+
 export async function runAddModule(argv = process.argv.slice(2)) {
   const options = parseAddCliArgs(argv);
 
@@ -135,19 +173,45 @@ export async function runAddModule(argv = process.argv.slice(2)) {
   const packageRoot = path.resolve(srcDir, '..');
   const targetRoot = path.resolve(process.cwd(), options.project);
   const dependencyManifestStateBefore = collectDependencyManifestState(targetRoot);
-
-  const result = addModule({
+  const plan = await resolveModuleInstallPlan({
     moduleId: options.moduleId,
     targetRoot,
-    packageRoot,
+    withRequired: options.withRequired,
+    providerSelections: options.providers,
   });
+
+  if (plan.cancelled) {
+    console.log('Installation cancelled.');
+    return;
+  }
+
+  const confirmed = await confirmInstallPlan(plan.moduleSequence, options.moduleId);
+  if (!confirmed) {
+    console.log('Installation cancelled.');
+    return;
+  }
+
+  for (const moduleId of plan.moduleSequence) {
+    const currentResult = addModule({
+      moduleId,
+      targetRoot,
+      packageRoot,
+    });
+    printModuleAdded(currentResult.preset.id, currentResult.docsPath);
+  }
+
   ensureSyncTooling({ packageRoot, targetRoot });
-  printModuleAdded(result.preset.id, result.docsPath);
   await runIntegrationFlow({
     targetRoot,
     packageRoot,
-    relatedModuleId: result.preset.id,
+    relatedModuleId: options.moduleId,
   });
+
+  const pendingOptionalIntegrations = getPendingOptionalIntegrations({
+    moduleId: options.moduleId,
+    targetRoot,
+  });
+  printOptionalIntegrationsWarning(pendingOptionalIntegrations);
 
   const dependencyManifestStateAfter = collectDependencyManifestState(targetRoot);
   const changedDependencyManifestPaths = getChangedDependencyManifestPaths(

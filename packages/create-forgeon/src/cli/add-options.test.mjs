@@ -21,4 +21,20 @@ describe('parseAddCliArgs', () => {
     assert.equal(options.moduleId, 'queue');
     assert.equal(options.project, './my-app');
   });
+
+  it('parses dependency resolution flags', () => {
+    const options = parseAddCliArgs([
+      'files',
+      '--with-required',
+      '--provider',
+      'db-adapter=db-prisma',
+      '--provider=queue-adapter=queue',
+    ]);
+    assert.equal(options.moduleId, 'files');
+    assert.equal(options.withRequired, true);
+    assert.deepEqual(options.providers, {
+      'db-adapter': 'db-prisma',
+      'queue-adapter': 'queue',
+    });
+  });
 });

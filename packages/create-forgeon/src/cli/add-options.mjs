@@ -5,6 +5,8 @@ export function parseAddCliArgs(argv) {
     project: '.',
     list: false,
     help: false,
+    withRequired: false,
+    providers: {},
   };
   const positional = [];
 
@@ -19,6 +21,40 @@ export function parseAddCliArgs(argv) {
 
     if (arg === '--list') {
       options.list = true;
+      continue;
+    }
+
+    if (arg === '--with-required') {
+      options.withRequired = true;
+      continue;
+    }
+
+    if (arg.startsWith('--provider=')) {
+      const raw = arg.slice('--provider='.length);
+      const separatorIndex = raw.indexOf('=');
+      if (separatorIndex > 0) {
+        const capabilityId = raw.slice(0, separatorIndex).trim();
+        const moduleId = raw.slice(separatorIndex + 1).trim();
+        if (capabilityId && moduleId) {
+          options.providers[capabilityId] = moduleId;
+        }
+      }
+      continue;
+    }
+
+    if (arg === '--provider') {
+      const nextValue = args[i + 1];
+      if (nextValue && !nextValue.startsWith('-')) {
+        const separatorIndex = nextValue.indexOf('=');
+        if (separatorIndex > 0) {
+          const capabilityId = nextValue.slice(0, separatorIndex).trim();
+          const moduleId = nextValue.slice(separatorIndex + 1).trim();
+          if (capabilityId && moduleId) {
+            options.providers[capabilityId] = moduleId;
+          }
+        }
+        i += 1;
+      }
       continue;
     }
 
