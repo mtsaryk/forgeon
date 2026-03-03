@@ -572,10 +572,9 @@ describe('addModule', () => {
 
       const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
       assert.match(mainTs, /ForgeonLoggerService/);
-      assert.match(mainTs, /ForgeonHttpLoggingInterceptor/);
       assert.match(mainTs, /bufferLogs: true/);
       assert.match(mainTs, /app\.useLogger\(app\.get\(ForgeonLoggerService\)\);/);
-      assert.match(mainTs, /app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);/);
+      assert.doesNotMatch(mainTs, /useGlobalInterceptors/);
 
       const apiDockerfile = fs.readFileSync(
         path.join(projectRoot, 'apps', 'api', 'Dockerfile'),
@@ -590,6 +589,13 @@ describe('addModule', () => {
         'utf8',
       );
       assert.match(loggerTsconfig, /"extends": "\.\.\/\.\.\/tsconfig\.base\.node\.json"/);
+
+      const loggerModule = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'logger', 'src', 'forgeon-logger.module.ts'),
+        'utf8',
+      );
+      assert.match(loggerModule, /ForgeonHttpLoggingMiddleware/);
+      assert.match(loggerModule, /consumer\.apply\(RequestIdMiddleware, ForgeonHttpLoggingMiddleware\)\.forRoutes\('\*'\);/);
 
       const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
       assert.match(apiEnv, /LOGGER_LEVEL=log/);
@@ -957,7 +963,7 @@ describe('addModule', () => {
 
       const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
       assert.match(mainTs, /ForgeonLoggerService/);
-      assert.match(mainTs, /ForgeonHttpLoggingInterceptor/);
+      assert.doesNotMatch(mainTs, /ForgeonHttpLoggingInterceptor/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -1058,7 +1064,7 @@ describe('addModule', () => {
       const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
       assert.match(mainTs, /setupSwagger\(app,\s*swaggerConfigService\)/);
       assert.match(mainTs, /app\.useLogger\(app\.get\(ForgeonLoggerService\)\);/);
-      assert.match(mainTs, /app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);/);
+      assert.doesNotMatch(mainTs, /useGlobalInterceptors/);
 
       const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
       assert.match(apiPackage, /@forgeon\/swagger/);

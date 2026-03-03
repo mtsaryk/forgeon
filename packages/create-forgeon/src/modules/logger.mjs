@@ -44,10 +44,14 @@ function patchMain(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = content.replace(
+    "import { ForgeonHttpLoggingInterceptor, ForgeonLoggerService } from '@forgeon/logger';",
+    "import { ForgeonLoggerService } from '@forgeon/logger';",
+  );
   content = ensureLineBefore(
     content,
     "import { NestFactory } from '@nestjs/core';",
-    "import { ForgeonHttpLoggingInterceptor, ForgeonLoggerService } from '@forgeon/logger';",
+    "import { ForgeonLoggerService } from '@forgeon/logger';",
   );
 
   content = content.replace(
@@ -55,12 +59,16 @@ function patchMain(targetRoot) {
     'const app = await NestFactory.create(AppModule, { bufferLogs: true });',
   );
 
+  content = content.replace(
+    /\n\s*app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);\s*/g,
+    '\n',
+  );
+
   if (!content.includes('app.useLogger(app.get(ForgeonLoggerService));')) {
     content = content.replace(
       '  const coreConfigService = app.get(CoreConfigService);',
       `  const coreConfigService = app.get(CoreConfigService);
-  app.useLogger(app.get(ForgeonLoggerService));
-  app.useGlobalInterceptors(app.get(ForgeonHttpLoggingInterceptor));`,
+  app.useLogger(app.get(ForgeonLoggerService));`,
     );
   }
 
@@ -179,6 +187,7 @@ function patchReadme(targetRoot) {
 The logger add-module provides:
 - request id middleware (default header: \`x-request-id\`)
 - HTTP access logs with method/path/status/duration/ip/requestId
+- HTTP access logs are emitted from middleware, so requests rejected by guards (for example 429 from rate-limit) are still logged
 - Nest logger integration via \`app.useLogger(...)\`
 
 It installs independently and intentionally does not add a dedicated API/web probe.
