@@ -247,13 +247,14 @@ const MODULE_PRESETS = {
     id: 'queue',
     label: 'Queue Worker',
     category: 'background-jobs',
-    implemented: false,
-    description: 'Queue processing preset (BullMQ-style app wiring).',
+    implemented: true,
+    description:
+      'Queue foundation module with Redis-backed BullMQ runtime, env config, Docker Redis service wiring, and queue health probe.',
     detectionPaths: ['packages/queue/package.json'],
     provides: ['queue-runtime'],
     requires: [],
     optionalIntegrations: [],
-    docFragments: ['00_title', '10_overview', '20_scope', '90_status_planned'],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
 };
 

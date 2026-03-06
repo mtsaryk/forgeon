@@ -381,9 +381,17 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
   - probe:
     - `GET /api/health/files-image`
 
-Planned but not implemented:
-
 - `queue`
+  - package: `@forgeon/queue`
+  - Redis-backed queue foundation using BullMQ
+  - probe:
+    - `GET /api/health/queue`
+  - env keys:
+    - `QUEUE_ENABLED`
+    - `QUEUE_REDIS_URL`
+    - `QUEUE_PREFIX`
+    - `QUEUE_DEFAULT_ATTEMPTS`
+    - `QUEUE_DEFAULT_BACKOFF_MS`
 
 ## Current Auth and Access Decisions
 
@@ -414,9 +422,19 @@ Known deferred idea:
 
 - Docker is part of the canonical scaffold
 - `db-prisma` owns DB service wiring in `infra/docker/compose.yml`
+- `queue` owns Redis service wiring in `infra/docker/compose.yml`
 - API container runs Prisma migrations on startup, not in `postinstall`
 - root `postinstall` created by `db-prisma` runs Prisma client generation after `pnpm install`
 - if a module is added and dependency manifests changed, run `pnpm install` before `pnpm dev` or `pnpm docker:up`
+
+## Queue and Redis Rationale
+
+- Redis is used as the queue broker because it is simple to run in local/dev Docker and is the canonical backend for BullMQ.
+- Queue runtime state (job payload, retries, delay/backoff bookkeeping) is externalized from API process memory, so API restarts do not erase queued work.
+- This stage intentionally ships queue foundation only:
+  - producer/runtime wiring
+  - Redis connectivity/probe
+  - no worker scheduler orchestration yet (deferred to scheduler/worker modules).
 
 ## Files Module Family (Accepted Design)
 
@@ -582,7 +600,6 @@ Immediate next engineering targets:
    - add `variant` query support on download route
    - implement sync-first `preview` variant path for `files-image`
 5. After files-family runtime baseline, continue with:
-   - `queue`
    - testing baseline
    - CI quality gates
    - cache

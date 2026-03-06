@@ -86,6 +86,52 @@ function assertRateLimitWiring(projectRoot) {
   assert.match(readme, /no optional integration sync is required/i);
 }
 
+function assertQueueWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /queueConfig/);
+  assert.match(appModule, /queueEnvSchema/);
+  assert.match(appModule, /ForgeonQueueModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/queue/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/queue build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/queue\/package\.json packages\/queue\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/queue packages\/queue/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/queue build/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /QueueService/);
+  assert.match(healthController, /@Get\('queue'\)/);
+  assert.match(healthController, /queueService\.getProbeStatus/);
+
+  const webApp = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(webApp, /Check queue health/);
+  assert.match(webApp, /Queue probe response/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /QUEUE_ENABLED=true/);
+  assert.match(apiEnv, /QUEUE_REDIS_URL=redis:\/\/localhost:6379/);
+  assert.match(apiEnv, /QUEUE_DEFAULT_ATTEMPTS=3/);
+  assert.match(apiEnv, /QUEUE_DEFAULT_BACKOFF_MS=1000/);
+
+  const dockerEnv = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', '.env.example'), 'utf8');
+  assert.match(dockerEnv, /QUEUE_REDIS_URL=redis:\/\/redis:6379/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /^\s{2}redis:\s*$/m);
+  assert.match(compose, /QUEUE_ENABLED: \$\{QUEUE_ENABLED\}/);
+  assert.match(compose, /depends_on:\n\s+redis:\n\s+condition: service_healthy/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Queue Module/);
+  assert.match(readme, /runtime baseline backed by Redis/i);
+}
+
 function assertRbacWiring(projectRoot) {
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /ForgeonRbacModule/);
@@ -621,25 +667,41 @@ describe('addModule', () => {
   const modulesDir = path.dirname(fileURLToPath(import.meta.url));
   const packageRoot = path.resolve(modulesDir, '..', '..');
 
-  it('creates module docs note for planned module', () => {
-    const targetRoot = mkTmp('forgeon-module-');
+  it('applies queue module on top of scaffold without db and i18n', () => {
+    const targetRoot = mkTmp('forgeon-module-queue-');
+    const projectRoot = path.join(targetRoot, 'demo-queue');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
     try {
-      createMinimalForgeonProject(targetRoot);
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-queue',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
       const result = addModule({
         moduleId: 'queue',
-        targetRoot,
+        targetRoot: projectRoot,
         packageRoot,
       });
 
-      assert.equal(result.applied, false);
-      assert.match(result.message, /planned/);
+      assert.equal(result.applied, true);
+      assert.match(result.message, /applied/);
       assert.equal(fs.existsSync(result.docsPath), true);
       assert.match(result.docsPath, /modules[\\/].+[\\/]README\.md$/);
-      assert.equal(fs.existsSync(path.join(targetRoot, 'modules', 'README.md')), true);
+      assert.equal(fs.existsSync(path.join(projectRoot, 'modules', 'README.md')), true);
+
+      assertQueueWiring(projectRoot);
 
       const note = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(note, /Queue Worker/);
-      assert.match(note, /Status: planned/);
+      assert.match(note, /Status: implemented/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

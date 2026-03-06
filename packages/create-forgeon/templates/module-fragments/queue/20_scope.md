@@ -1,7 +1,8 @@
-## Scope (Planned)
+## Scope
 
-Planned implementation target:
+Current implementation includes:
 
-1. Add queue package preset (worker + producer abstractions).
-2. Wire module imports and config in `apps/api`.
-3. Document runtime and deployment notes.
+1. Queue runtime package preset (`@forgeon/queue`) with Redis-backed BullMQ queue service.
+2. API wiring in `AppModule` (config loader + env schema + queue module import).
+3. Queue probe endpoint (`GET /api/health/queue`) and web probe button wiring.
+4. Docker Compose Redis service + API queue env wiring.

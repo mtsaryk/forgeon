@@ -61,9 +61,9 @@ This is a living plan. Scope and priorities may change.
   - [x] backend-only runtime package (`@forgeon/rbac`)
   - [x] integration with jwt-auth demo claims via pair sync
 
-- [ ] `redis/queue foundation`
-  - [ ] base Redis config/service
-  - [ ] queue baseline (BullMQ or equivalent)
+- [~] `redis/queue foundation`
+  - [x] base Redis config/service
+  - [x] queue baseline (BullMQ or equivalent)
   - [ ] retry and dead-letter conventions
 
 - [x] `rate-limit`

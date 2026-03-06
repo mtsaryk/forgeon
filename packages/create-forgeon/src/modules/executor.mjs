@@ -14,6 +14,7 @@ import { applyJwtAuthModule } from './jwt-auth.mjs';
 import { applyLoggerModule } from './logger.mjs';
 import { applyRateLimitModule } from './rate-limit.mjs';
 import { applyRbacModule } from './rbac.mjs';
+import { applyQueueModule } from './queue.mjs';
 import { applySwaggerModule } from './swagger.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
@@ -43,6 +44,7 @@ const MODULE_APPLIERS = {
   i18n: applyI18nModule,
   'jwt-auth': applyJwtAuthModule,
   logger: applyLoggerModule,
+  queue: applyQueueModule,
   'rate-limit': applyRateLimitModule,
   rbac: applyRbacModule,
   swagger: applySwaggerModule,
