@@ -3,6 +3,7 @@
 Current stage:
 - runtime local-storage flow is available
 - Prisma `FileRecord` and `FileVariant` schema + migrations are included
+- Prisma `FileBlob` model enables dedup for original uploads
 - MIME and max-size validation are enforced via files env config
 - health probe uses create+cleanup flow to avoid storage growth
 - `preview` variant generation stays optional and is enabled by `files-image`

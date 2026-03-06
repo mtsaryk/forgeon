@@ -122,25 +122,28 @@ function patchCompose(targetRoot) {
   }
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
-  if (!content.includes('FILES_S3_BUCKET: ${FILES_S3_BUCKET}')) {
-    const anchors = [
-      /^(\s+FILES_LOCAL_ROOT:.*)$/m,
-      /^(\s+FILES_PUBLIC_BASE_PATH:.*)$/m,
-      /^(\s+FILES_STORAGE_DRIVER:.*)$/m,
-      /^(\s+FILES_ENABLED:.*)$/m,
-      /^(\s+API_PREFIX:.*)$/m,
-    ];
-    const anchorPattern = anchors.find((pattern) => pattern.test(content)) ?? anchors.at(-1);
-    content = content.replace(
-      anchorPattern,
-      `$1
-      FILES_S3_BUCKET: \${FILES_S3_BUCKET}
-      FILES_S3_REGION: \${FILES_S3_REGION}
-      FILES_S3_ENDPOINT: \${FILES_S3_ENDPOINT}
-      FILES_S3_ACCESS_KEY_ID: \${FILES_S3_ACCESS_KEY_ID}
-      FILES_S3_SECRET_ACCESS_KEY: \${FILES_S3_SECRET_ACCESS_KEY}
-      FILES_S3_FORCE_PATH_STYLE: \${FILES_S3_FORCE_PATH_STYLE}`,
-    );
+  const anchors = [
+    '      FILES_LOCAL_ROOT: ${FILES_LOCAL_ROOT}',
+    '      FILES_PUBLIC_BASE_PATH: ${FILES_PUBLIC_BASE_PATH}',
+    '      FILES_STORAGE_DRIVER: ${FILES_STORAGE_DRIVER}',
+    '      FILES_ENABLED: ${FILES_ENABLED}',
+    '      API_PREFIX: ${API_PREFIX}',
+  ];
+  const initialAnchor = anchors.find((line) => content.includes(line)) ?? anchors.at(-1);
+  const envLines = [
+    '      FILES_S3_PROVIDER_PRESET: ${FILES_S3_PROVIDER_PRESET}',
+    '      FILES_S3_BUCKET: ${FILES_S3_BUCKET}',
+    '      FILES_S3_REGION: ${FILES_S3_REGION}',
+    '      FILES_S3_ENDPOINT: ${FILES_S3_ENDPOINT}',
+    '      FILES_S3_ACCESS_KEY_ID: ${FILES_S3_ACCESS_KEY_ID}',
+    '      FILES_S3_SECRET_ACCESS_KEY: ${FILES_S3_SECRET_ACCESS_KEY}',
+    '      FILES_S3_FORCE_PATH_STYLE: ${FILES_S3_FORCE_PATH_STYLE}',
+    '      FILES_S3_MAX_ATTEMPTS: ${FILES_S3_MAX_ATTEMPTS}',
+  ];
+  let previous = initialAnchor;
+  for (const line of envLines) {
+    content = ensureLineAfter(content, previous, line);
+    previous = line;
   }
 
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
@@ -169,12 +172,20 @@ It supports runtime storage for:
 - other S3-compatible endpoints
 
 Configuration:
+- \`FILES_S3_PROVIDER_PRESET\` (\`minio | r2 | aws | custom\`)
 - \`FILES_S3_BUCKET\`
 - \`FILES_S3_REGION\`
 - \`FILES_S3_ENDPOINT\`
 - \`FILES_S3_ACCESS_KEY_ID\`
 - \`FILES_S3_SECRET_ACCESS_KEY\`
 - \`FILES_S3_FORCE_PATH_STYLE\`
+- \`FILES_S3_MAX_ATTEMPTS\`
+
+Preset defaults:
+- \`minio\`: endpoint \`http://localhost:9000\`, region \`auto\`, path-style \`true\`
+- \`aws\`: region \`us-east-1\`, endpoint optional, path-style \`false\`
+- \`r2\`: region \`auto\`, endpoint should be set explicitly, path-style \`false\`
+- \`custom\`: region \`auto\`, endpoint should be set explicitly, path-style \`false\`
 
 When added before \`files\`, this module sets \`FILES_STORAGE_DRIVER=s3\` in env examples.`;
 
@@ -226,20 +237,24 @@ export function applyFilesS3Module({ packageRoot, targetRoot }) {
   patchReadme(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
+    'FILES_S3_PROVIDER_PRESET=minio',
     'FILES_S3_BUCKET=forgeon-files',
     'FILES_S3_REGION=auto',
     'FILES_S3_ENDPOINT=http://localhost:9000',
     'FILES_S3_ACCESS_KEY_ID=forgeon',
     'FILES_S3_SECRET_ACCESS_KEY=forgeon-secret',
     'FILES_S3_FORCE_PATH_STYLE=true',
+    'FILES_S3_MAX_ATTEMPTS=3',
   ]);
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
+    'FILES_S3_PROVIDER_PRESET=minio',
     'FILES_S3_BUCKET=forgeon-files',
     'FILES_S3_REGION=auto',
     'FILES_S3_ENDPOINT=http://localhost:9000',
     'FILES_S3_ACCESS_KEY_ID=forgeon',
     'FILES_S3_SECRET_ACCESS_KEY=forgeon-secret',
     'FILES_S3_FORCE_PATH_STYLE=true',
+    'FILES_S3_MAX_ATTEMPTS=3',
   ]);
 
   setEnvValue(path.join(targetRoot, 'apps', 'api', '.env.example'), 'FILES_STORAGE_DRIVER', 's3');

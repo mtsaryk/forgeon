@@ -10,12 +10,16 @@ export class FilesS3ConfigService {
     return this.configService.getOrThrow<FilesS3ConfigValue['bucket']>('filesS3.bucket');
   }
 
+  get providerPreset(): FilesS3ConfigValue['providerPreset'] {
+    return this.configService.getOrThrow<FilesS3ConfigValue['providerPreset']>('filesS3.providerPreset');
+  }
+
   get region(): string {
     return this.configService.getOrThrow<FilesS3ConfigValue['region']>('filesS3.region');
   }
 
-  get endpoint(): string {
-    return this.configService.getOrThrow<FilesS3ConfigValue['endpoint']>('filesS3.endpoint');
+  get endpoint(): string | undefined {
+    return this.configService.get<FilesS3ConfigValue['endpoint']>('filesS3.endpoint');
   }
 
   get accessKeyId(): string {
@@ -32,5 +36,9 @@ export class FilesS3ConfigService {
     return this.configService.getOrThrow<FilesS3ConfigValue['forcePathStyle']>(
       'filesS3.forcePathStyle',
     );
+  }
+
+  get maxAttempts(): number {
+    return this.configService.getOrThrow<FilesS3ConfigValue['maxAttempts']>('filesS3.maxAttempts');
   }
 }

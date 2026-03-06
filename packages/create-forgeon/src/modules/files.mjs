@@ -47,7 +47,7 @@ function patchPrismaSchema(targetRoot) {
 model FileRecord {
   id           String   @id @default(cuid())
   publicId     String   @unique
-  storageKey   String   @unique
+  storageKey   String
   originalName String
   mimeType     String
   size         Int
@@ -68,6 +68,8 @@ model FileRecord {
     content = `${content.trimEnd()}\n\n${model.trim()}\n`;
   }
 
+  content = content.replace(/storageKey\s+String\s+@unique/g, 'storageKey   String');
+
   if (!content.includes('variants     FileVariant[]')) {
     content = content.replace(
       /(model FileRecord \{[\s\S]*?updatedAt\s+DateTime @updatedAt)([\s\S]*?\n\})/m,
@@ -81,8 +83,7 @@ model FileVariant {
   id           String   @id @default(cuid())
   fileId       String
   variantKey   String
-  storageDriver String
-  storageKey   String
+  blobId       String
   mimeType     String
   size         Int
   status       String   @default("ready")
@@ -90,9 +91,42 @@ model FileVariant {
   updatedAt    DateTime @updatedAt
 
   file         FileRecord @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  blob         FileBlob   @relation(fields: [blobId], references: [id], onDelete: Restrict)
 
   @@unique([fileId, variantKey])
+  @@index([blobId])
   @@index([variantKey, status])
+}
+`;
+    content = `${content.trimEnd()}\n\n${model.trim()}\n`;
+  }
+
+  content = content.replace(/(\n\s*variantKey\s+String\s*\n)\s*storageDriver\s+String\s*\n\s*storageKey\s+String\s*\n/m, '$1  blobId       String\n');
+  if (content.includes('model FileVariant {') && !content.includes('blob         FileBlob')) {
+    content = content.replace(
+      /(\n\s*file\s+FileRecord\s+@relation\(fields:\s*\[fileId\],\s*references:\s*\[id\],\s*onDelete:\s*Cascade\)\n)/m,
+      '$1  blob         FileBlob   @relation(fields: [blobId], references: [id], onDelete: Restrict)\n',
+    );
+  }
+  if (content.includes('model FileVariant {') && !content.includes('@@index([blobId])')) {
+    content = content.replace(/(\n\s*@@unique\(\[fileId,\s*variantKey\]\)\n)/m, '$1  @@index([blobId])\n');
+  }
+
+  if (!content.includes('model FileBlob {')) {
+    const model = `
+model FileBlob {
+  id           String   @id @default(cuid())
+  hash         String
+  size         Int
+  mimeType     String
+  storageDriver String
+  storageKey   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  variants     FileVariant[]
+
+  @@unique([hash, size, mimeType, storageDriver])
+  @@index([storageDriver, createdAt])
 }
 `;
     content = `${content.trimEnd()}\n\n${model.trim()}\n`;
@@ -428,6 +462,7 @@ What it currently adds:
 - delete endpoint (\`DELETE /api/files/:publicId\`)
 - Prisma \`FileRecord\` model and migration template (with owner/visibility indexes)
 - Prisma \`FileVariant\` model for \`original\` and optional \`preview\` variants
+- Prisma \`FileBlob\` model for dedup and shared physical content
 - probe endpoints:
   - \`POST /api/health/files\`
   - \`GET /api/health/files-variants\`
@@ -438,6 +473,7 @@ Current limits:
 - strict access control and quotas are provided by separate add-modules (\`files-access\`, \`files-quotas\`)
 - image sanitize pipeline is provided by separate add-module (\`files-image\`)
 - \`preview\` variant is generated only when \`files-image\` is installed
+- dedup is applied to \`original\` uploads by content hash (\`sha256 + size + mime + driver\`)
 - files probe does create+cleanup to avoid leftover storage artifacts
 
 Dependency model:

@@ -159,6 +159,17 @@ function assertFilesWiring(projectRoot) {
   assert.match(filesController, /parseVariant\(variantQuery\)/);
   assert.match(filesController, /@Delete\(':publicId'\)/);
 
+  const filesService = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
+    'utf8',
+  );
+  assert.match(filesService, /getOrCreateBlob/);
+  assert.match(filesService, /cleanupReferencedBlobs/);
+  assert.match(filesService, /isUniqueConstraintError/);
+  assert.match(filesService, /fileBlob\.deleteMany/);
+  assert.match(filesService, /variants:\s*\{[\s\S]*?none:\s*\{[\s\S]*?\}/);
+  assert.match(filesService, /prisma\.fileBlob/);
+
   const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
   assert.match(appTsx, /Check files probe \(create metadata\)/);
   assert.match(appTsx, /Check files variants capability/);
@@ -169,6 +180,9 @@ function assertFilesWiring(projectRoot) {
   assert.match(schema, /model FileRecord \{/);
   assert.match(schema, /variants\s+FileVariant\[\]/);
   assert.match(schema, /model FileVariant \{/);
+  assert.match(schema, /model FileBlob \{/);
+  assert.match(schema, /blobId\s+String/);
+  assert.match(schema, /@@unique\(\[hash,\s*size,\s*mimeType,\s*storageDriver\]\)/);
   assert.match(schema, /@@unique\(\[fileId,\s*variantKey\]\)/);
   assert.match(schema, /publicId\s+String\s+@unique/);
   assert.match(schema, /@@index\(\[ownerType,\s*ownerId,\s*createdAt\]\)/);
@@ -239,8 +253,14 @@ function assertFilesS3Wiring(projectRoot) {
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_STORAGE_DRIVER=s3/);
+  assert.match(apiEnv, /FILES_S3_PROVIDER_PRESET=minio/);
   assert.match(apiEnv, /FILES_S3_BUCKET=forgeon-files/);
   assert.match(apiEnv, /FILES_S3_ENDPOINT=http:\/\/localhost:9000/);
+  assert.match(apiEnv, /FILES_S3_MAX_ATTEMPTS=3/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /FILES_S3_PROVIDER_PRESET: \$\{FILES_S3_PROVIDER_PRESET\}/);
+  assert.match(compose, /FILES_S3_MAX_ATTEMPTS: \$\{FILES_S3_MAX_ATTEMPTS\}/);
 
   const filesS3Package = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files-s3', 'package.json'),

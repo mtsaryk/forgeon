@@ -9,3 +9,9 @@ It is intended for:
 - other S3-compatible endpoints
 
 This module provides runtime S3 storage integration used by `files` when `FILES_STORAGE_DRIVER=s3`.
+
+It includes provider tuning presets:
+- `minio` (default local/dev preset)
+- `aws`
+- `r2`
+- `custom`

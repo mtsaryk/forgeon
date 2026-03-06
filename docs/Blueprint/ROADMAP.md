@@ -77,6 +77,7 @@ This is a living plan. Scope and priorities may change.
     - [x] `files` base config/runtime wiring
     - [x] `files-local` provider foundation
     - [x] `files-s3` provider runtime baseline
+    - [x] `files-s3` provider tuning presets (`minio | r2 | aws | custom`)
   - [x] `files v1` initial runtime delivery
     - [x] DB-backed metadata record
     - [x] upload endpoint + probe flow
@@ -96,7 +97,7 @@ This is a living plan. Scope and priorities may change.
     - [x] lock initial `FileVariant` schema + migration
     - [x] add `variant` route/query semantics
     - [x] implement sync-first variant generation path (`files-image` optional preview)
-    - [ ] harden variant storage/cleanup edge-cases across adapters
+    - [x] harden variant storage/cleanup edge-cases across adapters
   - [ ] see `docs/Blueprint/FILES_DESIGN.md`
   - [ ] see `docs/Blueprint/FILES_V2_PLAN.md`
   - [ ] implement using `docs/Blueprint/DEPENDENCY_DOCTRINE.md`

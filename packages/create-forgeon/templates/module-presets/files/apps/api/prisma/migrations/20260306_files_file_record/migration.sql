@@ -21,9 +21,6 @@ CREATE TABLE "FileRecord" (
 CREATE UNIQUE INDEX "FileRecord_publicId_key" ON "FileRecord"("publicId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "FileRecord_storageKey_key" ON "FileRecord"("storageKey");
-
--- CreateIndex
 CREATE INDEX "FileRecord_ownerType_ownerId_createdAt_idx" ON "FileRecord"("ownerType", "ownerId", "createdAt");
 
 -- CreateIndex

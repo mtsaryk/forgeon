@@ -15,9 +15,18 @@ import { PrismaService } from '@forgeon/db-prisma';
 import { FilesConfigService } from './files-config.service';
 import type { FileRecordDto, FileVariantKey, StoredFileInput } from './files.types';
 
-type StoredObjectRef = {
+type BlobRef = {
+  id: string;
+  hash: string;
+  size: number;
+  mimeType: string;
   storageDriver: string;
   storageKey: string;
+  created: boolean;
+};
+
+type PrismaLikeError = {
+  code?: unknown;
 };
 
 type PreparedStoredFile = {
@@ -29,8 +38,6 @@ type PreparedStoredFile = {
 
 type PersistedVariant = {
   variantKey: FileVariantKey;
-  storageDriver: string;
-  storageKey: string;
   mimeType: string;
   size: number;
   status: string;
@@ -61,24 +68,23 @@ export class FilesService {
     this.validateMimeType(preparedOriginal.mimeType);
     this.validateSize(preparedOriginal.size);
 
-    const storedObjects: StoredObjectRef[] = [];
+    const createdBlobIds: string[] = [];
     let recordId: string | null = null;
 
     try {
-      const originalStorage = await this.store(preparedOriginal.buffer, preparedOriginal.fileName);
-      storedObjects.push({
-        storageDriver: this.filesConfigService.storageDriver,
-        storageKey: originalStorage.storageKey,
-      });
+      const originalBlob = await this.getOrCreateBlob(preparedOriginal, true);
+      if (originalBlob.created) {
+        createdBlobIds.push(originalBlob.id);
+      }
 
       const record = await this.prisma.fileRecord.create({
         data: {
           publicId: this.generatePublicId(),
-          storageKey: originalStorage.storageKey,
+          storageKey: originalBlob.storageKey,
           originalName: input.originalName,
           mimeType: preparedOriginal.mimeType,
           size: preparedOriginal.size,
-          storageDriver: this.filesConfigService.storageDriver,
+          storageDriver: originalBlob.storageDriver,
           ownerType: input.ownerType ?? 'system',
           ownerId: input.ownerId ?? null,
           visibility: input.visibility ?? 'private',
@@ -90,39 +96,35 @@ export class FilesService {
       const persistedVariants: PersistedVariant[] = [
         {
           variantKey: 'original',
-          storageDriver: this.filesConfigService.storageDriver,
-          storageKey: originalStorage.storageKey,
           mimeType: preparedOriginal.mimeType,
           size: preparedOriginal.size,
           status: 'ready',
         },
       ];
+      const persistedVariantBlobIds: string[] = [originalBlob.id];
 
       const previewCandidate = await this.buildPreviewVariant(preparedOriginal, input);
       if (previewCandidate) {
         this.validateMimeType(previewCandidate.mimeType);
         this.validateSize(previewCandidate.size);
-        const previewStorage = await this.store(previewCandidate.buffer, previewCandidate.fileName);
-        storedObjects.push({
-          storageDriver: this.filesConfigService.storageDriver,
-          storageKey: previewStorage.storageKey,
-        });
+        const previewBlob = await this.getOrCreateBlob(previewCandidate, true);
+        if (previewBlob.created) {
+          createdBlobIds.push(previewBlob.id);
+        }
         persistedVariants.push({
           variantKey: 'preview',
-          storageDriver: this.filesConfigService.storageDriver,
-          storageKey: previewStorage.storageKey,
           mimeType: previewCandidate.mimeType,
           size: previewCandidate.size,
           status: 'ready',
         });
+        persistedVariantBlobIds.push(previewBlob.id);
       }
 
       await this.prisma.fileVariant.createMany({
-        data: persistedVariants.map((item) => ({
+        data: persistedVariants.map((item, index) => ({
           fileId: record.id,
           variantKey: item.variantKey,
-          storageDriver: item.storageDriver,
-          storageKey: item.storageKey,
+          blobId: persistedVariantBlobIds[index],
           mimeType: item.mimeType,
           size: item.size,
           status: item.status,
@@ -131,10 +133,10 @@ export class FilesService {
 
       return this.getByPublicId(record.publicId);
     } catch (error) {
-      await this.cleanupStoredObjects(storedObjects);
       if (recordId) {
         await this.prisma.fileRecord.delete({ where: { id: recordId } }).catch(() => undefined);
       }
+      await this.cleanupCreatedBlobs(createdBlobIds);
       throw error;
     }
   }
@@ -157,8 +159,13 @@ export class FilesService {
       include: {
         variants: {
           select: {
-            storageDriver: true,
-            storageKey: true,
+            blobId: true,
+            blob: {
+              select: {
+                storageDriver: true,
+                storageKey: true,
+              },
+            },
           },
         },
       },
@@ -167,22 +174,15 @@ export class FilesService {
       throw new NotFoundException('File not found');
     }
 
-    const storedObjects: StoredObjectRef[] =
-      record.variants.length > 0
-        ? record.variants.map((variant) => ({
-            storageDriver: variant.storageDriver,
-            storageKey: variant.storageKey,
-          }))
-        : [
-            {
-              storageDriver: record.storageDriver,
-              storageKey: record.storageKey,
-            },
-          ];
-    await this.cleanupStoredObjects(storedObjects);
+    const blobIds = record.variants.map((variant) => variant.blobId);
     await this.prisma.fileRecord.delete({
       where: { publicId },
     });
+    await this.cleanupReferencedBlobs(blobIds);
+
+    if (record.variants.length === 0) {
+      await this.deleteStoredContent(record.storageDriver, record.storageKey).catch(() => undefined);
+    }
 
     return { deleted: true };
   }
@@ -235,8 +235,12 @@ export class FilesService {
         variants: {
           select: {
             variantKey: true,
-            storageDriver: true,
-            storageKey: true,
+            blob: {
+              select: {
+                storageDriver: true,
+                storageKey: true,
+              },
+            },
             mimeType: true,
             size: true,
           },
@@ -252,8 +256,10 @@ export class FilesService {
       (variant === 'original'
         ? {
             variantKey: 'original',
-            storageDriver: record.storageDriver,
-            storageKey: record.storageKey,
+            blob: {
+              storageDriver: record.storageDriver,
+              storageKey: record.storageKey,
+            },
             mimeType: record.mimeType,
             size: record.size,
           }
@@ -263,9 +269,9 @@ export class FilesService {
       throw new NotFoundException('File variant not found');
     }
 
-    switch (selectedVariant.storageDriver) {
+    switch (selectedVariant.blob.storageDriver) {
       case 'local': {
-        const absolutePath = path.resolve(process.cwd(), this.resolveLocalRootDir(), selectedVariant.storageKey);
+        const absolutePath = path.resolve(process.cwd(), this.resolveLocalRootDir(), selectedVariant.blob.storageKey);
         if (!fs.existsSync(absolutePath)) {
           throw new NotFoundException('File content not found');
         }
@@ -276,7 +282,7 @@ export class FilesService {
         };
       }
       case 's3': {
-        const stream = await this.openS3(selectedVariant.storageKey);
+        const stream = await this.openS3(selectedVariant.blob.storageKey);
         return {
           stream,
           mimeType: selectedVariant.mimeType,
@@ -339,6 +345,52 @@ export class FilesService {
         return this.storeS3(buffer, fileName);
       default:
         throw new ServiceUnavailableException('Unknown files storage driver');
+    }
+  }
+
+  private async getOrCreateBlob(input: PreparedStoredFile, dedupe: boolean): Promise<BlobRef> {
+    const storageDriver = this.filesConfigService.storageDriver;
+    const hash = this.computeContentHash(input.buffer);
+
+    if (dedupe) {
+      const existing = await this.findExistingBlobRef(hash, input.size, input.mimeType, storageDriver);
+      if (existing) {
+        return existing;
+      }
+    }
+
+    const stored = await this.store(input.buffer, input.fileName);
+    try {
+      const created = await this.prisma.fileBlob.create({
+        data: {
+          hash,
+          size: input.size,
+          mimeType: input.mimeType,
+          storageDriver,
+          storageKey: stored.storageKey,
+        },
+      });
+
+      return {
+        id: created.id,
+        hash: created.hash,
+        size: created.size,
+        mimeType: created.mimeType,
+        storageDriver: created.storageDriver,
+        storageKey: created.storageKey,
+        created: true,
+      };
+    } catch (error) {
+      if (dedupe && this.isUniqueConstraintError(error)) {
+        const existing = await this.findExistingBlobRef(hash, input.size, input.mimeType, storageDriver);
+        if (existing) {
+          await this.deleteStoredContent(storageDriver, stored.storageKey).catch(() => undefined);
+          return existing;
+        }
+      }
+
+      await this.deleteStoredContent(storageDriver, stored.storageKey).catch(() => undefined);
+      throw error;
     }
   }
 
@@ -464,33 +516,45 @@ export class FilesService {
   }
 
   private resolveS3Config(): {
+    providerPreset: 'minio' | 'r2' | 'aws' | 'custom';
     bucket: string;
     region: string;
-    endpoint: string;
+    endpoint?: string;
     accessKeyId: string;
     secretAccessKey: string;
     forcePathStyle: boolean;
+    maxAttempts: number;
   } {
+    const providerPreset =
+      this.configService.get<'minio' | 'r2' | 'aws' | 'custom'>('filesS3.providerPreset') ?? 'minio';
     const bucket = this.configService.get<string>('filesS3.bucket');
     const region = this.configService.get<string>('filesS3.region');
     const endpoint = this.configService.get<string>('filesS3.endpoint');
     const accessKeyId = this.configService.get<string>('filesS3.accessKeyId');
     const secretAccessKey = this.configService.get<string>('filesS3.secretAccessKey');
     const forcePathStyle = this.configService.get<boolean>('filesS3.forcePathStyle');
+    const maxAttempts = this.configService.get<number>('filesS3.maxAttempts') ?? 3;
 
-    if (!bucket || !region || !endpoint || !accessKeyId || !secretAccessKey) {
+    if (!bucket || !region || !accessKeyId || !secretAccessKey) {
       throw new ServiceUnavailableException(
         'files-s3 adapter is not configured. Install/add files-s3 and ensure FILES_S3_* env keys are set.',
       );
     }
+    if (providerPreset !== 'aws' && !endpoint) {
+      throw new ServiceUnavailableException(
+        `files-s3 adapter endpoint is required for provider preset "${providerPreset}".`,
+      );
+    }
 
     return {
+      providerPreset,
       bucket,
       region,
       endpoint,
       accessKeyId,
       secretAccessKey,
       forcePathStyle: forcePathStyle !== false,
+      maxAttempts,
     };
   }
 
@@ -506,8 +570,9 @@ export class FilesService {
     const config = this.resolveS3Config();
     this.s3Client = new S3Client({
       region: config.region,
-      endpoint: config.endpoint,
+      ...(config.endpoint ? { endpoint: config.endpoint } : {}),
       forcePathStyle: config.forcePathStyle,
+      maxAttempts: config.maxAttempts,
       credentials: {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
@@ -539,15 +604,72 @@ export class FilesService {
     return crypto.randomUUID().replace(/-/g, '');
   }
 
-  private async cleanupStoredObjects(storedObjects: StoredObjectRef[]): Promise<void> {
-    const unique = new Map<string, StoredObjectRef>();
-    for (const item of storedObjects) {
-      unique.set(`${item.storageDriver}:${item.storageKey}`, item);
-    }
+  private computeContentHash(buffer: Buffer): string {
+    return crypto.createHash('sha256').update(buffer).digest('hex');
+  }
 
-    for (const item of unique.values()) {
-      await this.deleteStoredContent(item.storageDriver, item.storageKey).catch(() => undefined);
+  private async cleanupCreatedBlobs(blobIds: string[]): Promise<void> {
+    await this.cleanupReferencedBlobs(blobIds);
+  }
+
+  private async cleanupReferencedBlobs(blobIds: string[]): Promise<void> {
+    const uniqueIds = [...new Set(blobIds.filter(Boolean))];
+    for (const blobId of uniqueIds) {
+      const blob = await this.prisma.fileBlob.findUnique({
+        where: { id: blobId },
+      });
+      if (!blob) {
+        continue;
+      }
+
+      const deleted = await this.prisma.fileBlob.deleteMany({
+        where: {
+          id: blob.id,
+          variants: {
+            none: {},
+          },
+        },
+      });
+      if (deleted.count === 0) {
+        continue;
+      }
+      await this.deleteStoredContent(blob.storageDriver, blob.storageKey).catch(() => undefined);
     }
+  }
+
+  private async findExistingBlobRef(
+    hash: string,
+    size: number,
+    mimeType: string,
+    storageDriver: string,
+  ): Promise<BlobRef | null> {
+    const existing = await this.prisma.fileBlob.findFirst({
+      where: {
+        hash,
+        size,
+        mimeType,
+        storageDriver,
+      },
+    });
+    if (!existing) {
+      return null;
+    }
+    return {
+      id: existing.id,
+      hash: existing.hash,
+      size: existing.size,
+      mimeType: existing.mimeType,
+      storageDriver: existing.storageDriver,
+      storageKey: existing.storageKey,
+      created: false,
+    };
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+    return (error as PrismaLikeError).code === 'P2002';
   }
 
   private buildVariantFileName(originalName: string, variant: FileVariantKey, mimeType: string): string {

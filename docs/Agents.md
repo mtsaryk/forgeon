@@ -328,6 +328,10 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
 - `files`
   - package: `@forgeon/files`
   - DB-backed file metadata + upload/download/delete runtime
+  - dedup v1:
+    - `FileBlob` unique key: `hash + size + mimeType + storageDriver`
+    - applies to both `original` and `preview` variants
+    - unique-race hardening prevents orphan storage writes
   - download supports variant selection:
     - `GET /api/files/:publicId/download?variant=original|preview`
   - requires:
@@ -347,6 +351,10 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
   - package: `@forgeon/files-s3`
   - S3-compatible provider for `files-storage-adapter`
   - runtime path in files service is active when `FILES_STORAGE_DRIVER=s3`
+  - provider presets:
+    - `minio` (default), `r2`, `aws`, `custom`
+  - tuning:
+    - `FILES_S3_MAX_ATTEMPTS`
 
 - `files-access`
   - package: `@forgeon/files-access`

@@ -13,6 +13,9 @@ v2.1 baseline is now wired in scaffold/templates:
 - `original` variant is always persisted
 - `preview` generation is optional and currently provided by `files-image`
 - diagnostics probe is available at `GET /api/health/files-variants`
+- dedup v1 is enabled via `FileBlob` (`sha256 + size + mime + driver`) for `original` and `preview`
+- create-flow hardening is in place for blob unique-race (`P2002`) to avoid orphan storage writes
+- cleanup-flow hardening uses DB-first orphan checks (`deleteMany where variants none`) before storage delete
 
 ## Goals
 
