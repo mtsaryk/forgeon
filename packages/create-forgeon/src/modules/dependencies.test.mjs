@@ -55,6 +55,33 @@ const TEST_PRESETS = [
     optionalIntegrations: [],
   },
   {
+    id: 'files-access',
+    label: 'Files Access',
+    implemented: true,
+    detectionPaths: ['packages/files-access/package.json'],
+    provides: ['files-access-runtime'],
+    requires: [{ type: 'capability', id: 'files-runtime' }],
+    optionalIntegrations: [],
+  },
+  {
+    id: 'files-quotas',
+    label: 'Files Quotas',
+    implemented: true,
+    detectionPaths: ['packages/files-quotas/package.json'],
+    provides: ['files-quotas-runtime'],
+    requires: [{ type: 'capability', id: 'files-runtime' }],
+    optionalIntegrations: [],
+  },
+  {
+    id: 'files-image',
+    label: 'Files Image',
+    implemented: true,
+    detectionPaths: ['packages/files-image/package.json'],
+    provides: ['files-image-runtime'],
+    requires: [{ type: 'capability', id: 'files-runtime' }],
+    optionalIntegrations: [],
+  },
+  {
     id: 'jwt-auth',
     label: 'JWT Auth',
     implemented: true,
@@ -157,6 +184,87 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
         'files-storage-adapter': 'files-local',
+      });
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves files-access plan through files-runtime capability chain', async () => {
+    const targetRoot = mkTmp('forgeon-deps-files-access-plan-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'files-access',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        providerSelections: {
+          'files-storage-adapter': 'files-local',
+        },
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'files-local', 'files', 'files-access']);
+      assert.deepEqual(result.selectedProviders, {
+        'db-adapter': 'db-prisma',
+        'files-storage-adapter': 'files-local',
+        'files-runtime': 'files',
+      });
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves files-quotas plan through files-runtime capability chain', async () => {
+    const targetRoot = mkTmp('forgeon-deps-files-quotas-plan-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'files-quotas',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        providerSelections: {
+          'files-storage-adapter': 'files-local',
+        },
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'files-local', 'files', 'files-quotas']);
+      assert.deepEqual(result.selectedProviders, {
+        'db-adapter': 'db-prisma',
+        'files-storage-adapter': 'files-local',
+        'files-runtime': 'files',
+      });
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('resolves files-image plan through files-runtime capability chain', async () => {
+    const targetRoot = mkTmp('forgeon-deps-files-image-plan-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'files-image',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        providerSelections: {
+          'files-storage-adapter': 'files-local',
+        },
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'files-local', 'files', 'files-image']);
+      assert.deepEqual(result.selectedProviders, {
+        'db-adapter': 'db-prisma',
+        'files-storage-adapter': 'files-local',
+        'files-runtime': 'files',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });

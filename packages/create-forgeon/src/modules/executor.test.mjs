@@ -138,6 +138,62 @@ function assertFilesWiring(projectRoot) {
   assert.match(apiEnv, /FILES_ENABLED=true/);
   assert.match(apiEnv, /FILES_STORAGE_DRIVER=local/);
   assert.match(apiEnv, /FILES_PUBLIC_BASE_PATH=\/files/);
+  assert.match(apiEnv, /FILES_MAX_FILE_SIZE_BYTES=10485760/);
+  assert.match(apiEnv, /FILES_ALLOWED_MIME_PREFIXES=image\/,application\/pdf,text\//);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Post\('files'\)/);
+  assert.match(healthController, /@Get\('files-variants'\)/);
+  assert.match(healthController, /filesService\.createProbeRecord/);
+  assert.match(healthController, /filesService\.getVariantsProbeStatus/);
+  assert.match(healthController, /filesService\.deleteByPublicId/);
+
+  const filesController = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
+    'utf8',
+  );
+  assert.match(filesController, /@Query\('variant'\) variantQuery\?: string/);
+  assert.match(filesController, /parseVariant\(variantQuery\)/);
+  assert.match(filesController, /@Delete\(':publicId'\)/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check files probe \(create metadata\)/);
+  assert.match(appTsx, /Check files variants capability/);
+  assert.match(appTsx, /Files probe response/);
+  assert.match(appTsx, /Files variants probe response/);
+
+  const schema = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'prisma', 'schema.prisma'), 'utf8');
+  assert.match(schema, /model FileRecord \{/);
+  assert.match(schema, /variants\s+FileVariant\[\]/);
+  assert.match(schema, /model FileVariant \{/);
+  assert.match(schema, /@@unique\(\[fileId,\s*variantKey\]\)/);
+  assert.match(schema, /publicId\s+String\s+@unique/);
+  assert.match(schema, /@@index\(\[ownerType,\s*ownerId,\s*createdAt\]\)/);
+
+  const migration = path.join(
+    projectRoot,
+    'apps',
+    'api',
+    'prisma',
+    'migrations',
+    '20260306_files_file_record',
+    'migration.sql',
+  );
+  assert.equal(fs.existsSync(migration), true);
+
+  const variantMigration = path.join(
+    projectRoot,
+    'apps',
+    'api',
+    'prisma',
+    'migrations',
+    '20260306_files_file_variant',
+    'migration.sql',
+  );
+  assert.equal(fs.existsSync(variantMigration), true);
 }
 
 function assertFilesLocalWiring(projectRoot) {
@@ -157,6 +213,13 @@ function assertFilesLocalWiring(projectRoot) {
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_LOCAL_ROOT=storage\/uploads/);
+
+  const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
+  assert.match(gitignore, /storage\//);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /files_data:\/app\/storage/);
+  assert.match(compose, /^\s{2}files_data:\s*$/m);
 }
 
 function assertFilesS3Wiring(projectRoot) {
@@ -175,8 +238,198 @@ function assertFilesS3Wiring(projectRoot) {
   assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-s3 build/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_STORAGE_DRIVER=s3/);
   assert.match(apiEnv, /FILES_S3_BUCKET=forgeon-files/);
   assert.match(apiEnv, /FILES_S3_ENDPOINT=http:\/\/localhost:9000/);
+
+  const filesS3Package = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-s3', 'package.json'),
+    'utf8',
+  );
+  assert.match(filesS3Package, /@aws-sdk\/client-s3/);
+}
+
+function assertFilesAccessWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /ForgeonFilesAccessModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files-access/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files-access build/);
+
+  const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
+  assert.match(filesPackage, /@forgeon\/files-access/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(
+    apiDockerfile,
+    /COPY packages\/files-access\/package\.json packages\/files-access\/package\.json/,
+  );
+  assert.match(apiDockerfile, /COPY packages\/files-access packages\/files-access/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-access build/);
+
+  const filesController = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
+    'utf8',
+  );
+  assert.match(filesController, /extractFilesAccessSubject/);
+  assert.match(filesController, /filesAccessService\.assertCanRead/);
+  assert.match(filesController, /filesAccessService\.assertCanDelete/);
+  assert.match(filesController, /@Req\(\) req: any/);
+  assert.match(filesController, /openDownload\(publicId,\s*variant\)/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Get\('files-access'\)/);
+  assert.match(healthController, /extractFilesAccessSubject/);
+  assert.match(healthController, /filesAccessService\.canRead/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check files access/);
+  assert.match(appTsx, /Files access probe response/);
+  assert.match(appTsx, /x-forgeon-user-id/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Files Access Module/);
+  assert.match(readme, /resource-level authorization/i);
+}
+
+function assertFilesQuotasWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /filesQuotasConfig/);
+  assert.match(appModule, /filesQuotasEnvSchema/);
+  assert.match(appModule, /ForgeonFilesQuotasModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files-quotas/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files-quotas build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(
+    apiDockerfile,
+    /COPY packages\/files-quotas\/package\.json packages\/files-quotas\/package\.json/,
+  );
+  assert.match(apiDockerfile, /COPY packages\/files-quotas packages\/files-quotas/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-quotas build/);
+
+  const filesController = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
+    'utf8',
+  );
+  assert.match(filesController, /FilesQuotasService/);
+  assert.match(filesController, /filesQuotasService\.assertUploadAllowed/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Get\('files-quotas'\)/);
+  assert.match(healthController, /filesQuotasService\.getProbeStatus/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check files quotas/);
+  assert.match(appTsx, /Files quotas probe response/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_QUOTAS_ENABLED=true/);
+  assert.match(apiEnv, /FILES_QUOTA_MAX_FILES_PER_OWNER=100/);
+  assert.match(apiEnv, /FILES_QUOTA_MAX_BYTES_PER_OWNER=104857600/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /FILES_QUOTAS_ENABLED: \$\{FILES_QUOTAS_ENABLED\}/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Files Quotas Module/);
+  assert.match(readme, /owner-based limits/i);
+}
+
+function assertFilesImageWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /filesImageConfig/);
+  assert.match(appModule, /filesImageEnvSchema/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files-image/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files-image build/);
+
+  const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
+  assert.match(filesPackage, /@forgeon\/files-image/);
+
+  const filesModule = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'forgeon-files.module.ts'),
+    'utf8',
+  );
+  assert.match(filesModule, /ForgeonFilesImageModule/);
+
+  const filesService = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
+    'utf8',
+  );
+  assert.match(filesService, /FilesImageService/);
+  assert.match(filesService, /filesImageService\.sanitizeForStorage/);
+  assert.match(filesService, /sanitizeForStorage\({/);
+  assert.match(filesService, /auditContext: input\.auditContext/);
+
+  const filesController = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
+    'utf8',
+  );
+  assert.match(filesController, /@Req\(\) req: any/);
+  assert.match(filesController, /requestId:/);
+
+  const filesTypes = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'src', 'files.types.ts'), 'utf8');
+  assert.match(filesTypes, /auditContext\?: \{/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(
+    apiDockerfile,
+    /COPY packages\/files-image\/package\.json packages\/files-image\/package\.json/,
+  );
+  assert.match(apiDockerfile, /COPY packages\/files-image packages\/files-image/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-image build/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /@Get\('files-image'\)/);
+  assert.match(healthController, /filesImageService\.getProbeStatus/);
+
+  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(appTsx, /Check files image sanitize/);
+  assert.match(appTsx, /Files image probe response/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_IMAGE_ENABLED=true/);
+  assert.match(apiEnv, /FILES_IMAGE_STRIP_METADATA=true/);
+  assert.match(apiEnv, /FILES_IMAGE_MAX_WIDTH=4096/);
+  assert.match(apiEnv, /FILES_IMAGE_MAX_HEIGHT=4096/);
+  assert.match(apiEnv, /FILES_IMAGE_MAX_PIXELS=16777216/);
+  assert.match(apiEnv, /FILES_IMAGE_MAX_FRAMES=1/);
+  assert.match(apiEnv, /FILES_IMAGE_PROCESS_TIMEOUT_MS=5000/);
+  assert.match(apiEnv, /FILES_IMAGE_ALLOWED_MIME_TYPES=image\/jpeg,image\/png,image\/webp/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /FILES_IMAGE_ENABLED: \$\{FILES_IMAGE_ENABLED\}/);
+  assert.match(compose, /FILES_IMAGE_STRIP_METADATA: \$\{FILES_IMAGE_STRIP_METADATA\}/);
+  assert.match(compose, /FILES_IMAGE_MAX_WIDTH: \$\{FILES_IMAGE_MAX_WIDTH\}/);
+  assert.match(compose, /FILES_IMAGE_MAX_HEIGHT: \$\{FILES_IMAGE_MAX_HEIGHT\}/);
+  assert.match(compose, /FILES_IMAGE_MAX_PIXELS: \$\{FILES_IMAGE_MAX_PIXELS\}/);
+  assert.match(compose, /FILES_IMAGE_MAX_FRAMES: \$\{FILES_IMAGE_MAX_FRAMES\}/);
+  assert.match(compose, /FILES_IMAGE_PROCESS_TIMEOUT_MS: \$\{FILES_IMAGE_PROCESS_TIMEOUT_MS\}/);
+
+  const filesImagePackage = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-image', 'package.json'),
+    'utf8',
+  );
+  assert.match(filesImagePackage, /"sharp":/);
+  assert.match(filesImagePackage, /"file-type":/);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Files Image Module/);
+  assert.match(readme, /metadata is stripped before storage/i);
 }
 
 function assertJwtAuthWiring(projectRoot, withPrismaStore) {
@@ -840,6 +1093,174 @@ describe('addModule', () => {
       });
       assert.equal(result.applied, true);
       assertFilesS3Wiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-s3 then files and keeps s3 driver default without requiring files-local', () => {
+    const targetRoot = mkTmp('forgeon-module-files-s3-runtime-');
+    const projectRoot = path.join(targetRoot, 'demo-files-s3-runtime');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-s3-runtime',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'files-s3',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+      assert.match(apiEnv, /FILES_STORAGE_DRIVER=s3/);
+
+      const filesService = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
+        'utf8',
+      );
+      assert.match(filesService, /storeS3/);
+      assert.match(filesService, /openS3/);
+      assert.match(filesService, /deleteS3/);
+      assert.match(filesService, /@aws-sdk\/client-s3/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-access after files and wires file route checks and probe UI', () => {
+    const targetRoot = mkTmp('forgeon-module-files-access-');
+    const projectRoot = path.join(targetRoot, 'demo-files-access');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-access',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'files-local',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      const result = addModule({
+        moduleId: 'files-access',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertFilesAccessWiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-quotas after files and wires upload quota checks and probe UI', () => {
+    const targetRoot = mkTmp('forgeon-module-files-quotas-');
+    const projectRoot = path.join(targetRoot, 'demo-files-quotas');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-quotas',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'files-local',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      const result = addModule({
+        moduleId: 'files-quotas',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertFilesQuotasWiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-image after files and wires sanitize pipeline with default metadata stripping', () => {
+    const targetRoot = mkTmp('forgeon-module-files-image-');
+    const projectRoot = path.join(targetRoot, 'demo-files-image');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-image',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'files-local',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      const result = addModule({
+        moduleId: 'files-image',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assertFilesImageWiring(projectRoot);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

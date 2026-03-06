@@ -6,6 +6,7 @@
 - `Blueprint/ROADMAP.md` - implementation roadmap and feature priorities
 - `Blueprint/IDEAS.md` - backlog of future ideas that are intentionally not implemented yet
 - `Blueprint/FILES_DESIGN.md` - internal design plan for the files module family
+- `Blueprint/FILES_V2_PLAN.md` - accepted v2 direction for variants and staged rollout
 - `Blueprint/DEPENDENCY_DOCTRINE.md` - canonical module dependency and capability resolution rules
 - `Blueprint/MODULE_SPEC.md` - fullstack module contract (`contracts/api/web`)
 - `Blueprint/MODULE_CHECKS.md` - required runtime probe hooks for modules

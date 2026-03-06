@@ -72,22 +72,33 @@ This is a living plan. Scope and priorities may change.
   - [x] error code: `TOO_MANY_REQUESTS`
   - [x] reverse-proxy-aware mode (`trust proxy`)
 
-- [ ] `files` (upload + storage)
-  - [~] foundation modules implemented
+- [~] `files` (upload + storage)
+  - [x] foundation modules implemented
     - [x] `files` base config/runtime wiring
     - [x] `files-local` provider foundation
-    - [x] `files-s3` provider foundation
-  - [ ] `files v1` runtime delivery
-    - [ ] DB-backed metadata record
-    - [ ] upload endpoint + probe flow
-    - [ ] MIME/size validation
-    - [ ] local storage runtime implementation
+    - [x] `files-s3` provider runtime baseline
+  - [x] `files v1` initial runtime delivery
+    - [x] DB-backed metadata record
+    - [x] upload endpoint + probe flow
+    - [x] MIME/size validation
+    - [x] local storage runtime implementation
+  - [ ] `files v1` hardening pass
+    - [x] lock initial FileRecord indexes
+    - [x] add probe cleanup flow (create + cleanup)
+    - [x] deliver initial DTO contracts
+    - [ ] lock final long-term FileRecord schema/indexes
   - [ ] future split already accepted:
-    - [x] `files-s3` (foundation)
-    - [ ] `files-access`
-    - [ ] `files-quotas`
-    - [ ] `files-image`
+    - [x] `files-s3` (runtime baseline)
+    - [x] `files-access`
+    - [x] `files-quotas`
+    - [x] `files-image`
+  - [ ] `files v2` variants rollout
+    - [x] lock initial `FileVariant` schema + migration
+    - [x] add `variant` route/query semantics
+    - [x] implement sync-first variant generation path (`files-image` optional preview)
+    - [ ] harden variant storage/cleanup edge-cases across adapters
   - [ ] see `docs/Blueprint/FILES_DESIGN.md`
+  - [ ] see `docs/Blueprint/FILES_V2_PLAN.md`
   - [ ] implement using `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 
 ### P1 (Strongly Recommended)

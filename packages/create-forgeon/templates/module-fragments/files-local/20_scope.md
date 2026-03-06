@@ -1,8 +1,9 @@
 ## Scope
 
 Current stage:
-- config and module wiring only
-- no Docker volume orchestration yet (planned separately)
+- used by `files` runtime when `FILES_STORAGE_DRIVER=local`
+- local root configuration via `FILES_LOCAL_ROOT`
+- Docker compose named volume `files_data` is mounted to `/app/storage`
 
 Future work:
 - local storage operational hardening

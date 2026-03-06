@@ -8,4 +8,4 @@ It is intended for:
 - MinIO
 - other S3-compatible endpoints
 
-This module currently adds config/env wiring and provider package scaffolding.
+This module provides runtime S3 storage integration used by `files` when `FILES_STORAGE_DRIVER=s3`.

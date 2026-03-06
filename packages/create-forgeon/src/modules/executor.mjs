@@ -4,6 +4,9 @@ import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
 import { applyDbPrismaModule } from './db-prisma.mjs';
 import { applyFilesModule } from './files.mjs';
+import { applyFilesAccessModule } from './files-access.mjs';
+import { applyFilesImageModule } from './files-image.mjs';
+import { applyFilesQuotasModule } from './files-quotas.mjs';
 import { applyFilesLocalModule } from './files-local.mjs';
 import { applyFilesS3Module } from './files-s3.mjs';
 import { applyI18nModule } from './i18n.mjs';
@@ -32,6 +35,9 @@ function ensureForgeonLikeProject(targetRoot) {
 const MODULE_APPLIERS = {
   'db-prisma': applyDbPrismaModule,
   files: applyFilesModule,
+  'files-access': applyFilesAccessModule,
+  'files-image': applyFilesImageModule,
+  'files-quotas': applyFilesQuotasModule,
   'files-local': applyFilesLocalModule,
   'files-s3': applyFilesS3Module,
   i18n: applyI18nModule,

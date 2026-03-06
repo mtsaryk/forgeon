@@ -2,6 +2,10 @@
 
 This document captures the planned design for the `files` family of modules.
 
+For the accepted next-step plan focused on variants, use:
+
+- `docs/Blueprint/FILES_V2_PLAN.md`
+
 The goal is to define `files v1` in a way that is useful immediately and does not block later expansion into:
 
 - `files-access`
@@ -13,13 +17,23 @@ This is a design document, not an implementation spec for one release only.
 
 ## Current Status
 
-Foundation modules are now present:
+Runtime baseline is now present:
 
-- `files` (base config/runtime wiring)
-- `files-local` (default local provider for `files-storage-adapter`)
-- `files-s3` (S3-compatible provider config surface)
+- `files`:
+  - upload endpoint
+  - metadata endpoint
+  - download endpoint
+  - delete endpoint
+  - health probe endpoint
+  - DB metadata (`FileRecord`) migration template
+- `files-local` (default local provider for `files-storage-adapter`, used by runtime flow)
+  - Docker named volume `files_data` mounted to `/app/storage`
+- `files-s3` (S3-compatible runtime path for upload/download/delete via files service)
+- `files-access` (resource-level authorization layer for metadata/download/delete routes)
+- `files-quotas` (owner-level upload quota checks before write)
+- `files-image` (magic-bytes image validation + sanitize/re-encode, metadata stripped by default)
 
-Runtime upload/download implementation is still pending.
+Implemented runtime currently targets local and S3-compatible storage.
 
 ## Design Goals
 
@@ -330,20 +344,17 @@ Build the family in this order:
 
 This gives a stable base first, then expands storage, then policy, then media processing.
 
-## Open Decisions Before Implementation
+## Open Decisions / Pending Refinements
 
-Before coding `files v1`, the following should be explicitly decided:
+After initial runtime delivery, the following should be explicitly finalized:
 
 1. exact canonical metadata shape
-2. final create/add UX for `files` when both required capabilities are missing
-3. initial upload API shape:
-   - single upload only?
-   - public DTO shape?
+2. final `FileRecord` fields and indexes for long-term compatibility
+3. final upload API shape:
+   - keep single-upload only, or add batch upload
+   - lock public DTO shape
 4. where local files are stored in dev and Docker (volume strategy remains deferred)
-5. whether the initial probe is:
-   - upload-only
-   - upload + fetch metadata
-   - upload + delete cleanup
+5. whether probe should remain metadata-only create, or include cleanup flow
 
 ## Current Recommendation
 

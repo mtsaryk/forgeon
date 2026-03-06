@@ -1,11 +1,12 @@
 ## Scope
 
 Current stage:
-- foundation only (config and module wiring)
-- no probe endpoint yet
-- no upload API yet
+- runtime local-storage flow is available
+- Prisma `FileRecord` and `FileVariant` schema + migrations are included
+- MIME and max-size validation are enforced via files env config
+- health probe uses create+cleanup flow to avoid storage growth
+- `preview` variant generation stays optional and is enabled by `files-image`
 
 Planned next:
-- metadata model and upload flow
-- storage-driver runtime implementation
-- follow-up modules: `files-access`, `files-quotas`, `files-image`
+- hardening for S3 runtime path (`files-s3`) and optional signed URL flow
+- image pipeline hardening (`files-image`) for richer format policy and optional async transforms

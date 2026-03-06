@@ -15,6 +15,7 @@ Primary detail specs to consult when touching module installation behavior:
 - `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 - `docs/Blueprint/MODULE_SPEC.md`
 - `docs/Blueprint/ARCHITECTURE.md`
+- `docs/Blueprint/FILES_V2_PLAN.md` (for variants and staged files v2 decisions)
 
 ## Canonical Stack
 
@@ -140,6 +141,11 @@ Module probes currently in use:
 - `GET /api/health/auth` (`jwt-auth`)
 - `GET /api/health/rate-limit` (`rate-limit`)
 - `GET /api/health/rbac` (`rbac`)
+- `POST /api/health/files` (`files`)
+- `GET /api/health/files-variants` (`files` variants capability)
+- `GET /api/health/files-access` (`files-access`)
+- `GET /api/health/files-quotas` (`files-quotas`)
+- `GET /api/health/files-image` (`files-image`)
 
 API docs:
 
@@ -319,6 +325,52 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
   - protects routes through explicit Nest guard wiring
   - resource-level authorization remains domain logic; RBAC is coarse-grained access control
 
+- `files`
+  - package: `@forgeon/files`
+  - DB-backed file metadata + upload/download/delete runtime
+  - download supports variant selection:
+    - `GET /api/files/:publicId/download?variant=original|preview`
+  - requires:
+    - `db-adapter` capability
+    - `files-storage-adapter` capability
+  - probe:
+    - `POST /api/health/files`
+    - `GET /api/health/files-variants`
+
+- `files-local`
+  - package: `@forgeon/files-local`
+  - local provider for `files-storage-adapter`
+  - Docker volume:
+    - `files_data` mounted to `/app/storage`
+
+- `files-s3`
+  - package: `@forgeon/files-s3`
+  - S3-compatible provider for `files-storage-adapter`
+  - runtime path in files service is active when `FILES_STORAGE_DRIVER=s3`
+
+- `files-access`
+  - package: `@forgeon/files-access`
+  - requires `files-runtime` capability
+  - enforces resource-level checks for file metadata/download/delete
+  - probe:
+    - `GET /api/health/files-access`
+
+- `files-quotas`
+  - package: `@forgeon/files-quotas`
+  - requires `files-runtime` capability
+  - enforces owner-level upload quotas before write
+  - probe:
+    - `GET /api/health/files-quotas`
+
+- `files-image`
+  - package: `@forgeon/files-image`
+  - requires `files-runtime` capability
+  - enforces image magic-bytes validation + sanitize/re-encode before storage
+  - default:
+    - metadata stripping enabled
+  - probe:
+    - `GET /api/health/files-image`
+
 Planned but not implemented:
 
 - `queue`
@@ -469,12 +521,18 @@ The exact schema may evolve, but the stable conceptual shape should include:
 
 ### Current Implementation Snapshot
 
-Foundation stage is now present:
+Runtime stage is now present:
 
-- `files` add-module exists (config/runtime wiring baseline)
-- `files-local` add-module exists (default provider for `files-storage-adapter`)
-- `files-s3` add-module exists (S3-compatible provider config surface)
-- upload/download runtime APIs and file probes are intentionally deferred
+- `files` add-module provides:
+  - upload endpoint
+  - metadata endpoint
+  - download endpoint
+  - delete endpoint
+  - health probe wiring
+  - Prisma `FileRecord` schema + migration template
+- `files-local` add-module is the default provider for `files-storage-adapter`
+  - Docker named volume `files_data` mounted to `/app/storage` for persisted local storage in container runs
+- `files-s3` add-module provides S3-compatible runtime storage path for `files` (`FILES_STORAGE_DRIVER=s3`)
 
 ### Current Dependency Behavior (`create-forgeon add`)
 
@@ -496,19 +554,23 @@ Foundation stage is now present:
 - prefer `db-prisma` first
 - prefer `files-local` as the default files storage provider
 - if no DB exists, the module should warn and refuse canonical install unless an explicit reduced mode is designed later
+- follow `docs/Blueprint/FILES_V2_PLAN.md` for variants rollout and migration shape
 
 ## TODO / Next Steps
 
 Immediate next engineering targets:
 
-1. Implement `files` runtime layer (upload/download + metadata record + DTOs)
-2. Decide and lock `FileRecord` schema v1 (with migration strategy notes)
-3. Add `files` probe only after runtime routes are stable
-4. Continue files-family modules:
+1. Decide and lock `FileRecord` schema v1 (with migration strategy notes)
+2. Continue files-family modules:
    - `files-access`
    - `files-quotas`
    - `files-image`
-   - deepen `files-s3` from config-only to runtime adapter
+   - harden `files-s3` behavior (error handling, optional signed URL flow)
+3. Design files persistence integration-sync strategy at `db-adapter` boundary (provider-dispatch model, Prisma first strategy)
+4. Start `files v2` implementation from `docs/Blueprint/FILES_V2_PLAN.md`:
+   - lock `FileVariant` schema
+   - add `variant` query support on download route
+   - implement sync-first `preview` variant path for `files-image`
 5. After files-family runtime baseline, continue with:
    - `queue`
    - testing baseline
@@ -567,6 +629,7 @@ Use these only when the task needs more detail than this file:
 - `docs/Blueprint/ARCHITECTURE.md`
 - `docs/Blueprint/ROADMAP.md`
 - `docs/Blueprint/FILES_DESIGN.md`
+- `docs/Blueprint/FILES_V2_PLAN.md`
 - `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 - `docs/Blueprint/MODULE_SPEC.md`
 - `docs/Blueprint/MODULE_CHECKS.md`

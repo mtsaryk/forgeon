@@ -127,6 +127,34 @@ Requirements:
 - keep access control and quotas out of v1 core (separate modules later)
 ```
 
+## Design Files Persistence Sync At DB-Adapter Boundary
+
+```text
+Prepare the first integration-sync design for files persistence against future DB providers.
+Requirements:
+- keep `db-adapter` as capability boundary
+- avoid hard-coding persistence logic to `db-prisma` in files runtime semantics
+- define strategy-dispatch model similar to auth-persistence:
+  - provider-specific sync handlers
+  - one conceptual files-persistence integration group
+- keep current Prisma behavior as the first strategy implementation
+- document extension path for future adapters (e.g. db-mongo)
+```
+
+## Implement Files V2 Variants
+
+```text
+Implement files v2 variant support based on docs/Blueprint/FILES_V2_PLAN.md.
+Requirements:
+- keep FileRecord backward-compatible
+- add FileVariant model and migration
+- serve variants through existing download route using variant query
+- keep storage-provider-agnostic behavior (local/s3)
+- keep files-image as optional transform layer
+- preserve files-access checks and files-quotas accounting behavior
+- keep all changes idempotent for create-forgeon add-module flow
+```
+
 ## Deferred TODOs
 
 - i18n runtime fallback env check (deferred):

@@ -1,3 +1,3 @@
 ## Status
 
-Implemented (foundation stage) and applied by `create-forgeon add files-s3`.
+Implemented (runtime baseline) and applied by `create-forgeon add files-s3`.

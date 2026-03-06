@@ -17,4 +17,16 @@ export class FilesConfigService {
   get publicBasePath(): string {
     return this.configService.getOrThrow<FilesConfigValue['publicBasePath']>('files.publicBasePath');
   }
+
+  get maxFileSizeBytes(): number {
+    return this.configService.getOrThrow<FilesConfigValue['maxFileSizeBytes']>(
+      'files.maxFileSizeBytes',
+    );
+  }
+
+  get allowedMimePrefixes(): string[] {
+    return this.configService.getOrThrow<FilesConfigValue['allowedMimePrefixes']>(
+      'files.allowedMimePrefixes',
+    );
+  }
 }

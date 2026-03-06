@@ -1,3 +1,3 @@
 ## Status
 
-Implemented (foundation stage) and applied by `create-forgeon add files-local`.
+Implemented (runtime local-provider stage) and applied by `create-forgeon add files-local`.

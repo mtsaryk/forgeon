@@ -135,6 +135,21 @@ function patchCompose(targetRoot) {
     );
   }
 
+  if (!content.includes('files_data:/app/storage')) {
+    content = content.replace(
+      /^(\s{2}api:\n[\s\S]*?^\s{4}environment:\n(?:\s{6}.+\n)+)/m,
+      `$1    volumes:
+      - files_data:/app/storage
+`,
+    );
+  }
+
+  if (!/^volumes:\n/m.test(content)) {
+    content = `${content.trimEnd()}\n\nvolumes:\n  files_data:\n`;
+  } else if (!/^\s{2}files_data:\s*$/m.test(content)) {
+    content = `${content.trimEnd()}\n  files_data:\n`;
+  }
+
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
@@ -158,8 +173,9 @@ Configuration:
 - \`FILES_LOCAL_ROOT=storage/uploads\`
 
 Notes:
-- this is a foundation-stage adapter config module
-- runtime upload implementation is added in later files iterations`;
+- this adapter is used by \`@forgeon/files\` when \`FILES_STORAGE_DRIVER=local\`
+- saved files are stored in \`FILES_LOCAL_ROOT\` relative to the project root
+- Docker compose mounts named volume \`files_data\` to \`/app/storage\` for persistence`;
 
   if (content.includes('## Prisma In Docker Start')) {
     content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);
@@ -170,6 +186,22 @@ Notes:
   fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
+function patchGitignore(targetRoot) {
+  const gitignorePath = path.join(targetRoot, '.gitignore');
+  if (!fs.existsSync(gitignorePath)) {
+    return;
+  }
+
+  const marker = 'storage/';
+  let content = fs.readFileSync(gitignorePath, 'utf8').replace(/\r\n/g, '\n');
+  if (content.includes(marker)) {
+    return;
+  }
+
+  content = `${content.trimEnd()}\n${marker}\n`;
+  fs.writeFileSync(gitignorePath, content, 'utf8');
+}
+
 export function applyFilesLocalModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-local'));
 
@@ -178,6 +210,7 @@ export function applyFilesLocalModule({ packageRoot, targetRoot }) {
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);
+  patchGitignore(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'FILES_LOCAL_ROOT=storage/uploads',

@@ -162,7 +162,7 @@ function patchReadme(targetRoot) {
 
 The files-s3 module provides the \`files-storage-adapter\` capability for S3-compatible object storage.
 
-It supports foundation-stage config for:
+It supports runtime storage for:
 - AWS S3
 - Cloudflare R2
 - MinIO
@@ -174,7 +174,9 @@ Configuration:
 - \`FILES_S3_ENDPOINT\`
 - \`FILES_S3_ACCESS_KEY_ID\`
 - \`FILES_S3_SECRET_ACCESS_KEY\`
-- \`FILES_S3_FORCE_PATH_STYLE\``;
+- \`FILES_S3_FORCE_PATH_STYLE\`
+
+When added before \`files\`, this module sets \`FILES_STORAGE_DRIVER=s3\` in env examples.`;
 
   if (content.includes('## Prisma In Docker Start')) {
     content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);
@@ -183,6 +185,35 @@ Configuration:
   }
 
   fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
+}
+
+function setEnvValue(filePath, key, value) {
+  let content = '';
+  if (fs.existsSync(filePath)) {
+    content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  }
+
+  const lines = content.length > 0 ? content.split('\n') : [];
+  const keyPrefix = `${key}=`;
+  let updated = false;
+  const nextLines = lines.map((line) => {
+    if (!line.startsWith(keyPrefix)) {
+      return line;
+    }
+    updated = true;
+    const currentValue = line.slice(keyPrefix.length);
+    if (currentValue === '' || currentValue === 'local') {
+      return `${key}=${value}`;
+    }
+    return line;
+  });
+
+  if (!updated) {
+    nextLines.push(`${key}=${value}`);
+  }
+
+  const nextContent = `${nextLines.join('\n').trimEnd()}\n`;
+  fs.writeFileSync(filePath, nextContent, 'utf8');
 }
 
 export function applyFilesS3Module({ packageRoot, targetRoot }) {
@@ -210,4 +241,7 @@ export function applyFilesS3Module({ packageRoot, targetRoot }) {
     'FILES_S3_SECRET_ACCESS_KEY=forgeon-secret',
     'FILES_S3_FORCE_PATH_STYLE=true',
   ]);
+
+  setEnvValue(path.join(targetRoot, 'apps', 'api', '.env.example'), 'FILES_STORAGE_DRIVER', 's3');
+  setEnvValue(path.join(targetRoot, 'infra', 'docker', '.env.example'), 'FILES_STORAGE_DRIVER', 's3');
 }
