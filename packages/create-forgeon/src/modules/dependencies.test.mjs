@@ -7,6 +7,7 @@ import {
   collectProvidedCapabilities,
   detectInstalledModules,
   getPendingOptionalIntegrations,
+  getPendingRecommendedCompanions,
   resolveModuleInstallPlan,
 } from './dependencies.mjs';
 
@@ -33,6 +34,12 @@ const TEST_PRESETS = [
     requires: [
       { type: 'capability', id: 'db-adapter' },
       { type: 'capability', id: 'files-storage-adapter' },
+    ],
+    recommendedCompanions: [
+      {
+        id: 'files-image',
+        title: 'Files Image Hardening',
+      },
     ],
     optionalIntegrations: [],
   },
@@ -306,6 +313,46 @@ describe('module dependency helpers', () => {
       });
 
       assert.deepEqual(result.moduleSequence, ['db-prisma']);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('reports pending recommended companions for installed module context', () => {
+    const targetRoot = mkTmp('forgeon-deps-recommended-');
+    try {
+      fs.mkdirSync(path.join(targetRoot, 'packages', 'files'), { recursive: true });
+      fs.writeFileSync(path.join(targetRoot, 'packages', 'files', 'package.json'), '{}\n', 'utf8');
+
+      const pending = getPendingRecommendedCompanions({
+        moduleId: 'files',
+        targetRoot,
+        presets: TEST_PRESETS,
+      });
+
+      assert.equal(pending.length, 1);
+      assert.equal(pending[0].id, 'files-image');
+      assert.match(pending[0].title, /Files Image Hardening/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('does not report recommended companions that are already installed', () => {
+    const targetRoot = mkTmp('forgeon-deps-recommended-installed-');
+    try {
+      fs.mkdirSync(path.join(targetRoot, 'packages', 'files'), { recursive: true });
+      fs.mkdirSync(path.join(targetRoot, 'packages', 'files-image'), { recursive: true });
+      fs.writeFileSync(path.join(targetRoot, 'packages', 'files', 'package.json'), '{}\n', 'utf8');
+      fs.writeFileSync(path.join(targetRoot, 'packages', 'files-image', 'package.json'), '{}\n', 'utf8');
+
+      const pending = getPendingRecommendedCompanions({
+        moduleId: 'files',
+        targetRoot,
+        presets: TEST_PRESETS,
+      });
+
+      assert.equal(pending.length, 0);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

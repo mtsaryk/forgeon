@@ -5,7 +5,11 @@ import { printAddHelp } from './cli/add-help.mjs';
 import { parseAddCliArgs } from './cli/add-options.mjs';
 import { promptSelect } from './cli/prompt-select.mjs';
 import { addModule } from './modules/executor.mjs';
-import { getPendingOptionalIntegrations, resolveModuleInstallPlan } from './modules/dependencies.mjs';
+import {
+  getPendingOptionalIntegrations,
+  getPendingRecommendedCompanions,
+  resolveModuleInstallPlan,
+} from './modules/dependencies.mjs';
 import { listModulePresets } from './modules/registry.mjs';
 import {
   printModuleAdded,
@@ -152,6 +156,59 @@ async function confirmInstallPlan(moduleSequence, requestedModuleId) {
   return picked === 'apply';
 }
 
+function printRecommendedCompanionsAvailable(companions, requestedModuleId) {
+  if (!Array.isArray(companions) || companions.length === 0) {
+    return;
+  }
+
+  console.log('\nRecommended companion modules are available:');
+  for (const companion of companions) {
+    console.log(`- ${companion.id} (${companion.title})`);
+    if (companion.description) {
+      console.log(`  ${companion.description}`);
+    }
+  }
+  console.log(
+    `Add them now:\n- npx create-forgeon@latest add ${requestedModuleId} --project . --with-recommended`,
+  );
+}
+
+async function chooseRecommendedCompanions({
+  requestedModuleId,
+  companions,
+  withRecommended,
+}) {
+  if (!Array.isArray(companions) || companions.length === 0) {
+    return [];
+  }
+
+  if (withRecommended) {
+    return companions.map((companion) => companion.id);
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    printRecommendedCompanionsAvailable(companions, requestedModuleId);
+    return [];
+  }
+
+  const selected = [];
+  for (const companion of companions) {
+    const answer = await promptSelect({
+      message: `Install recommended companion "${companion.id}" for "${requestedModuleId}"?`,
+      defaultValue: 'yes',
+      choices: [
+        { label: 'Yes (Recommended)', value: 'yes' },
+        { label: 'No, skip', value: 'no' },
+      ],
+    });
+    if (answer === 'yes') {
+      selected.push(companion.id);
+    }
+  }
+
+  return selected;
+}
+
 export async function runAddModule(argv = process.argv.slice(2)) {
   const options = parseAddCliArgs(argv);
 
@@ -200,11 +257,41 @@ export async function runAddModule(argv = process.argv.slice(2)) {
     printModuleAdded(currentResult.preset.id, currentResult.docsPath);
   }
 
+  const pendingRecommendedCompanions = getPendingRecommendedCompanions({
+    moduleId: options.moduleId,
+    targetRoot,
+  });
+  const selectedRecommendedCompanions = await chooseRecommendedCompanions({
+    requestedModuleId: options.moduleId,
+    companions: pendingRecommendedCompanions,
+    withRecommended: options.withRecommended,
+  });
+
+  for (const recommendedModuleId of selectedRecommendedCompanions) {
+    const recommendedPlan = await resolveModuleInstallPlan({
+      moduleId: recommendedModuleId,
+      targetRoot,
+      withRequired: options.withRequired,
+      providerSelections: options.providers,
+    });
+    if (recommendedPlan.cancelled) {
+      continue;
+    }
+    for (const moduleId of recommendedPlan.moduleSequence) {
+      const currentResult = addModule({
+        moduleId,
+        targetRoot,
+        packageRoot,
+      });
+      printModuleAdded(currentResult.preset.id, currentResult.docsPath);
+    }
+  }
+
   ensureSyncTooling({ packageRoot, targetRoot });
   await runIntegrationFlow({
     targetRoot,
     packageRoot,
-    relatedModuleId: options.moduleId,
+    relatedModuleId: selectedRecommendedCompanions.length > 0 ? null : options.moduleId,
   });
 
   const pendingOptionalIntegrations = getPendingOptionalIntegrations({

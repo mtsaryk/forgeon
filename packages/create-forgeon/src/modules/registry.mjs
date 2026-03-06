@@ -50,6 +50,14 @@ const MODULE_PRESETS = {
       { type: 'capability', id: 'db-adapter' },
       { type: 'capability', id: 'files-storage-adapter' },
     ],
+    recommendedCompanions: [
+      {
+        id: 'files-image',
+        title: 'Files Image Hardening',
+        description:
+          'Enable magic-bytes validation + sanitize/re-encode flow for images and preview variant generation.',
+      },
+    ],
     optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },

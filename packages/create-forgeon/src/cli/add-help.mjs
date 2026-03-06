@@ -7,6 +7,7 @@ Usage:
 Options:
   --project <path>   Target project path (default: current directory)
   --with-required    Allow recursive installation of hard prerequisites
+  --with-recommended Auto-install recommended companion modules (non-TTY friendly)
   --provider <capability>=<module>
                      Explicit provider mapping for non-interactive dependency resolution
   --list             List available modules

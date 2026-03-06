@@ -355,6 +355,8 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `minio` (default), `r2`, `aws`, `custom`
   - tuning:
     - `FILES_S3_MAX_ATTEMPTS`
+  - env ergonomics:
+    - leave `FILES_S3_REGION`, `FILES_S3_ENDPOINT`, `FILES_S3_FORCE_PATH_STYLE` empty to use preset defaults
 
 - `files-access`
   - package: `@forgeon/files-access`

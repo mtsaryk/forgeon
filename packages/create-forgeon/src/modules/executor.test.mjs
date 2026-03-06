@@ -119,7 +119,7 @@ function assertRbacWiring(projectRoot) {
   assert.match(readme, /jwt-auth.*optional/i);
 }
 
-function assertFilesWiring(projectRoot) {
+function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /filesConfig/);
   assert.match(appModule, /filesEnvSchema/);
@@ -136,7 +136,7 @@ function assertFilesWiring(projectRoot) {
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_ENABLED=true/);
-  assert.match(apiEnv, /FILES_STORAGE_DRIVER=local/);
+  assert.match(apiEnv, new RegExp(`FILES_STORAGE_DRIVER=${expectedStorageDriver}`));
   assert.match(apiEnv, /FILES_PUBLIC_BASE_PATH=\/files/);
   assert.match(apiEnv, /FILES_MAX_FILE_SIZE_BYTES=10485760/);
   assert.match(apiEnv, /FILES_ALLOWED_MIME_PREFIXES=image\/,application\/pdf,text\//);
@@ -255,7 +255,9 @@ function assertFilesS3Wiring(projectRoot) {
   assert.match(apiEnv, /FILES_STORAGE_DRIVER=s3/);
   assert.match(apiEnv, /FILES_S3_PROVIDER_PRESET=minio/);
   assert.match(apiEnv, /FILES_S3_BUCKET=forgeon-files/);
-  assert.match(apiEnv, /FILES_S3_ENDPOINT=http:\/\/localhost:9000/);
+  assert.match(apiEnv, /FILES_S3_REGION=/);
+  assert.match(apiEnv, /FILES_S3_ENDPOINT=/);
+  assert.match(apiEnv, /FILES_S3_FORCE_PATH_STYLE=/);
   assert.match(apiEnv, /FILES_S3_MAX_ATTEMPTS=3/);
 
   const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
@@ -1281,6 +1283,74 @@ describe('addModule', () => {
 
       assert.equal(result.applied, true);
       assertFilesImageWiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies full files stack in mixed order and keeps runtime probes consistent', () => {
+    const targetRoot = mkTmp('forgeon-module-files-stack-smoke-');
+    const projectRoot = path.join(targetRoot, 'demo-files-stack-smoke');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-stack-smoke',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'files-s3',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files-image',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files-access',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      addModule({
+        moduleId: 'files-quotas',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assertFilesS3Wiring(projectRoot);
+      assertFilesWiring(projectRoot, 's3');
+      assertFilesImageWiring(projectRoot);
+      assertFilesAccessWiring(projectRoot);
+      assertFilesQuotasWiring(projectRoot);
+
+      const healthController = fs.readFileSync(
+        path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+        'utf8',
+      );
+      assert.match(healthController, /@Post\('files'\)/);
+      assert.match(healthController, /@Get\('files-variants'\)/);
+      assert.match(healthController, /@Get\('files-image'\)/);
+      assert.match(healthController, /@Get\('files-access'\)/);
+      assert.match(healthController, /@Get\('files-quotas'\)/);
+
+      const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+      const filesChecks = appTsx.match(/Check files /g) ?? [];
+      assert.equal(filesChecks.length, 5);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

@@ -183,9 +183,13 @@ Configuration:
 
 Preset defaults:
 - \`minio\`: endpoint \`http://localhost:9000\`, region \`auto\`, path-style \`true\`
-- \`aws\`: region \`us-east-1\`, endpoint optional, path-style \`false\`
+- \`aws\`: region \`eu-central-1\` (EU/de), endpoint optional, path-style \`false\`
 - \`r2\`: region \`auto\`, endpoint should be set explicitly, path-style \`false\`
-- \`custom\`: region \`auto\`, endpoint should be set explicitly, path-style \`false\`
+- \`custom\`: region \`eu-central-1\` (EU/de), endpoint should be set explicitly, path-style \`false\`
+
+Environment overrides:
+- Leave \`FILES_S3_REGION\`, \`FILES_S3_ENDPOINT\`, or \`FILES_S3_FORCE_PATH_STYLE\` empty to use preset defaults.
+- Set explicit values when provider-specific tuning is needed.
 
 When added before \`files\`, this module sets \`FILES_STORAGE_DRIVER=s3\` in env examples.`;
 
@@ -239,21 +243,21 @@ export function applyFilesS3Module({ packageRoot, targetRoot }) {
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'FILES_S3_PROVIDER_PRESET=minio',
     'FILES_S3_BUCKET=forgeon-files',
-    'FILES_S3_REGION=auto',
-    'FILES_S3_ENDPOINT=http://localhost:9000',
+    'FILES_S3_REGION=',
+    'FILES_S3_ENDPOINT=',
     'FILES_S3_ACCESS_KEY_ID=forgeon',
     'FILES_S3_SECRET_ACCESS_KEY=forgeon-secret',
-    'FILES_S3_FORCE_PATH_STYLE=true',
+    'FILES_S3_FORCE_PATH_STYLE=',
     'FILES_S3_MAX_ATTEMPTS=3',
   ]);
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
     'FILES_S3_PROVIDER_PRESET=minio',
     'FILES_S3_BUCKET=forgeon-files',
-    'FILES_S3_REGION=auto',
-    'FILES_S3_ENDPOINT=http://localhost:9000',
+    'FILES_S3_REGION=',
+    'FILES_S3_ENDPOINT=',
     'FILES_S3_ACCESS_KEY_ID=forgeon',
     'FILES_S3_SECRET_ACCESS_KEY=forgeon-secret',
-    'FILES_S3_FORCE_PATH_STYLE=true',
+    'FILES_S3_FORCE_PATH_STYLE=',
     'FILES_S3_MAX_ATTEMPTS=3',
   ]);
 

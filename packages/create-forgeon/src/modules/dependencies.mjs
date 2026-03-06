@@ -266,3 +266,34 @@ export function getPendingOptionalIntegrations({
     })
     .filter(Boolean);
 }
+
+export function getPendingRecommendedCompanions({
+  moduleId,
+  targetRoot,
+  presets = listModulePresets(),
+}) {
+  const presetMap = getPresetMap(presets);
+  const preset = presetMap.get(moduleId);
+  if (!preset || !Array.isArray(preset.recommendedCompanions)) {
+    return [];
+  }
+
+  const installedModules = detectInstalledModules(targetRoot, presets);
+  return preset.recommendedCompanions
+    .map((item) => (typeof item === 'string' ? { id: item } : item))
+    .map((item) => {
+      const companion = presetMap.get(item.id);
+      if (!companion || companion.implemented === false) {
+        return null;
+      }
+      if (installedModules.has(item.id)) {
+        return null;
+      }
+      return {
+        id: item.id,
+        title: item.title ?? companion.label ?? item.id,
+        description: item.description ?? companion.description ?? '',
+      };
+    })
+    .filter(Boolean);
+}

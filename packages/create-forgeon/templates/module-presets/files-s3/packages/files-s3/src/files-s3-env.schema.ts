@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 const s3ProviderPresetSchema = z.enum(['minio', 'r2', 'aws', 'custom']);
 
+function normalizeOptionalString() {
+  return z.string().optional().transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : undefined;
+  });
+}
+
 function parseIntFromEnv(defaultValue: number, minValue: number) {
   return z
     .string()
@@ -15,11 +25,20 @@ function parseIntFromEnv(defaultValue: number, minValue: number) {
 const filesS3EnvSchema = z.object({
   FILES_S3_PROVIDER_PRESET: s3ProviderPresetSchema.optional().default('minio'),
   FILES_S3_BUCKET: z.string().optional().default('forgeon-files'),
-  FILES_S3_REGION: z.string().optional(),
-  FILES_S3_ENDPOINT: z.string().optional(),
+  FILES_S3_REGION: normalizeOptionalString(),
+  FILES_S3_ENDPOINT: normalizeOptionalString(),
   FILES_S3_ACCESS_KEY_ID: z.string().optional().default('forgeon'),
   FILES_S3_SECRET_ACCESS_KEY: z.string().optional().default('forgeon-secret'),
-  FILES_S3_FORCE_PATH_STYLE: z.string().optional(),
+  FILES_S3_FORCE_PATH_STYLE: z.string().optional().transform((value) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (normalized.length === 0) {
+      return undefined;
+    }
+    return normalized !== 'false';
+  }),
   FILES_S3_MAX_ATTEMPTS: parseIntFromEnv(3, 1),
 });
 

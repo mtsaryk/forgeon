@@ -32,11 +32,11 @@ const providerDefaults: Record<
     forcePathStyle: false,
   },
   aws: {
-    region: 'us-east-1',
+    region: 'eu-central-1',
     forcePathStyle: false,
   },
   custom: {
-    region: 'auto',
+    region: 'eu-central-1',
     forcePathStyle: false,
   },
 };
@@ -44,7 +44,6 @@ const providerDefaults: Record<
 export const filesS3Config = registerAs('filesS3', (): FilesS3ConfigValue => {
   const env = parseFilesS3Env(process.env);
   const presetDefaults = providerDefaults[env.FILES_S3_PROVIDER_PRESET];
-  const hasExplicitForcePathStyle = env.FILES_S3_FORCE_PATH_STYLE !== undefined;
   return {
     providerPreset: env.FILES_S3_PROVIDER_PRESET,
     bucket: env.FILES_S3_BUCKET,
@@ -52,9 +51,7 @@ export const filesS3Config = registerAs('filesS3', (): FilesS3ConfigValue => {
     endpoint: env.FILES_S3_ENDPOINT ?? presetDefaults.endpoint,
     accessKeyId: env.FILES_S3_ACCESS_KEY_ID,
     secretAccessKey: env.FILES_S3_SECRET_ACCESS_KEY,
-    forcePathStyle: hasExplicitForcePathStyle
-      ? env.FILES_S3_FORCE_PATH_STYLE !== 'false'
-      : presetDefaults.forcePathStyle,
+    forcePathStyle: env.FILES_S3_FORCE_PATH_STYLE ?? presetDefaults.forcePathStyle,
     maxAttempts: env.FILES_S3_MAX_ATTEMPTS,
   };
 });

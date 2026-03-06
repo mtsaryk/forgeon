@@ -6,6 +6,7 @@ export function parseAddCliArgs(argv) {
     list: false,
     help: false,
     withRequired: false,
+    withRecommended: false,
     providers: {},
   };
   const positional = [];
@@ -26,6 +27,11 @@ export function parseAddCliArgs(argv) {
 
     if (arg === '--with-required') {
       options.withRequired = true;
+      continue;
+    }
+
+    if (arg === '--with-recommended') {
+      options.withRecommended = true;
       continue;
     }
 

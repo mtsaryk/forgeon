@@ -472,6 +472,7 @@ Current limits:
 - S3 runtime is available when \`files-s3\` module is installed and \`FILES_STORAGE_DRIVER=s3\`
 - strict access control and quotas are provided by separate add-modules (\`files-access\`, \`files-quotas\`)
 - image sanitize pipeline is provided by separate add-module (\`files-image\`)
+- \`create-forgeon add files\` recommends installing \`files-image\` during the same flow (TTY default: Yes)
 - \`preview\` variant is generated only when \`files-image\` is installed
 - dedup is applied to \`original\` uploads by content hash (\`sha256 + size + mime + driver\`)
 - files probe does create+cleanup to avoid leftover storage artifacts

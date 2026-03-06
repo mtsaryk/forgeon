@@ -16,6 +16,7 @@ v2.1 baseline is now wired in scaffold/templates:
 - dedup v1 is enabled via `FileBlob` (`sha256 + size + mime + driver`) for `original` and `preview`
 - create-flow hardening is in place for blob unique-race (`P2002`) to avoid orphan storage writes
 - cleanup-flow hardening uses DB-first orphan checks (`deleteMany where variants none`) before storage delete
+- `files-s3` preset ergonomics: region/endpoint/path-style can be left empty in env to follow provider preset defaults
 
 ## Goals
 

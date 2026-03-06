@@ -26,12 +26,14 @@ describe('parseAddCliArgs', () => {
     const options = parseAddCliArgs([
       'files',
       '--with-required',
+      '--with-recommended',
       '--provider',
       'db-adapter=db-prisma',
       '--provider=queue-adapter=queue',
     ]);
     assert.equal(options.moduleId, 'files');
     assert.equal(options.withRequired, true);
+    assert.equal(options.withRecommended, true);
     assert.deepEqual(options.providers, {
       'db-adapter': 'db-prisma',
       'queue-adapter': 'queue',
