@@ -119,6 +119,66 @@ function assertRbacWiring(projectRoot) {
   assert.match(readme, /jwt-auth.*optional/i);
 }
 
+function assertFilesWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /filesConfig/);
+  assert.match(appModule, /filesEnvSchema/);
+  assert.match(appModule, /ForgeonFilesModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/files\/package\.json packages\/files\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/files packages\/files/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files build/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_ENABLED=true/);
+  assert.match(apiEnv, /FILES_STORAGE_DRIVER=local/);
+  assert.match(apiEnv, /FILES_PUBLIC_BASE_PATH=\/files/);
+}
+
+function assertFilesLocalWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /filesLocalConfig/);
+  assert.match(appModule, /filesLocalEnvSchemaZod/);
+  assert.match(appModule, /FilesLocalConfigModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files-local/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files-local build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/files-local\/package\.json packages\/files-local\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/files-local packages\/files-local/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-local build/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_LOCAL_ROOT=storage\/uploads/);
+}
+
+function assertFilesS3Wiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /filesS3Config/);
+  assert.match(appModule, /filesS3EnvSchemaZod/);
+  assert.match(appModule, /FilesS3ConfigModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/files-s3/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/files-s3 build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/files-s3\/package\.json packages\/files-s3\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/files-s3 packages\/files-s3/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-s3 build/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /FILES_S3_BUCKET=forgeon-files/);
+  assert.match(apiEnv, /FILES_S3_ENDPOINT=http:\/\/localhost:9000/);
+}
+
 function assertJwtAuthWiring(projectRoot, withPrismaStore) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/auth-api/);
@@ -708,6 +768,78 @@ describe('addModule', () => {
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /## Idea \/ Why/);
       assert.match(moduleDoc, /## How It Works/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-local then files foundation modules without breaking api wiring', () => {
+    const targetRoot = mkTmp('forgeon-module-files-local-');
+    const projectRoot = path.join(targetRoot, 'demo-files-local');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-local',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const localResult = addModule({
+        moduleId: 'files-local',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(localResult.applied, true);
+      assertFilesLocalWiring(projectRoot);
+
+      const filesResult = addModule({
+        moduleId: 'files',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(filesResult.applied, true);
+      assertFilesWiring(projectRoot);
+
+      const moduleDoc = fs.readFileSync(filesResult.docsPath, 'utf8');
+      assert.match(moduleDoc, /requires `db-adapter`/i);
+      assert.match(moduleDoc, /requires `files-storage-adapter`/i);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies files-s3 foundation module with env and docker wiring', () => {
+    const targetRoot = mkTmp('forgeon-module-files-s3-');
+    const projectRoot = path.join(targetRoot, 'demo-files-s3');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-files-s3',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'files-s3',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(result.applied, true);
+      assertFilesS3Wiring(projectRoot);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

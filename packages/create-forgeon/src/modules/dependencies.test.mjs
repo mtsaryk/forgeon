@@ -27,10 +27,31 @@ const TEST_PRESETS = [
   {
     id: 'files',
     label: 'Files',
-    implemented: false,
+    implemented: true,
     detectionPaths: ['packages/files/package.json'],
     provides: ['files-runtime'],
-    requires: [{ type: 'capability', id: 'db-adapter' }],
+    requires: [
+      { type: 'capability', id: 'db-adapter' },
+      { type: 'capability', id: 'files-storage-adapter' },
+    ],
+    optionalIntegrations: [],
+  },
+  {
+    id: 'files-local',
+    label: 'Files Local Adapter',
+    implemented: true,
+    detectionPaths: ['packages/files-local/package.json'],
+    provides: ['files-storage-adapter'],
+    requires: [],
+    optionalIntegrations: [],
+  },
+  {
+    id: 'files-s3',
+    label: 'Files S3 Adapter',
+    implemented: true,
+    detectionPaths: ['packages/files-s3/package.json'],
+    provides: ['files-storage-adapter'],
+    requires: [],
     optionalIntegrations: [],
   },
   {
@@ -96,7 +117,27 @@ describe('module dependency helpers', () => {
     }
   });
 
-  it('builds a concrete install plan in non-interactive mode with --with-required', async () => {
+  it('fails in non-interactive mode with --with-required when capability provider mapping is ambiguous', async () => {
+    const targetRoot = mkTmp('forgeon-deps-provider-required-');
+
+    try {
+      await assert.rejects(
+        () =>
+          resolveModuleInstallPlan({
+            moduleId: 'files',
+            targetRoot,
+            presets: TEST_PRESETS,
+            withRequired: true,
+            isInteractive: false,
+          }),
+        /required capability "files-storage-adapter" is missing/,
+      );
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('builds a concrete install plan in non-interactive mode with --with-required and --provider', async () => {
     const targetRoot = mkTmp('forgeon-deps-plan-');
 
     try {
@@ -105,12 +146,18 @@ describe('module dependency helpers', () => {
         targetRoot,
         presets: TEST_PRESETS,
         withRequired: true,
+        providerSelections: {
+          'files-storage-adapter': 'files-local',
+        },
         isInteractive: false,
       });
 
       assert.equal(result.cancelled, false);
-      assert.deepEqual(result.moduleSequence, ['db-prisma', 'files']);
-      assert.deepEqual(result.selectedProviders, { 'db-adapter': 'db-prisma' });
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'files-local', 'files']);
+      assert.deepEqual(result.selectedProviders, {
+        'db-adapter': 'db-prisma',
+        'files-storage-adapter': 'files-local',
+      });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

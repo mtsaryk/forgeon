@@ -467,22 +467,49 @@ The exact schema may evolve, but the stable conceptual shape should include:
 4. `files-quotas`
 5. `files-image`
 
-### Current Recommendation Before Coding
+### Current Implementation Snapshot
+
+Foundation stage is now present:
+
+- `files` add-module exists (config/runtime wiring baseline)
+- `files-local` add-module exists (default provider for `files-storage-adapter`)
+- `files-s3` add-module exists (S3-compatible provider config surface)
+- upload/download runtime APIs and file probes are intentionally deferred
+
+### Current Dependency Behavior (`create-forgeon add`)
+
+- `files` requires:
+  - `db-adapter`
+  - `files-storage-adapter`
+- interactive mode:
+  - prompts for missing providers
+  - for `files-storage-adapter`, `files-local` is first and marked recommended
+- non-interactive mode:
+  - requires `--with-required`
+  - and for ambiguous providers requires `--provider`, for example:
+    - `--provider files-storage-adapter=files-local`
+
+### Current Recommendation
 
 - build `files v1` as DB-backed
 - require capability `db-adapter` for the canonical path
 - prefer `db-prisma` first
+- prefer `files-local` as the default files storage provider
 - if no DB exists, the module should warn and refuse canonical install unless an explicit reduced mode is designed later
 
 ## TODO / Next Steps
 
 Immediate next engineering targets:
 
-1. Finalize the implementation plan for `files v1`
-2. Decide the exact `files` metadata schema and first DTO shape
-3. Implement `files` using the accepted capability-driven dependency doctrine
-4. Implement `files` as the next add-module
-5. After `files`, continue with:
+1. Implement `files` runtime layer (upload/download + metadata record + DTOs)
+2. Decide and lock `FileRecord` schema v1 (with migration strategy notes)
+3. Add `files` probe only after runtime routes are stable
+4. Continue files-family modules:
+   - `files-access`
+   - `files-quotas`
+   - `files-image`
+   - deepen `files-s3` from config-only to runtime adapter
+5. After files-family runtime baseline, continue with:
    - `queue`
    - testing baseline
    - CI quality gates

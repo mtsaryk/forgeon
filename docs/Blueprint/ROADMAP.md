@@ -73,13 +73,17 @@ This is a living plan. Scope and priorities may change.
   - [x] reverse-proxy-aware mode (`trust proxy`)
 
 - [ ] `files` (upload + storage)
-  - [ ] `files v1` base module
+  - [~] foundation modules implemented
+    - [x] `files` base config/runtime wiring
+    - [x] `files-local` provider foundation
+    - [x] `files-s3` provider foundation
+  - [ ] `files v1` runtime delivery
     - [ ] DB-backed metadata record
-    - [ ] local storage driver
     - [ ] upload endpoint + probe flow
     - [ ] MIME/size validation
+    - [ ] local storage runtime implementation
   - [ ] future split already accepted:
-    - [ ] `files-s3`
+    - [x] `files-s3` (foundation)
     - [ ] `files-access`
     - [ ] `files-quotas`
     - [ ] `files-image`

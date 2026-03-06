@@ -11,6 +11,16 @@ The goal is to define `files v1` in a way that is useful immediately and does no
 
 This is a design document, not an implementation spec for one release only.
 
+## Current Status
+
+Foundation modules are now present:
+
+- `files` (base config/runtime wiring)
+- `files-local` (default local provider for `files-storage-adapter`)
+- `files-s3` (S3-compatible provider config surface)
+
+Runtime upload/download implementation is still pending.
+
 ## Design Goals
 
 `files v1` must:
@@ -28,7 +38,7 @@ The intended long-term split is:
 - base upload/download/delete primitives
 - file metadata
 - storage abstraction
-- local disk storage preset
+- no concrete storage provider baked in
 
 2. `files-access`
 - resource-level authorization for file operations
@@ -69,7 +79,7 @@ Included:
 
 - upload endpoint(s)
 - basic metadata persistence
-- local storage driver
+- concrete storage provider selected through `files-storage-adapter` capability
 - MIME and file size validation
 - stable file identifiers
 - a simple probe / demo flow
@@ -163,6 +173,13 @@ The `files` module should not assume:
 
 The adapter boundary should exist in v1 even if only the local driver is implemented at first.
 
+Current provider model:
+
+- capability id: `files-storage-adapter`
+- initial providers:
+  - `files-local` (recommended/default in interactive install flow)
+  - `files-s3`
+
 ## Database Expectations
 
 Best practical direction:
@@ -177,7 +194,8 @@ Reason:
 
 Current Forgeon implication:
 
-- `files` should likely integrate with `db-prisma` first
+- `files` requires `db-adapter` capability
+- current default DB provider remains `db-prisma`
 - if a project has no DB module, `files` should either:
   - warn clearly and refuse install, or
   - install in a reduced mode only if that mode is explicitly supported
@@ -185,6 +203,7 @@ Current Forgeon implication:
 Preferred direction:
 
 - require a DB adapter for the canonical path
+- require a files storage adapter for the canonical path
 
 ## Access Control Strategy (Future: `files-access`)
 
@@ -316,11 +335,11 @@ This gives a stable base first, then expands storage, then policy, then media pr
 Before coding `files v1`, the following should be explicitly decided:
 
 1. exact canonical metadata shape
-2. whether `files v1` hard-requires a DB module
+2. final create/add UX for `files` when both required capabilities are missing
 3. initial upload API shape:
    - single upload only?
    - public DTO shape?
-4. where local files are stored in dev and Docker
+4. where local files are stored in dev and Docker (volume strategy remains deferred)
 5. whether the initial probe is:
    - upload-only
    - upload + fetch metadata
@@ -331,7 +350,7 @@ Before coding `files v1`, the following should be explicitly decided:
 Proceed with:
 
 - `files v1` as a DB-backed base module
-- local storage only in v1
+- adapter-based storage in v1 (`files-local` first, `files-s3` optional)
 - metadata-first design
 - no access-control or quota enforcement inside `files v1`
 - explicit future modules for:

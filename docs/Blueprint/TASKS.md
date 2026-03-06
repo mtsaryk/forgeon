@@ -110,6 +110,23 @@ Requirements:
 - preserve the explicit integration flow (`pnpm forgeon:sync-integrations`)
 ```
 
+## Implement Files Runtime V1 On Adapter Foundations
+
+```text
+Implement runtime behavior for files on top of already-shipped foundation modules:
+- files
+- files-local
+- files-s3
+
+Requirements:
+- keep dependency doctrine: `files` requires `db-adapter` + `files-storage-adapter`
+- add DB-backed FileRecord model and migration strategy
+- add upload endpoint(s) and initial DTO contracts
+- implement local runtime adapter first (`files-local`)
+- add probe hooks only after route surface is stable
+- keep access control and quotas out of v1 core (separate modules later)
+```
+
 ## Deferred TODOs
 
 - i18n runtime fallback env check (deferred):

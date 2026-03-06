@@ -11,6 +11,48 @@ const MODULE_PRESETS = {
     optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
+  'files-local': {
+    id: 'files-local',
+    label: 'Files Local Adapter',
+    category: 'file-storage',
+    implemented: true,
+    description:
+      'Local disk provider for the files-storage-adapter capability. Recommended/default provider in interactive resolution.',
+    detectionPaths: ['packages/files-local/package.json'],
+    provides: ['files-storage-adapter'],
+    requires: [],
+    optionalIntegrations: [],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
+  'files-s3': {
+    id: 'files-s3',
+    label: 'Files S3 Adapter',
+    category: 'file-storage',
+    implemented: true,
+    description:
+      'S3-compatible provider for the files-storage-adapter capability (AWS S3, R2, MinIO, compatible endpoints).',
+    detectionPaths: ['packages/files-s3/package.json'],
+    provides: ['files-storage-adapter'],
+    requires: [],
+    optionalIntegrations: [],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
+  files: {
+    id: 'files',
+    label: 'Files',
+    category: 'file-storage',
+    implemented: true,
+    description:
+      'Foundation files module with typed config wiring. Requires db-adapter and files-storage-adapter capabilities.',
+    detectionPaths: ['packages/files/package.json'],
+    provides: ['files-runtime'],
+    requires: [
+      { type: 'capability', id: 'db-adapter' },
+      { type: 'capability', id: 'files-storage-adapter' },
+    ],
+    optionalIntegrations: [],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   i18n: {
     id: 'i18n',
     label: 'I18n',

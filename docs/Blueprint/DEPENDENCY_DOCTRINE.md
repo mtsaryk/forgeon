@@ -46,6 +46,7 @@ Definition:
 Examples:
 
 - `files` requires `db-adapter`
+- `files` requires `files-storage-adapter`
 - `files-s3` requires `files`
 - `files-image` requires `files`
 
@@ -103,6 +104,17 @@ Module "files" requires capability: db-adapter
 Available providers:
 - db-prisma (Recommended)
 - db-mongo
+- Cancel
+```
+
+For storage capability:
+
+```text
+Module "files" requires capability: files-storage-adapter
+
+Available providers:
+- files-local (Recommended)
+- files-s3
 - Cancel
 ```
 
@@ -170,6 +182,12 @@ Example:
 
 ```bash
 npx create-forgeon@latest add files --with-required --provider db-adapter=db-prisma
+```
+
+Example with both capabilities:
+
+```bash
+npx create-forgeon@latest add files --with-required --provider db-adapter=db-prisma --provider files-storage-adapter=files-local
 ```
 
 Rules:
@@ -274,6 +292,7 @@ Implication:
 The `files` family must be built on this doctrine from the start:
 
 - `files` requires `db-adapter`
+- `files` requires `files-storage-adapter`
 - `files-s3` requires `files`
 - `files-access` requires `files`
 - `files-quotas` requires `files`
