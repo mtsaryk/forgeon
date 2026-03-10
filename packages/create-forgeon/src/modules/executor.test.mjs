@@ -479,6 +479,13 @@ function assertFilesImageWiring(projectRoot) {
   const filesTypes = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'src', 'files.types.ts'), 'utf8');
   assert.match(filesTypes, /auditContext\?: \{/);
 
+  const filesImageService = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-image', 'src', 'files-image.service.ts'),
+    'utf8',
+  );
+  assert.match(filesImageService, /loadFileTypeModule/);
+  assert.match(filesImageService, /new Function\('specifier', 'return import\(specifier\)'\)/);
+
   const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
   assert.match(
     apiDockerfile,

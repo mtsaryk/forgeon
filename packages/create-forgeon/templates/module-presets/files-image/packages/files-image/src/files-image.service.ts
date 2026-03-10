@@ -15,6 +15,10 @@ const MIME_TO_ALLOWED_EXTS: Record<string, string[]> = {
   'image/webp': ['.webp'],
 };
 
+interface FileTypeModuleLike {
+  fileTypeFromBuffer(buffer: Buffer): Promise<{ mime: string; ext: string } | undefined>;
+}
+
 @Injectable()
 export class FilesImageService {
   private readonly logger = new Logger(FilesImageService.name);
@@ -228,7 +232,7 @@ export class FilesImageService {
   }
 
   private async detectFileType(buffer: Buffer): Promise<{ mime: string; ext: string } | null> {
-    const { fileTypeFromBuffer } = await import('file-type');
+    const { fileTypeFromBuffer } = await this.loadFileTypeModule();
     const detected = await fileTypeFromBuffer(buffer);
     if (!detected) {
       return null;
@@ -300,6 +304,13 @@ export class FilesImageService {
           detectedMimeType,
         });
     }
+  }
+
+  private async loadFileTypeModule(): Promise<FileTypeModuleLike> {
+    const importModule = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<FileTypeModuleLike>;
+    return importModule('file-type');
   }
 
   private async validateImageShape(
