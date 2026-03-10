@@ -84,10 +84,30 @@ function patchAppModule(targetRoot) {
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = ensureImportLine(
     content,
-    "import { filesImageConfig, filesImageEnvSchema } from '@forgeon/files-image';",
+    "import { filesImageConfig, filesImageEnvSchema, ForgeonFilesImageModule } from '@forgeon/files-image';",
   );
   content = ensureLoadItem(content, 'filesImageConfig');
   content = ensureValidatorSchema(content, 'filesImageEnvSchema');
+
+  if (!content.includes('    ForgeonFilesImageModule,')) {
+    if (content.includes('    ForgeonI18nModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    ForgeonAuthModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    ForgeonAuthModule.register(),')) {
+      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    ForgeonFilesModule,')) {
+      content = ensureLineAfter(content, '    ForgeonFilesModule,', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    DbPrismaModule,')) {
+      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    ForgeonLoggerModule,')) {
+      content = ensureLineAfter(content, '    ForgeonLoggerModule,', '    ForgeonFilesImageModule,');
+    } else if (content.includes('    ForgeonSwaggerModule,')) {
+      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', '    ForgeonFilesImageModule,');
+    } else {
+      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonFilesImageModule,');
+    }
+  }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }

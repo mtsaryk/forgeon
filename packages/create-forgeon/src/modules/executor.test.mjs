@@ -440,6 +440,7 @@ function assertFilesImageWiring(projectRoot) {
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /filesImageConfig/);
   assert.match(appModule, /filesImageEnvSchema/);
+  assert.match(appModule, /ForgeonFilesImageModule/);
 
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-image/);
