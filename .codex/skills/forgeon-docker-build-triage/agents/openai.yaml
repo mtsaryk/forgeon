@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Docker Build Triage"
+  short_description: "Diagnose Forgeon Docker build/runtime failures"
+  default_prompt: "Use $forgeon-docker-build-triage to diagnose this Forgeon Docker build or runtime failure."

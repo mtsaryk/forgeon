@@ -1,4 +1,4 @@
-# TASKS
+﻿# TASKS
 
 ## Feature Discovery Matrix
 
@@ -12,6 +12,41 @@ Output:
 4) unique features
 5) architectural inconsistencies
 Include file references for every feature.
+```
+
+## Create Repo Skill
+
+```text
+Create or update a repo-local Forgeon skill under `.codex/skills/<skill-name>/`.
+Requirements:
+- repo-specific, not generic
+- reference `docs/Agents.md` first
+- keep SKILL.md concise and workflow-oriented
+- avoid duplicating long internal docs; point to `docs/Blueprint/*` instead
+- clearly define:
+  - when to trigger
+  - what it must do
+  - what it must not do
+  - which Forgeon docs to read first
+```
+
+## Run Docs Consistency Sweep
+
+```text
+Check internal Forgeon docs for drift after the recent changes.
+Review:
+- docs/Agents.md
+- docs/Blueprint/ARCHITECTURE.md
+- docs/Blueprint/DEPENDENCY_DOCTRINE.md
+- docs/Blueprint/MODULE_SPEC.md
+- docs/Blueprint/ROADMAP.md
+- docs/Blueprint/TASKS.md
+- related README/module notes
+Output:
+1. confirmed consistent items
+2. contradictions / stale statements
+3. exact files that should be updated now
+4. suggested patch order
 ```
 
 ## Add Module Package
@@ -55,6 +90,7 @@ Requirements:
 - if feasible, add module probe hooks in API (`/api/health/*`) and web diagnostics UI
 - if i18n is enabled, add module namespace files and wire them for both API and web
 - add user-facing module note under modules/<module-id>/README.md
+- classify the module explicitly as `fullstack`, `backend-only`, or `web-only`
 - follow docs/Blueprint/DEPENDENCY_DOCTRINE.md for prerequisites and optional integrations
 - keep backward compatibility
 ```
@@ -161,4 +197,8 @@ Requirements:
   - add optional `VITE_I18N_FALLBACK_LANG` for web;
   - validate it against `I18N_LOCALES`;
   - behavior: throw in `dev`, warn+fallback in `build/prod`.
+
+
+
+
 

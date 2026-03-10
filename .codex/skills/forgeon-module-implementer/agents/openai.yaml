@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Module Implementer"
+  short_description: "Implement Forgeon add-modules correctly"
+  default_prompt: "Use $forgeon-module-implementer to implement or refactor this Forgeon add-module."

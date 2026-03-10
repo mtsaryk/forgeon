@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Doc Consistency"
+  short_description: "Review Forgeon docs for drift and conflicts"
+  default_prompt: "Use $forgeon-doc-consistency to review Forgeon internal docs for drift after this change."

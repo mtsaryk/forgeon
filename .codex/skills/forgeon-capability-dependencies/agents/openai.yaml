@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Capability Dependencies"
+  short_description: "Handle capability-driven module dependencies"
+  default_prompt: "Use $forgeon-capability-dependencies to define or refactor capability-driven prerequisites and integrations."

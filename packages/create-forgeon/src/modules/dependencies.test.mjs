@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -108,6 +108,24 @@ const TEST_PRESETS = [
         ],
       },
     ],
+  },
+  {
+    id: 'queue',
+    label: 'Queue',
+    implemented: true,
+    detectionPaths: ['packages/queue/package.json'],
+    provides: ['queue-runtime'],
+    requires: [],
+    optionalIntegrations: [],
+  },
+  {
+    id: 'scheduler',
+    label: 'Scheduler',
+    implemented: true,
+    detectionPaths: ['packages/scheduler/package.json'],
+    provides: ['scheduler-runtime'],
+    requires: [{ type: 'capability', id: 'queue-runtime' }],
+    optionalIntegrations: [],
   },
 ];
 
@@ -278,6 +296,28 @@ describe('module dependency helpers', () => {
     }
   });
 
+  it('resolves scheduler plan through queue-runtime capability chain', async () => {
+    const targetRoot = mkTmp('forgeon-deps-scheduler-plan-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'scheduler',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['queue', 'scheduler']);
+      assert.deepEqual(result.selectedProviders, {
+        'queue-runtime': 'queue',
+      });
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
   it('reports missing optional integrations for the installed module', () => {
     const targetRoot = mkTmp('forgeon-deps-optional-');
     try {
@@ -358,3 +398,4 @@ describe('module dependency helpers', () => {
     }
   });
 });
+

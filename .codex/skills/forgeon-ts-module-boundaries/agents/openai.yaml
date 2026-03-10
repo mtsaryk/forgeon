@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon TS Module Boundaries"
+  short_description: "Resolve TS, ESM, CJS, and export issues"
+  default_prompt: "Use $forgeon-ts-module-boundaries to resolve package boundary, CJS/ESM, or export issues in Forgeon."

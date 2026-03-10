@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Task Orchestrator"
+  short_description: "Plan and route Forgeon repository work"
+  default_prompt: "Use $forgeon-task-orchestrator to plan and route this Forgeon repository task before implementation."

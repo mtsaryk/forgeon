@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Integration Sync"
+  short_description: "Maintain Forgeon integration sync rules"
+  default_prompt: "Use $forgeon-integration-sync to add or refactor this Forgeon integration sync rule."

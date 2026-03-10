@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Nest Wiring"
+  short_description: "Verify NestJS wiring and DI in Forgeon"
+  default_prompt: "Use $forgeon-nest-wiring to verify or fix NestJS module and DI wiring in Forgeon."

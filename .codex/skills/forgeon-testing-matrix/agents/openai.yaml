@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Testing Matrix"
+  short_description: "Define Forgeon generator and module test coverage"
+  default_prompt: "Use $forgeon-testing-matrix to define or extend the correct Forgeon generator and module test coverage."

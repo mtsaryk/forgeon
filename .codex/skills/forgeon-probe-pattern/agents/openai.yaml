@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "Forgeon Probe Pattern"
+  short_description: "Add canonical Forgeon diagnostics probes"
+  default_prompt: "Use $forgeon-probe-pattern to add or normalize API and web diagnostics probes in Forgeon."

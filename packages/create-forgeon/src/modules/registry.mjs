@@ -1,4 +1,4 @@
-const MODULE_PRESETS = {
+﻿const MODULE_PRESETS = {
   'db-prisma': {
     id: 'db-prisma',
     label: 'DB Prisma',
@@ -256,6 +256,19 @@ const MODULE_PRESETS = {
     optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
+  scheduler: {
+    id: 'scheduler',
+    label: 'Scheduler',
+    category: 'background-jobs',
+    implemented: true,
+    description:
+      'Cron orchestration module built on @nestjs/schedule and the queue foundation, with scheduler health probe and module-owned env config.',
+    detectionPaths: ['packages/scheduler/package.json'],
+    provides: ['scheduler-runtime'],
+    requires: [{ type: 'capability', id: 'queue-runtime' }],
+    optionalIntegrations: [],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
 };
 
 export function listModulePresets() {
@@ -285,3 +298,5 @@ export function ensureModuleExists(moduleId) {
   }
   return preset;
 }
+
+

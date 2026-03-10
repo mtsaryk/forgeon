@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';
@@ -15,6 +15,7 @@ import { applyLoggerModule } from './logger.mjs';
 import { applyRateLimitModule } from './rate-limit.mjs';
 import { applyRbacModule } from './rbac.mjs';
 import { applyQueueModule } from './queue.mjs';
+import { applySchedulerModule } from './scheduler.mjs';
 import { applySwaggerModule } from './swagger.mjs';
 
 function ensureForgeonLikeProject(targetRoot) {
@@ -46,6 +47,7 @@ const MODULE_APPLIERS = {
   logger: applyLoggerModule,
   queue: applyQueueModule,
   'rate-limit': applyRateLimitModule,
+  scheduler: applySchedulerModule,
   rbac: applyRbacModule,
   swagger: applySwaggerModule,
 };
@@ -82,3 +84,4 @@ export function addModule({ moduleId, targetRoot, packageRoot, writeDocs = true 
       : `Module "${preset.id}" is planned; docs note created only.`,
   };
 }
+

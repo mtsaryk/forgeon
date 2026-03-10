@@ -14,9 +14,9 @@ import {
 } from './shared/patch-utils.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
-  const source = path.join(packageRoot, 'templates', 'module-presets', 'queue', relativePath);
+  const source = path.join(packageRoot, 'templates', 'module-presets', 'scheduler', relativePath);
   if (!fs.existsSync(source)) {
-    throw new Error(`Missing queue preset template: ${source}`);
+    throw new Error(`Missing scheduler preset template: ${source}`);
   }
   const destination = path.join(targetRoot, relativePath);
   copyRecursive(source, destination);
@@ -29,8 +29,8 @@ function patchApiPackage(targetRoot) {
   }
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  ensureDependency(packageJson, '@forgeon/queue', 'workspace:*');
-  ensureBuildSteps(packageJson, 'predev', ['pnpm --filter @forgeon/queue build']);
+  ensureDependency(packageJson, '@forgeon/scheduler', 'workspace:*');
+  ensureBuildSteps(packageJson, 'predev', ['pnpm --filter @forgeon/scheduler build']);
   writeJson(packagePath, packageJson);
 }
 
@@ -43,26 +43,28 @@ function patchAppModule(targetRoot) {
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = ensureImportLine(
     content,
-    "import { ForgeonQueueModule, queueConfig, queueEnvSchema } from '@forgeon/queue';",
+    "import { ForgeonSchedulerModule, schedulerConfig, schedulerEnvSchema } from '@forgeon/scheduler';",
   );
-  content = ensureLoadItem(content, 'queueConfig');
-  content = ensureValidatorSchema(content, 'queueEnvSchema');
+  content = ensureLoadItem(content, 'schedulerConfig');
+  content = ensureValidatorSchema(content, 'schedulerEnvSchema');
 
-  if (!content.includes('    ForgeonQueueModule,')) {
-    if (content.includes('    ForgeonI18nModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonQueueModule,');
+  if (!content.includes('    ForgeonSchedulerModule,')) {
+    if (content.includes('    ForgeonQueueModule,')) {
+      content = ensureLineAfter(content, '    ForgeonQueueModule,', '    ForgeonSchedulerModule,');
+    } else if (content.includes('    ForgeonI18nModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonSchedulerModule,');
     } else if (content.includes('    ForgeonAuthModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonQueueModule,');
+      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonSchedulerModule,');
     } else if (content.includes('    ForgeonAuthModule.register(),')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonQueueModule,');
+      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonSchedulerModule,');
     } else if (content.includes('    DbPrismaModule,')) {
-      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonQueueModule,');
+      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonSchedulerModule,');
     } else if (content.includes('    ForgeonLoggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonLoggerModule,', '    ForgeonQueueModule,');
+      content = ensureLineAfter(content, '    ForgeonLoggerModule,', '    ForgeonSchedulerModule,');
     } else if (content.includes('    ForgeonSwaggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', '    ForgeonQueueModule,');
+      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', '    ForgeonSchedulerModule,');
     } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonQueueModule,');
+      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonSchedulerModule,');
     }
   }
 
@@ -76,9 +78,9 @@ function patchHealthController(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(content, "import { QueueService } from '@forgeon/queue';");
+  content = ensureImportLine(content, "import { ForgeonSchedulerService } from '@forgeon/scheduler';");
 
-  if (!content.includes('private readonly queueService: QueueService')) {
+  if (!content.includes('private readonly schedulerService: ForgeonSchedulerService')) {
     const constructorMatch = content.match(/constructor\(([\s\S]*?)\)\s*\{/m);
     if (constructorMatch) {
       const original = constructorMatch[0];
@@ -86,7 +88,7 @@ function patchHealthController(targetRoot) {
       const normalizedInner = inner.replace(/,\s*$/, '');
       const separator = normalizedInner.length > 0 ? ',' : '';
       const next = `constructor(${normalizedInner}${separator}
-    private readonly queueService: QueueService,
+    private readonly schedulerService: ForgeonSchedulerService,
   ) {`;
       content = content.replace(original, next);
     } else {
@@ -95,18 +97,18 @@ function patchHealthController(targetRoot) {
         content = content.replace(
           classAnchor,
           `${classAnchor}
-  constructor(private readonly queueService: QueueService) {}
+  constructor(private readonly schedulerService: ForgeonSchedulerService) {}
 `,
         );
       }
     }
   }
 
-  if (!content.includes("@Get('queue')")) {
+  if (!content.includes("@Get('scheduler')")) {
     const method = `
-  @Get('queue')
-  async getQueueProbe() {
-    return this.queueService.getProbeStatus();
+  @Get('scheduler')
+  async getSchedulerProbe() {
+    return this.schedulerService.getProbeStatus();
   }
 `;
     content = ensureClassMember(content, 'HealthController', method, { beforeNeedle: 'private translate(' });
@@ -128,8 +130,9 @@ function patchWebApp(targetRoot) {
     .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
     .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
 
-  if (!content.includes('queueProbeResult')) {
+  if (!content.includes('schedulerProbeResult')) {
     const stateAnchors = [
+      '  const [queueProbeResult, setQueueProbeResult] = useState<ProbeResult | null>(null);',
       '  const [filesImageProbeResult, setFilesImageProbeResult] = useState<ProbeResult | null>(null);',
       '  const [filesQuotasProbeResult, setFilesQuotasProbeResult] = useState<ProbeResult | null>(null);',
       '  const [filesAccessProbeResult, setFilesAccessProbeResult] = useState<ProbeResult | null>(null);',
@@ -146,16 +149,18 @@ function patchWebApp(targetRoot) {
       content = ensureLineAfter(
         content,
         stateAnchor,
-        '  const [queueProbeResult, setQueueProbeResult] = useState<ProbeResult | null>(null);',
+        '  const [schedulerProbeResult, setSchedulerProbeResult] = useState<ProbeResult | null>(null);',
       );
     }
   }
 
-  if (!content.includes('Check queue health')) {
+  if (!content.includes('Check scheduler health')) {
     const probePath = content.includes("runProbe(setHealthResult, '/health')")
-      ? '/health/queue'
-      : '/api/health/queue';
-    const button = `        <button onClick={() => runProbe(setQueueProbeResult, '${probePath}')}>\n          Check queue health\n        </button>`;
+      ? '/health/scheduler'
+      : '/api/health/scheduler';
+    const button = `        <button onClick={() => runProbe(setSchedulerProbeResult, '${probePath}')}>
+          Check scheduler health
+        </button>`;
 
     const actionsStart = content.indexOf('<div className="actions">');
     if (actionsStart >= 0) {
@@ -166,13 +171,14 @@ function patchWebApp(targetRoot) {
     }
   }
 
-  if (!content.includes("{renderResult('Queue probe response', queueProbeResult)}")) {
-    const resultLine = "      {renderResult('Queue probe response', queueProbeResult)}";
+  if (!content.includes("{renderResult('Scheduler probe response', schedulerProbeResult)}")) {
+    const resultLine = "      {renderResult('Scheduler probe response', schedulerProbeResult)}";
     const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
     if (content.includes(networkLine)) {
       content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
     } else {
       const anchors = [
+        "{renderResult('Queue probe response', queueProbeResult)}",
         "{renderResult('Files image probe response', filesImageProbeResult)}",
         "{renderResult('Files quotas probe response', filesQuotasProbeResult)}",
         "{renderResult('Files access probe response', filesAccessProbeResult)}",
@@ -202,6 +208,8 @@ function patchApiDockerfile(targetRoot) {
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
   const packageAnchors = [
+    'COPY packages/scheduler/package.json packages/scheduler/package.json',
+    'COPY packages/queue/package.json packages/queue/package.json',
     'COPY packages/files-image/package.json packages/files-image/package.json',
     'COPY packages/files-quotas/package.json packages/files-quotas/package.json',
     'COPY packages/files-access/package.json packages/files-access/package.json',
@@ -218,9 +226,11 @@ function patchApiDockerfile(targetRoot) {
     'COPY packages/core/package.json packages/core/package.json',
   ];
   const packageAnchor = packageAnchors.find((line) => content.includes(line)) ?? packageAnchors.at(-1);
-  content = ensureLineAfter(content, packageAnchor, 'COPY packages/queue/package.json packages/queue/package.json');
+  content = ensureLineAfter(content, packageAnchor, 'COPY packages/scheduler/package.json packages/scheduler/package.json');
 
   const sourceAnchors = [
+    'COPY packages/scheduler packages/scheduler',
+    'COPY packages/queue packages/queue',
     'COPY packages/files-image packages/files-image',
     'COPY packages/files-quotas packages/files-quotas',
     'COPY packages/files-access packages/files-access',
@@ -237,13 +247,17 @@ function patchApiDockerfile(targetRoot) {
     'COPY packages/core packages/core',
   ];
   const sourceAnchor = sourceAnchors.find((line) => content.includes(line)) ?? sourceAnchors.at(-1);
-  content = ensureLineAfter(content, sourceAnchor, 'COPY packages/queue packages/queue');
+  content = ensureLineAfter(content, sourceAnchor, 'COPY packages/scheduler packages/scheduler');
 
-  content = content.replace(/^RUN pnpm --filter @forgeon\/queue build\r?\n?/gm, '');
-  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
-    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
-    : 'RUN pnpm --filter @forgeon/api build';
-  content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/queue build');
+  content = content.replace(/^RUN pnpm --filter @forgeon\/scheduler build\r?\n?/gm, '');
+  if (content.includes('RUN pnpm --filter @forgeon/queue build')) {
+    content = ensureLineAfter(content, 'RUN pnpm --filter @forgeon/queue build', 'RUN pnpm --filter @forgeon/scheduler build');
+  } else {
+    const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+      ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+      : 'RUN pnpm --filter @forgeon/api build';
+    content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/scheduler build');
+  }
 
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
 }
@@ -256,24 +270,9 @@ function patchCompose(targetRoot) {
 
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
 
-  const redisServiceBlock = `  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10`;
-
-  if (!/\n\s{2}redis:\n/.test(content)) {
-    content = content.replace(/^services:\n/m, `services:\n${redisServiceBlock}\n\n`);
-  }
-
-  if (!content.includes('QUEUE_ENABLED: ${QUEUE_ENABLED}')) {
+  if (!content.includes('SCHEDULER_ENABLED: ${SCHEDULER_ENABLED}')) {
     const anchors = [
+      /^(\s+QUEUE_DEFAULT_BACKOFF_MS:.*)$/m,
       /^(\s+FILES_IMAGE_STRIP_METADATA:.*)$/m,
       /^(\s+FILES_QUOTA_MAX_BYTES_PER_OWNER:.*)$/m,
       /^(\s+FILES_ACCESS_DEFAULT_VISIBILITY:.*)$/m,
@@ -292,48 +291,10 @@ function patchCompose(targetRoot) {
     content = content.replace(
       anchorPattern,
       `$1
-      QUEUE_ENABLED: \${QUEUE_ENABLED}
-      QUEUE_REDIS_URL: \${QUEUE_REDIS_URL}
-      QUEUE_PREFIX: \${QUEUE_PREFIX}
-      QUEUE_DEFAULT_ATTEMPTS: \${QUEUE_DEFAULT_ATTEMPTS}
-      QUEUE_DEFAULT_BACKOFF_MS: \${QUEUE_DEFAULT_BACKOFF_MS}`,
+      SCHEDULER_ENABLED: \${SCHEDULER_ENABLED}
+      SCHEDULER_TIMEZONE: \${SCHEDULER_TIMEZONE}
+      SCHEDULER_HEARTBEAT_CRON: \${SCHEDULER_HEARTBEAT_CRON}`,
     );
-  }
-
-  const apiBlockMatch = content.match(/^  api:\n[\s\S]*?(?=^  [a-zA-Z0-9_-]+:\n|^volumes:\n|$)/m);
-  if (apiBlockMatch) {
-    let apiBlock = apiBlockMatch[0];
-    if (!/^\s{6}redis:\s*$/m.test(apiBlock) && !/^\s{6}-\s*redis\s*$/m.test(apiBlock)) {
-      if (/^\s{4}depends_on:\s*$/m.test(apiBlock)) {
-        if (/^\s{6}-\s+/m.test(apiBlock)) {
-          apiBlock = apiBlock.replace(
-            /^(\s{4}depends_on:\n(?:\s{6}-\s+.+\n)+)/m,
-            `$1      - redis
-`,
-          );
-        } else {
-          apiBlock = apiBlock.replace(
-            /^(\s{4}depends_on:\n)/m,
-            `$1      redis:
-        condition: service_healthy
-`,
-          );
-        }
-      } else {
-        const withDependsOn = apiBlock.replace(
-          /^(\s{4}environment:\n(?:\s{6}.+\n)+)/m,
-          `$1    depends_on:
-      redis:
-        condition: service_healthy
-`,
-        );
-        apiBlock =
-          withDependsOn === apiBlock
-            ? `${apiBlock.trimEnd()}\n    depends_on:\n      redis:\n        condition: service_healthy\n`
-            : withDependsOn;
-      }
-    }
-    content = content.replace(apiBlockMatch[0], apiBlock);
   }
 
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
@@ -345,36 +306,36 @@ function patchReadme(targetRoot) {
     return;
   }
 
-  const marker = '## Queue Module';
+  const marker = '## Scheduler Module';
   let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
   if (content.includes(marker)) {
     return;
   }
 
-  const section = `## Queue Module
+  const section = `## Scheduler Module
 
-The queue add-module provides an async job runtime baseline backed by Redis.
+The scheduler add-module provides cron-based orchestration on top of the queue foundation.
 
 What it adds:
-- \`@forgeon/queue\` package
-- typed queue env config (module-owned)
-- queue probe endpoint: \`GET /api/health/queue\`
+- \`@forgeon/scheduler\` package
+- typed scheduler env config (module-owned)
+- scheduler probe endpoint: \`GET /api/health/scheduler\`
 - web probe button for quick runtime verification
-- Redis service wiring in Docker Compose
+- fixed-id heartbeat scheduling to avoid unbounded queue growth before worker support exists
 
 Configuration (env):
-- \`QUEUE_ENABLED=true\`
-- \`QUEUE_REDIS_URL=redis://localhost:6379\`
-- \`QUEUE_PREFIX=forgeon\`
-- \`QUEUE_DEFAULT_ATTEMPTS=3\`
-- \`QUEUE_DEFAULT_BACKOFF_MS=1000\`
+- \`SCHEDULER_ENABLED=true\`
+- \`SCHEDULER_TIMEZONE=UTC\`
+- \`SCHEDULER_HEARTBEAT_CRON=*/5 * * * *\`
 
 Operational notes:
-- this stage is the queue foundation (runtime + connectivity)
-- cron orchestration is available through the scheduler module
-- job execution workers remain intentionally deferred to a later module`;
+- this stage owns cron orchestration only
+- queue remains responsible for broker/runtime delivery
+- worker execution is intentionally deferred to a later module`;
 
-  if (content.includes('## Prisma In Docker Start')) {
+  if (content.includes('## Queue Module')) {
+    content = content.replace('## Queue Module', `${section}\n\n## Queue Module`);
+  } else if (content.includes('## Prisma In Docker Start')) {
     content = content.replace('## Prisma In Docker Start', `${section}\n\n## Prisma In Docker Start`);
   } else {
     content = `${content.trimEnd()}\n\n${section}\n`;
@@ -383,8 +344,8 @@ Operational notes:
   fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-export function applyQueueModule({ packageRoot, targetRoot }) {
-  copyFromPreset(packageRoot, targetRoot, path.join('packages', 'queue'));
+export function applySchedulerModule({ packageRoot, targetRoot }) {
+  copyFromPreset(packageRoot, targetRoot, path.join('packages', 'scheduler'));
 
   patchApiPackage(targetRoot);
   patchAppModule(targetRoot);
@@ -395,18 +356,13 @@ export function applyQueueModule({ packageRoot, targetRoot }) {
   patchReadme(targetRoot);
 
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
-    'QUEUE_ENABLED=true',
-    'QUEUE_REDIS_URL=redis://localhost:6379',
-    'QUEUE_PREFIX=forgeon',
-    'QUEUE_DEFAULT_ATTEMPTS=3',
-    'QUEUE_DEFAULT_BACKOFF_MS=1000',
+    'SCHEDULER_ENABLED=true',
+    'SCHEDULER_TIMEZONE=UTC',
+    'SCHEDULER_HEARTBEAT_CRON=*/5 * * * *',
   ]);
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
-    'QUEUE_ENABLED=true',
-    'QUEUE_REDIS_URL=redis://redis:6379',
-    'QUEUE_PREFIX=forgeon',
-    'QUEUE_DEFAULT_ATTEMPTS=3',
-    'QUEUE_DEFAULT_BACKOFF_MS=1000',
+    'SCHEDULER_ENABLED=true',
+    'SCHEDULER_TIMEZONE=UTC',
+    'SCHEDULER_HEARTBEAT_CRON=*/5 * * * *',
   ]);
 }
-

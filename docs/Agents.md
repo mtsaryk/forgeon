@@ -1,4 +1,4 @@
-# Agents
+﻿# Agents
 
 This file is the primary context entrypoint for work in the Forgeon repository.
 
@@ -15,6 +15,7 @@ Primary detail specs to consult when touching module installation behavior:
 - `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
 - `docs/Blueprint/MODULE_SPEC.md`
 - `docs/Blueprint/ARCHITECTURE.md`
+- `docs/Blueprint/SKILLS.md`
 - `docs/Blueprint/FILES_V2_PLAN.md` (for variants and staged files v2 decisions)
 
 ## Canonical Stack
@@ -70,6 +71,39 @@ This means:
 - prefer modular env validation: core validates core env, each add-module validates only its own env
 - keep generated projects buildable in both local dev and Docker
 - use package entrypoints only; never import sibling packages through `/src/*`
+
+## Repo-Local Skills
+
+Forgeon keeps repo-specific AI skills under:
+
+- `.codex/skills/*`
+
+These skills are internal Forgeon development tools, not generated project artifacts.
+
+Current repo-local skills:
+
+- `forgeon-task-orchestrator`
+- `forgeon-module-implementer`
+- `forgeon-capability-dependencies`
+- `forgeon-integration-sync`
+- `forgeon-nest-wiring`
+- `forgeon-ts-module-boundaries`
+- `forgeon-docker-build-triage`
+- `forgeon-doc-consistency`
+- `forgeon-probe-pattern`
+- `forgeon-testing-matrix`
+
+Skill architecture and workflow rules are defined in:
+
+- `docs/Blueprint/SKILLS.md`
+
+When a task would clearly benefit from a missing specialized skill, the planning phase may explicitly recommend creating or installing that skill before implementation.
+
+Default recommendation for such gaps:
+
+- suggest the skill during planning
+- explain why current repo skills are insufficient
+- do not silently switch to undocumented ad-hoc conventions
 
 ## TypeScript and Package Conventions
 
@@ -146,6 +180,7 @@ Module probes currently in use:
 - `GET /api/health/files-access` (`files-access`)
 - `GET /api/health/files-quotas` (`files-quotas`)
 - `GET /api/health/files-image` (`files-image`)
+- `GET /api/health/scheduler` (`scheduler`)
 
 API docs:
 
@@ -168,6 +203,7 @@ Every add-module must be:
 - safe to apply after any supported module order
 - explicit about new dependencies and follow-up steps
 - documented in root README and in a dedicated internal module note
+- aligned with repo-local skill workflow and docs consistency checks
 
 If a module changes dependency manifests (`package.json` fields such as `dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`, or `pnpm.onlyBuiltDependencies`):
 
@@ -194,6 +230,41 @@ Accepted rules:
   - `--provider <capability>=<module>`
 - silent auto-install is forbidden
 - optional integrations never block installation and must be presented as explicit follow-up opportunities
+
+## Agent Workflow
+
+For feature implementation, refactors, and non-trivial bugfixes, the canonical workflow is:
+
+1. reframe the user request into a precise technical task
+2. read `docs/Agents.md` first
+3. open only the relevant deep docs under `docs/Blueprint/*`
+4. classify the work:
+   - new module
+   - module refactor
+   - build/runtime bug
+   - integration sync
+   - doctrine/architecture/doc change
+5. if module-related, determine module type:
+   - `fullstack`
+   - `backend-only`
+   - `web-only`
+6. identify:
+   - must-have now
+   - good-to-have in v1
+   - explicitly deferred scope
+7. if something is ambiguous, ask direct clarifying questions instead of guessing
+8. if the task would benefit from an additional skill not yet available, recommend creating or installing it before coding
+9. present a concrete implementation plan and wait for explicit approval before writing code
+10. after implementation, run a documentation consistency sweep
+
+For implementation updates during execution, keep progress visible and short.
+
+For final summaries, always include:
+
+- what was done
+- what was intentionally deferred
+- what was not verified
+- next logical step
 
 Current implementation status:
 
@@ -255,6 +326,29 @@ Important rules:
 - do not rely on hidden cross-module mutations inside `add <module>`
 - if a new module needs cross-module behavior, add a sync rule instead
 - when a capability boundary exists, refactor sync logic toward that capability instead of hard-coding one provider
+
+## Documentation Consistency
+
+After changes to modules, doctrine, architecture, routes, env keys, package names, or integration behavior, perform a docs drift check across:
+
+- `docs/Agents.md`
+- `docs/Blueprint/ARCHITECTURE.md`
+- `docs/Blueprint/DEPENDENCY_DOCTRINE.md`
+- `docs/Blueprint/MODULE_SPEC.md`
+- `docs/Blueprint/ROADMAP.md`
+- `docs/Blueprint/TASKS.md`
+- related module notes and README sections
+
+Typical drift examples:
+
+- task removed from one doc but still marked as `not implemented` in another
+- route/env/package name changed in code but not in docs
+- doctrine updated in one file but contradicted elsewhere
+
+Default action when drift is found:
+
+- recommend updating docs now
+- treat `yes` as the default recommendation
 
 ## Implemented Modules
 
@@ -393,6 +487,17 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `QUEUE_DEFAULT_ATTEMPTS`
     - `QUEUE_DEFAULT_BACKOFF_MS`
 
+- `scheduler`
+  - package: `@forgeon/scheduler`
+  - requires `queue-runtime` capability
+  - cron orchestration layer built on `@nestjs/schedule`
+  - probe:
+    - `GET /api/health/scheduler`
+  - env keys:
+    - `SCHEDULER_ENABLED`
+    - `SCHEDULER_TIMEZONE`
+    - `SCHEDULER_HEARTBEAT_CRON`
+
 ## Current Auth and Access Decisions
 
 - JWT auth and RBAC remain explicit
@@ -434,7 +539,11 @@ Known deferred idea:
 - This stage intentionally ships queue foundation only:
   - producer/runtime wiring
   - Redis connectivity/probe
-  - no worker scheduler orchestration yet (deferred to scheduler/worker modules).
+  - no job execution worker yet (deferred to worker module).
+- `scheduler` now owns cron orchestration on top of queue:
+  - heartbeat cron registration
+  - fixed-id enqueue pattern to avoid unbounded queue growth before worker support exists
+  - no distributed lock/leader election yet.
 
 ## Files Module Family (Accepted Design)
 
@@ -663,4 +772,11 @@ Use these only when the task needs more detail than this file:
 - `docs/Blueprint/VALIDATION.md`
 - `docs/Blueprint/DOCKER_BUILD_GOTCHAS.md`
 - `docs/Blueprint/IDEAS.md`
+- `docs/Blueprint/SKILLS.md`
 - `docs/Blueprint/TASKS.md`
+
+
+
+
+
+

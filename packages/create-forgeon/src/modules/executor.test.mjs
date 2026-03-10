@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -130,6 +130,51 @@ function assertQueueWiring(projectRoot) {
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Queue Module/);
   assert.match(readme, /runtime baseline backed by Redis/i);
+}
+
+function assertSchedulerWiring(projectRoot) {
+  const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+  assert.match(appModule, /schedulerConfig/);
+  assert.match(appModule, /schedulerEnvSchema/);
+  assert.match(appModule, /ForgeonSchedulerModule/);
+
+  const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+  assert.match(apiPackage, /@forgeon\/scheduler/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/scheduler build/);
+
+  const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+  assert.match(apiDockerfile, /COPY packages\/scheduler\/package\.json packages\/scheduler\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/scheduler packages\/scheduler/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/scheduler build/);
+
+  const healthController = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
+    'utf8',
+  );
+  assert.match(healthController, /ForgeonSchedulerService/);
+  assert.match(healthController, /@Get\('scheduler'\)/);
+  assert.match(healthController, /schedulerService\.getProbeStatus/);
+
+  const webApp = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  assert.match(webApp, /Check scheduler health/);
+  assert.match(webApp, /Scheduler probe response/);
+
+  const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+  assert.match(apiEnv, /SCHEDULER_ENABLED=true/);
+  assert.match(apiEnv, /SCHEDULER_TIMEZONE=UTC/);
+  assert.match(apiEnv, /SCHEDULER_HEARTBEAT_CRON=\*\/5 \* \* \* \*/);
+
+  const dockerEnv = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', '.env.example'), 'utf8');
+  assert.match(dockerEnv, /SCHEDULER_TIMEZONE=UTC/);
+
+  const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
+  assert.match(compose, /SCHEDULER_ENABLED: \$\{SCHEDULER_ENABLED\}/);
+  assert.match(compose, /SCHEDULER_HEARTBEAT_CRON: \$\{SCHEDULER_HEARTBEAT_CRON\}/);
+  assert.doesNotMatch(compose, /^\s{2}scheduler:\s*$/m);
+
+  const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  assert.match(readme, /## Scheduler Module/);
+  assert.match(readme, /cron-based orchestration/i);
 }
 
 function assertRbacWiring(projectRoot) {
@@ -746,6 +791,51 @@ describe('addModule', () => {
 
       const note = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(note, /Queue Worker/);
+      assert.match(note, /Status: implemented/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('applies scheduler module on top of project with queue installed', () => {
+    const targetRoot = mkTmp('forgeon-module-scheduler-');
+    const projectRoot = path.join(targetRoot, 'demo-scheduler');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-scheduler',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'queue',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const result = addModule({
+        moduleId: 'scheduler',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+      assert.match(result.message, /applied/);
+      assert.equal(fs.existsSync(result.docsPath), true);
+
+      assertQueueWiring(projectRoot);
+      assertSchedulerWiring(projectRoot);
+
+      const note = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(note, /Scheduler/);
       assert.match(note, /Status: implemented/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -2352,3 +2442,4 @@ describe('addModule', () => {
     }
   });
 });
+

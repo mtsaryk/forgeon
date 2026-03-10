@@ -1,4 +1,4 @@
-# ROADMAP
+﻿# ROADMAP
 
 This is a living plan. Scope and priorities may change.
 
@@ -131,9 +131,9 @@ This is a living plan. Scope and priorities may change.
   - [ ] key naming conventions
   - [ ] shared wrapper/service
 
-- [ ] `scheduler`
-  - [ ] `@nestjs/schedule` integration
-  - [ ] task template
+- [~] `scheduler`
+  - [x] `@nestjs/schedule` integration
+  - [x] heartbeat task template
   - [ ] optional distributed lock (Redis)
 
 - [ ] `mail`
@@ -217,3 +217,5 @@ Definition of Done:
 - [ ] each add-module that introduces user-facing text defines its own namespace templates
 - [ ] if i18n is already enabled, namespace files are added during module installation
 - [ ] if module is installed first and i18n later, namespaces are merged during i18n installation
+
+
