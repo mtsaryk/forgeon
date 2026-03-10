@@ -102,7 +102,7 @@ async function selectProviderForCapability({
 
   const picked = await promptSelectImpl({
     message: `Module "${moduleId}" requires capability: ${capabilityId}`,
-    defaultValue: '__cancel',
+    defaultValue: providers[0].id,
     choices,
   });
 

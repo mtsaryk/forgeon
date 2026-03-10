@@ -147,7 +147,7 @@ async function confirmInstallPlan(moduleSequence, requestedModuleId) {
   printInstallPlan(moduleSequence);
   const picked = await promptSelect({
     message: `Apply now for "${requestedModuleId}"?`,
-    defaultValue: 'cancel',
+    defaultValue: 'apply',
     choices: [
       { label: 'Yes, apply install plan', value: 'apply' },
       { label: 'Cancel', value: 'cancel' },

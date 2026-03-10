@@ -28,3 +28,4 @@ export function parseFilesEnv(input: Record<string, string | undefined>): FilesE
 }
 
 export const filesEnvSchemaZod = filesEnvSchema;
+export { filesEnvSchema };
