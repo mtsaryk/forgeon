@@ -53,6 +53,29 @@ function patchFilesPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
+function patchRootPackage(targetRoot) {
+  const packagePath = path.join(targetRoot, 'package.json');
+  if (!fs.existsSync(packagePath)) {
+    return;
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  if (!packageJson.pnpm || typeof packageJson.pnpm !== 'object' || Array.isArray(packageJson.pnpm)) {
+    packageJson.pnpm = {};
+  }
+
+  const onlyBuiltDependencies = Array.isArray(packageJson.pnpm.onlyBuiltDependencies)
+    ? packageJson.pnpm.onlyBuiltDependencies
+    : [];
+
+  if (!onlyBuiltDependencies.includes('sharp')) {
+    onlyBuiltDependencies.push('sharp');
+  }
+
+  packageJson.pnpm.onlyBuiltDependencies = onlyBuiltDependencies;
+  writeJson(packagePath, packageJson);
+}
+
 function patchFilesTypes(targetRoot) {
   const filePath = path.join(targetRoot, 'packages', 'files', 'src', 'files.types.ts');
   if (!fs.existsSync(filePath)) {
@@ -526,6 +549,7 @@ export function applyFilesImageModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-image'));
   patchApiPackage(targetRoot);
   patchFilesPackage(targetRoot);
+  patchRootPackage(targetRoot);
   patchFilesTypes(targetRoot);
   patchAppModule(targetRoot);
   patchFilesModule(targetRoot);

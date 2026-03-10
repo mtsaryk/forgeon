@@ -146,50 +146,85 @@ export class FilesImageService {
     return this.configService.enabled;
   }
 
-  async getProbeStatus(): Promise<{
-    status: 'ok';
-    feature: 'files-image';
-    stripMetadata: boolean;
-    maxWidth: number;
-    maxHeight: number;
-    maxPixels: number;
-    maxFrames: number;
-    inputBytes: number;
-    outputBytes: number;
-    outputMimeType: string;
-    transformed: boolean;
-  }> {
-    const sample = await sharp({
-      create: {
-        width: 4,
-        height: 4,
-        channels: 3,
-        background: { r: 120, g: 80, b: 40 },
-      },
-    })
-      .jpeg({ quality: 90 })
-      .withMetadata()
-      .toBuffer();
+  async getProbeStatus(): Promise<
+    | {
+        status: 'ok';
+        feature: 'files-image';
+        stripMetadata: boolean;
+        maxWidth: number;
+        maxHeight: number;
+        maxPixels: number;
+        maxFrames: number;
+        inputBytes: number;
+        outputBytes: number;
+        outputMimeType: string;
+        transformed: boolean;
+      }
+    | {
+        status: 'error';
+        feature: 'files-image';
+        stripMetadata: boolean;
+        maxWidth: number;
+        maxHeight: number;
+        maxPixels: number;
+        maxFrames: number;
+        errorCode: string;
+        errorMessage: string;
+      }
+  > {
+    try {
+      const sample = await sharp({
+        create: {
+          width: 4,
+          height: 4,
+          channels: 3,
+          background: { r: 120, g: 80, b: 40 },
+        },
+      })
+        .jpeg({ quality: 90 })
+        .withMetadata()
+        .toBuffer();
 
-    const result = await this.sanitizeForStorage({
-      buffer: sample,
-      declaredMimeType: 'image/jpeg',
-      originalName: 'probe.jpg',
-    });
+      const result = await this.sanitizeForStorage({
+        buffer: sample,
+        declaredMimeType: 'image/jpeg',
+        originalName: 'probe.jpg',
+      });
 
-    return {
-      status: 'ok',
-      feature: 'files-image',
-      stripMetadata: this.configService.stripMetadata,
-      maxWidth: this.configService.maxWidth,
-      maxHeight: this.configService.maxHeight,
-      maxPixels: this.configService.maxPixels,
-      maxFrames: this.configService.maxFrames,
-      inputBytes: sample.byteLength,
-      outputBytes: result.buffer.byteLength,
-      outputMimeType: result.mimeType,
-      transformed: result.transformed,
-    };
+      return {
+        status: 'ok',
+        feature: 'files-image',
+        stripMetadata: this.configService.stripMetadata,
+        maxWidth: this.configService.maxWidth,
+        maxHeight: this.configService.maxHeight,
+        maxPixels: this.configService.maxPixels,
+        maxFrames: this.configService.maxFrames,
+        inputBytes: sample.byteLength,
+        outputBytes: result.buffer.byteLength,
+        outputMimeType: result.mimeType,
+        transformed: result.transformed,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown files-image probe error';
+      this.logger.error(
+        JSON.stringify({
+          event: 'files.image.probe_failed',
+          errorMessage,
+        }),
+      );
+
+      return {
+        status: 'error',
+        feature: 'files-image',
+        stripMetadata: this.configService.stripMetadata,
+        maxWidth: this.configService.maxWidth,
+        maxHeight: this.configService.maxHeight,
+        maxPixels: this.configService.maxPixels,
+        maxFrames: this.configService.maxFrames,
+        errorCode: 'FILES_IMAGE_PROBE_FAILED',
+        errorMessage,
+      };
+    }
   }
 
   private async detectFileType(buffer: Buffer): Promise<{ mime: string; ext: string } | null> {

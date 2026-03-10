@@ -529,6 +529,10 @@ function assertFilesImageWiring(projectRoot) {
   assert.match(filesImagePackage, /"sharp":/);
   assert.match(filesImagePackage, /"file-type":/);
 
+  const rootPackage = fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8');
+  assert.match(rootPackage, /"onlyBuiltDependencies"/);
+  assert.match(rootPackage, /"sharp"/);
+
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Files Image Module/);
   assert.match(readme, /metadata is stripped before storage/i);
