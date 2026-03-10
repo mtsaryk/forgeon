@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
+  ensureBuildStepBefore,
   ensureBuildSteps,
   ensureClassMember,
   ensureDependency,
@@ -32,6 +33,12 @@ function patchApiPackage(targetRoot) {
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   ensureDependency(packageJson, '@forgeon/files-image', 'workspace:*');
   ensureBuildSteps(packageJson, 'predev', ['pnpm --filter @forgeon/files-image build']);
+  ensureBuildStepBefore(
+    packageJson,
+    'predev',
+    'pnpm --filter @forgeon/files-image build',
+    'pnpm --filter @forgeon/files build',
+  );
   writeJson(packagePath, packageJson);
 }
 
@@ -402,9 +409,11 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/files-image packages/files-image');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/files-image build\r?\n?/gm, '');
-  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
-    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
-    : 'RUN pnpm --filter @forgeon/api build';
+  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/files build')
+    ? 'RUN pnpm --filter @forgeon/files build'
+    : content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+      ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+      : 'RUN pnpm --filter @forgeon/api build';
   content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/files-image build');
 
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');

@@ -12,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Readable } from 'node:stream';
 import { CreateFileDto } from './dto/create-file.dto';
 import { FilesService } from './files.service';
 import type { FileVariantKey } from './files.types';
@@ -58,7 +59,7 @@ export class FilesController {
   async download(@Param('publicId') publicId: string, @Query('variant') variantQuery?: string) {
     const variant = this.parseVariant(variantQuery);
     const payload = await this.filesService.openDownload(publicId, variant);
-    return new StreamableFile(payload.stream, {
+    return new StreamableFile(payload.stream as Readable, {
       disposition: `inline; filename="${payload.fileName}"`,
       type: payload.mimeType,
     });

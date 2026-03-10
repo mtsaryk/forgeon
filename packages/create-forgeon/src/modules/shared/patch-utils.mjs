@@ -46,6 +46,31 @@ export function ensureBuildSteps(packageJson, scriptName, requiredCommands) {
   }
 }
 
+export function ensureBuildStepBefore(packageJson, scriptName, command, beforeCommand) {
+  if (!packageJson.scripts) {
+    packageJson.scripts = {};
+  }
+
+  const current = packageJson.scripts[scriptName];
+  const steps =
+    typeof current === 'string' && current.trim().length > 0
+      ? current
+          .split('&&')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+
+  const withoutCommand = steps.filter((item) => item !== command);
+  const beforeIndex = withoutCommand.indexOf(beforeCommand);
+  if (beforeIndex >= 0) {
+    withoutCommand.splice(beforeIndex, 0, command);
+  } else {
+    withoutCommand.push(command);
+  }
+
+  packageJson.scripts[scriptName] = withoutCommand.join(' && ');
+}
+
 export function ensureLineAfter(content, anchorLine, lineToInsert) {
   if (content.includes(lineToInsert)) {
     return content;

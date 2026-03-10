@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
+  ensureBuildStepBefore,
   ensureBuildSteps,
   ensureClassMember,
   ensureDependency,
@@ -32,6 +33,23 @@ function patchApiPackage(targetRoot) {
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   ensureDependency(packageJson, '@forgeon/files-quotas', 'workspace:*');
   ensureBuildSteps(packageJson, 'predev', ['pnpm --filter @forgeon/files-quotas build']);
+  ensureBuildStepBefore(
+    packageJson,
+    'predev',
+    'pnpm --filter @forgeon/files-quotas build',
+    'pnpm --filter @forgeon/files build',
+  );
+  writeJson(packagePath, packageJson);
+}
+
+function patchFilesPackage(targetRoot) {
+  const packagePath = path.join(targetRoot, 'packages', 'files', 'package.json');
+  if (!fs.existsSync(packagePath)) {
+    return;
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  ensureDependency(packageJson, '@forgeon/files-quotas', 'workspace:*');
   writeJson(packagePath, packageJson);
 }
 
@@ -280,9 +298,11 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/files-quotas packages/files-quotas');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/files-quotas build\r?\n?/gm, '');
-  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
-    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
-    : 'RUN pnpm --filter @forgeon/api build';
+  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/files build')
+    ? 'RUN pnpm --filter @forgeon/files build'
+    : content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
+      ? 'RUN pnpm --filter @forgeon/api prisma:generate'
+      : 'RUN pnpm --filter @forgeon/api build';
   content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/files-quotas build');
 
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
@@ -360,6 +380,7 @@ Key env:
 export function applyFilesQuotasModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-quotas'));
   patchApiPackage(targetRoot);
+  patchFilesPackage(targetRoot);
   patchAppModule(targetRoot);
   patchFilesController(targetRoot);
   patchHealthController(targetRoot);

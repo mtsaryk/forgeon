@@ -324,6 +324,11 @@ function assertFilesAccessWiring(projectRoot) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-access/);
   assert.match(apiPackage, /pnpm --filter @forgeon\/files-access build/);
+  assert.equal(
+    apiPackage.indexOf('pnpm --filter @forgeon/files-access build') <
+      apiPackage.indexOf('pnpm --filter @forgeon/files build'),
+    true,
+  );
 
   const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
   assert.match(filesPackage, /@forgeon\/files-access/);
@@ -335,6 +340,11 @@ function assertFilesAccessWiring(projectRoot) {
   );
   assert.match(apiDockerfile, /COPY packages\/files-access packages\/files-access/);
   assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-access build/);
+  assert.equal(
+    apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files-access build') <
+      apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files build'),
+    true,
+  );
 
   const filesController = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
@@ -373,6 +383,14 @@ function assertFilesQuotasWiring(projectRoot) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-quotas/);
   assert.match(apiPackage, /pnpm --filter @forgeon\/files-quotas build/);
+  assert.equal(
+    apiPackage.indexOf('pnpm --filter @forgeon/files-quotas build') <
+      apiPackage.indexOf('pnpm --filter @forgeon/files build'),
+    true,
+  );
+
+  const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
+  assert.match(filesPackage, /@forgeon\/files-quotas/);
 
   const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
   assert.match(
@@ -381,6 +399,11 @@ function assertFilesQuotasWiring(projectRoot) {
   );
   assert.match(apiDockerfile, /COPY packages\/files-quotas packages\/files-quotas/);
   assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-quotas build/);
+  assert.equal(
+    apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files-quotas build') <
+      apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files build'),
+    true,
+  );
 
   const filesController = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
@@ -421,6 +444,11 @@ function assertFilesImageWiring(projectRoot) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-image/);
   assert.match(apiPackage, /pnpm --filter @forgeon\/files-image build/);
+  assert.equal(
+    apiPackage.indexOf('pnpm --filter @forgeon/files-image build') <
+      apiPackage.indexOf('pnpm --filter @forgeon/files build'),
+    true,
+  );
 
   const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
   assert.match(filesPackage, /@forgeon\/files-image/);
@@ -457,6 +485,11 @@ function assertFilesImageWiring(projectRoot) {
   );
   assert.match(apiDockerfile, /COPY packages\/files-image packages\/files-image/);
   assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-image build/);
+  assert.equal(
+    apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files-image build') <
+      apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files build'),
+    true,
+  );
 
   const healthController = fs.readFileSync(
     path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),

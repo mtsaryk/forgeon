@@ -15,6 +15,17 @@ import { PrismaService } from '@forgeon/db-prisma';
 import { FilesConfigService } from './files-config.service';
 import type { FileRecordDto, FileVariantKey, StoredFileInput } from './files.types';
 
+type S3ModuleLike = {
+  S3Client: new (config: Record<string, unknown>) => {
+    send: (command: unknown) => Promise<{
+      Body?: unknown;
+    }>;
+  };
+  PutObjectCommand: new (input: Record<string, unknown>) => unknown;
+  GetObjectCommand: new (input: Record<string, unknown>) => unknown;
+  DeleteObjectCommand: new (input: Record<string, unknown>) => unknown;
+};
+
 type BlobRef = {
   id: string;
   hash: string;
@@ -225,7 +236,7 @@ export class FilesService {
   }
 
   async openDownload(publicId: string, variant: FileVariantKey = 'original'): Promise<{
-    stream: NodeJS.ReadableStream;
+    stream: Readable;
     mimeType: string;
     fileName: string;
   }> {
@@ -439,7 +450,7 @@ export class FilesService {
   }
 
   private async storeS3(buffer: Buffer, storageKey: string): Promise<{ storageKey: string }> {
-    const { PutObjectCommand } = await import('@aws-sdk/client-s3');
+    const { PutObjectCommand } = await this.loadS3Module();
     const client = await this.getS3Client();
     const config = this.resolveS3Config();
 
@@ -454,8 +465,8 @@ export class FilesService {
     return { storageKey };
   }
 
-  private async openS3(storageKey: string): Promise<NodeJS.ReadableStream> {
-    const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+  private async openS3(storageKey: string): Promise<Readable> {
+    const { GetObjectCommand } = await this.loadS3Module();
     const client = await this.getS3Client();
     const config = this.resolveS3Config();
 
@@ -473,7 +484,7 @@ export class FilesService {
   }
 
   private async deleteS3(storageKey: string): Promise<void> {
-    const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    const { DeleteObjectCommand } = await this.loadS3Module();
     const client = await this.getS3Client();
     const config = this.resolveS3Config();
     await client.send(
@@ -566,7 +577,7 @@ export class FilesService {
     if (this.s3Client) {
       return this.s3Client;
     }
-    const { S3Client } = await import('@aws-sdk/client-s3');
+    const { S3Client } = await this.loadS3Module();
     const config = this.resolveS3Config();
     this.s3Client = new S3Client({
       region: config.region,
@@ -581,7 +592,7 @@ export class FilesService {
     return this.s3Client;
   }
 
-  private toNodeReadable(body: unknown): NodeJS.ReadableStream {
+  private toNodeReadable(body: unknown): Readable {
     if (body instanceof Readable) {
       return body;
     }
@@ -594,10 +605,17 @@ export class FilesService {
       typeof (body as { transformToWebStream?: unknown }).transformToWebStream === 'function'
     ) {
       return Readable.fromWeb(
-        (body as { transformToWebStream: () => ReadableStream<Uint8Array> }).transformToWebStream(),
+        (body as { transformToWebStream: () => unknown }).transformToWebStream() as never,
       );
     }
     throw new InternalServerErrorException('Unsupported S3 response body type');
+  }
+
+  private async loadS3Module(): Promise<S3ModuleLike> {
+    const importModule = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<S3ModuleLike>;
+    return importModule('@aws-sdk/client-s3');
   }
 
   private generatePublicId(): string {
