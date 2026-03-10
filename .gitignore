@@ -6,3 +6,5 @@ pnpm-lock.yaml
 !.env.example
 **/dist
 **/.turbo
+/tp.ps1
+/tp-clean-template.ps1
