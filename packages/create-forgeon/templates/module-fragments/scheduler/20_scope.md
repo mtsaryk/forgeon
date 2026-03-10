@@ -1,4 +1,4 @@
-﻿## Scope
+## Scope
 
 Current implementation includes:
 

@@ -1,4 +1,4 @@
-﻿export * from './forgeon-scheduler.module';
+export * from './forgeon-scheduler.module';
 export * from './scheduler-config.loader';
 export * from './scheduler-config.module';
 export * from './scheduler-config.service';

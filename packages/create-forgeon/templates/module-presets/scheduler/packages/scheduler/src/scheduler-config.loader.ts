@@ -1,4 +1,4 @@
-﻿import { registerAs } from '@nestjs/config';
+import { registerAs } from '@nestjs/config';
 import { parseSchedulerEnv } from './scheduler-env.schema';
 
 export const SCHEDULER_CONFIG_NAMESPACE = 'scheduler';

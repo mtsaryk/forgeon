@@ -1,4 +1,4 @@
-﻿import { Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ForgeonQueueModule } from '@forgeon/queue';
 import { SchedulerConfigModule } from './scheduler-config.module';

@@ -1,4 +1,4 @@
-﻿# Agents
+# Agents
 
 This file is the primary context entrypoint for work in the Forgeon repository.
 

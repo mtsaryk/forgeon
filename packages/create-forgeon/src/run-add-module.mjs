@@ -16,7 +16,7 @@ import {
   printOptionalIntegrationsWarning,
   runIntegrationFlow,
 } from './integrations/flow.mjs';
-import { writeJson } from './utils/fs.mjs';
+import { readJson, writeJson } from './utils/fs.mjs';
 
 function printModuleList() {
   const modules = listModulePresets();
@@ -63,7 +63,7 @@ function collectDependencyManifestState(targetRoot) {
       }
 
       const filePath = path.join(currentDir, entry.name);
-      const packageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const packageJson = readJson(filePath);
       const snapshot = {
         name: packageJson.name ?? null,
         dependencies: toSortedObject(packageJson.dependencies),
@@ -114,7 +114,7 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
     return;
   }
 
-  const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+  const packageJson = readJson(packagePath);
   if (!packageJson.scripts) {
     packageJson.scripts = {};
   }
@@ -309,3 +309,4 @@ export async function runAddModule(argv = process.argv.slice(2)) {
     console.log('Next: run pnpm install');
   }
 }
+

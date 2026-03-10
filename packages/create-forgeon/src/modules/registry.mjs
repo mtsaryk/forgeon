@@ -1,4 +1,4 @@
-﻿const MODULE_PRESETS = {
+const MODULE_PRESETS = {
   'db-prisma': {
     id: 'db-prisma',
     label: 'DB Prisma',

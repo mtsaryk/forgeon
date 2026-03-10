@@ -1,4 +1,4 @@
-﻿import { Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { schedulerConfig } from './scheduler-config.loader';
 import { SchedulerConfigService } from './scheduler-config.service';

@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ensureModuleExists } from './registry.mjs';
 import { writeModuleDocs } from './docs.mjs';

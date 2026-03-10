@@ -1,4 +1,4 @@
-﻿# ROADMAP
+# ROADMAP
 
 This is a living plan. Scope and priorities may change.
 
