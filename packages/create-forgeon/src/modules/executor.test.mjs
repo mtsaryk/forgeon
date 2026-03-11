@@ -125,7 +125,8 @@ function assertQueueWiring(projectRoot) {
   const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
   assert.match(compose, /^\s{2}redis:\s*$/m);
   assert.match(compose, /QUEUE_ENABLED: \$\{QUEUE_ENABLED\}/);
-  assert.match(compose, /depends_on:\n\s+redis:\n\s+condition: service_healthy/);
+  assert.match(compose, /api:\n\s+build:\n\s+context: \.\.\/\.\.\n\s+dockerfile: apps\/api\/Dockerfile/);
+  assert.match(compose, /restart: unless-stopped\n\s+depends_on:\n\s+redis:\n\s+condition: service_healthy/);
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Queue Module/);
@@ -797,6 +798,49 @@ describe('addModule', () => {
     }
   });
 
+  it('repairs malformed queue depends_on block from an older generator patch', () => {
+    const targetRoot = mkTmp('forgeon-module-queue-repair-');
+    const projectRoot = path.join(targetRoot, 'demo-queue-repair');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-queue-repair',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: false,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({
+        moduleId: 'queue',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      const composePath = path.join(projectRoot, 'infra', 'docker', 'compose.yml');
+      let compose = fs.readFileSync(composePath, 'utf8');
+      compose = compose.replace(
+        /  api:\n    build:\n      context: \.\.\/\.\.\n      dockerfile: apps\/api\/Dockerfile\n    restart: unless-stopped\n    depends_on:\n      redis:\n        condition: service_healthy\n    environment:/,
+        '  api:\n    build:\n    depends_on:\n      redis:\n        condition: service_healthy\n\n      context: ../..\n      dockerfile: apps/api/Dockerfile\n    restart: unless-stopped\n    environment:',
+      );
+      fs.writeFileSync(composePath, compose, 'utf8');
+
+      addModule({
+        moduleId: 'queue',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assertQueueWiring(projectRoot);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
   it('applies scheduler module on top of project with queue installed', () => {
     const targetRoot = mkTmp('forgeon-module-scheduler-');
     const projectRoot = path.join(targetRoot, 'demo-scheduler');
@@ -833,6 +877,21 @@ describe('addModule', () => {
 
       assertQueueWiring(projectRoot);
       assertSchedulerWiring(projectRoot);
+
+      addModule({
+        moduleId: 'queue',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assertQueueWiring(projectRoot);
+      assertSchedulerWiring(projectRoot);
+
+      const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
+      assert(
+        apiDockerfile.indexOf('RUN pnpm --filter @forgeon/queue build') <
+          apiDockerfile.indexOf('RUN pnpm --filter @forgeon/scheduler build'),
+      );
 
       const note = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(note, /Scheduler/);
@@ -2442,4 +2501,5 @@ describe('addModule', () => {
     }
   });
 });
+
 

@@ -240,14 +240,77 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, sourceAnchor, 'COPY packages/queue packages/queue');
 
   content = content.replace(/^RUN pnpm --filter @forgeon\/queue build\r?\n?/gm, '');
-  const buildAnchor = content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
-    ? 'RUN pnpm --filter @forgeon/api prisma:generate'
-    : 'RUN pnpm --filter @forgeon/api build';
+  const buildAnchors = [
+    'RUN pnpm --filter @forgeon/scheduler build',
+    'RUN pnpm --filter @forgeon/api prisma:generate',
+    'RUN pnpm --filter @forgeon/api build',
+  ];
+  const buildAnchor = buildAnchors.find((line) => content.includes(line)) ?? 'RUN pnpm --filter @forgeon/api build';
   content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/queue build');
 
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
+function ensureApiDependsOnRedis(apiBlock) {
+  let lines = apiBlock.replace(/\n$/, '').split('\n');
+  const buildIndex = lines.findIndex((line) => line === '    build:');
+
+  // Heal a previously broken queue patch where depends_on was injected inside the build block.
+  if (buildIndex >= 0 && lines[buildIndex + 1] === '    depends_on:') {
+    let malformedBlockEnd = lines.length;
+    for (let index = buildIndex + 2; index < lines.length; index += 1) {
+      if (lines[index].startsWith('    ') && !lines[index].startsWith('      ')) {
+        malformedBlockEnd = index;
+        break;
+      }
+    }
+
+    const misplacedBuildLines = lines
+      .slice(buildIndex + 2, malformedBlockEnd)
+      .filter((line) => /^(      context:|      dockerfile:|      args:|      target:)/.test(line));
+
+    if (misplacedBuildLines.length > 0) {
+      lines = [
+        ...lines.slice(0, buildIndex + 1),
+        ...misplacedBuildLines,
+        ...lines.slice(malformedBlockEnd),
+      ];
+    }
+  }
+
+  const dependsOnIndex = lines.findIndex((line) => line === '    depends_on:');
+
+  if (dependsOnIndex < 0) {
+    const restartIndex = lines.findIndex((line) => line === '    restart: unless-stopped');
+    const environmentIndex = lines.findIndex((line) => line === '    environment:');
+    const insertAt = restartIndex >= 0 ? restartIndex + 1 : environmentIndex >= 0 ? environmentIndex : lines.length;
+    lines.splice(insertAt, 0, '    depends_on:', '      redis:', '        condition: service_healthy');
+    return `${lines.join('\n')}\n`;
+  }
+
+  let blockEnd = lines.length;
+  for (let index = dependsOnIndex + 1; index < lines.length; index += 1) {
+    if (lines[index].startsWith('    ') && !lines[index].startsWith('      ')) {
+      blockEnd = index;
+      break;
+    }
+  }
+
+  const dependsOnBlock = lines.slice(dependsOnIndex + 1, blockEnd);
+  const hasRedisMapping = dependsOnBlock.includes('      redis:');
+  const hasRedisList = dependsOnBlock.some((line) => line.trim() === '- redis');
+  if (hasRedisMapping || hasRedisList) {
+    return `${lines.join('\n')}\n`;
+  }
+
+  const isListStyle = dependsOnBlock.some((line) => line.trimStart().startsWith('- '));
+  const insertLines = isListStyle
+    ? ['      - redis']
+    : ['      redis:', '        condition: service_healthy'];
+
+  lines.splice(blockEnd, 0, ...insertLines);
+  return `${lines.join('\n')}\n`;
+}
 function patchCompose(targetRoot) {
   const composePath = path.join(targetRoot, 'infra', 'docker', 'compose.yml');
   if (!fs.existsSync(composePath)) {
@@ -300,45 +363,14 @@ function patchCompose(targetRoot) {
     );
   }
 
-  const apiBlockMatch = content.match(/^  api:\n[\s\S]*?(?=^  [a-zA-Z0-9_-]+:\n|^volumes:\n|$)/m);
+  const apiBlockMatch = content.match(/^  api:\n[\s\S]*?(?=^  [a-zA-Z0-9_-]+:\n|^volumes:\n|(?![\s\S]))/m);
   if (apiBlockMatch) {
-    let apiBlock = apiBlockMatch[0];
-    if (!/^\s{6}redis:\s*$/m.test(apiBlock) && !/^\s{6}-\s*redis\s*$/m.test(apiBlock)) {
-      if (/^\s{4}depends_on:\s*$/m.test(apiBlock)) {
-        if (/^\s{6}-\s+/m.test(apiBlock)) {
-          apiBlock = apiBlock.replace(
-            /^(\s{4}depends_on:\n(?:\s{6}-\s+.+\n)+)/m,
-            `$1      - redis
-`,
-          );
-        } else {
-          apiBlock = apiBlock.replace(
-            /^(\s{4}depends_on:\n)/m,
-            `$1      redis:
-        condition: service_healthy
-`,
-          );
-        }
-      } else {
-        const withDependsOn = apiBlock.replace(
-          /^(\s{4}environment:\n(?:\s{6}.+\n)+)/m,
-          `$1    depends_on:
-      redis:
-        condition: service_healthy
-`,
-        );
-        apiBlock =
-          withDependsOn === apiBlock
-            ? `${apiBlock.trimEnd()}\n    depends_on:\n      redis:\n        condition: service_healthy\n`
-            : withDependsOn;
-      }
-    }
+    const apiBlock = ensureApiDependsOnRedis(apiBlockMatch[0]);
     content = content.replace(apiBlockMatch[0], apiBlock);
   }
 
   fs.writeFileSync(composePath, `${content.trimEnd()}\n`, 'utf8');
 }
-
 function patchReadme(targetRoot) {
   const readmePath = path.join(targetRoot, 'README.md');
   if (!fs.existsSync(readmePath)) {
@@ -409,4 +441,3 @@ export function applyQueueModule({ packageRoot, targetRoot }) {
     'QUEUE_DEFAULT_BACKOFF_MS=1000',
   ]);
 }
-
