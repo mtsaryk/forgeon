@@ -3,15 +3,13 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
   ensureBuildSteps,
-  ensureClassMember,
   ensureDependency,
-  ensureImportLine,
   ensureLineAfter,
   ensureLineBefore,
-  ensureLoadItem,
-  ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { patchAppModuleRegistration, patchHealthControllerServiceProbe } from './shared/nest-runtime-wiring.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'queue', relativePath);
@@ -35,163 +33,46 @@ function patchApiPackage(targetRoot) {
 }
 
 function patchAppModule(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(
-    content,
-    "import { ForgeonQueueModule, queueConfig, queueEnvSchema } from '@forgeon/queue';",
-  );
-  content = ensureLoadItem(content, 'queueConfig');
-  content = ensureValidatorSchema(content, 'queueEnvSchema');
-
-  if (!content.includes('    ForgeonQueueModule,')) {
-    if (content.includes('    ForgeonI18nModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonQueueModule,');
-    } else if (content.includes('    ForgeonAuthModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonQueueModule,');
-    } else if (content.includes('    ForgeonAuthModule.register(),')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonQueueModule,');
-    } else if (content.includes('    DbPrismaModule,')) {
-      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonQueueModule,');
-    } else if (content.includes('    ForgeonLoggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonLoggerModule,', '    ForgeonQueueModule,');
-    } else if (content.includes('    ForgeonSwaggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', '    ForgeonQueueModule,');
-    } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonQueueModule,');
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+  patchAppModuleRegistration(targetRoot, {
+    importLine: "import { ForgeonQueueModule, queueConfig, queueEnvSchema } from '@forgeon/queue';",
+    loadItem: 'queueConfig',
+    envSchema: 'queueEnvSchema',
+    moduleLine: '    ForgeonQueueModule,',
+    beforeAnchors: [
+      '    ForgeonI18nModule.register({',
+      '    ForgeonAuthModule.register({',
+      '    ForgeonAuthModule.register(),',
+    ],
+    afterAnchors: [
+      '    DbPrismaModule,',
+      '    ForgeonLoggerModule,',
+      '    ForgeonSwaggerModule,',
+    ],
+  });
 }
 
-function patchHealthController(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(content, "import { QueueService } from '@forgeon/queue';");
-
-  if (!content.includes('private readonly queueService: QueueService')) {
-    const constructorMatch = content.match(/constructor\(([\s\S]*?)\)\s*\{/m);
-    if (constructorMatch) {
-      const original = constructorMatch[0];
-      const inner = constructorMatch[1].trimEnd();
-      const normalizedInner = inner.replace(/,\s*$/, '');
-      const separator = normalizedInner.length > 0 ? ',' : '';
-      const next = `constructor(${normalizedInner}${separator}
-    private readonly queueService: QueueService,
-  ) {`;
-      content = content.replace(original, next);
-    } else {
-      const classAnchor = 'export class HealthController {';
-      if (content.includes(classAnchor)) {
-        content = content.replace(
-          classAnchor,
-          `${classAnchor}
-  constructor(private readonly queueService: QueueService) {}
-`,
-        );
-      }
-    }
-  }
-
-  if (!content.includes("@Get('queue')")) {
-    const method = `
-  @Get('queue')
-  async getQueueProbe() {
-    return this.queueService.getProbeStatus();
-  }
-`;
-    content = ensureClassMember(content, 'HealthController', method, { beforeNeedle: 'private translate(' });
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function patchHealthController(targetRoot, probeTargets) {
+  patchHealthControllerServiceProbe(targetRoot, probeTargets, {
+    importLine: "import { QueueService } from '@forgeon/queue';",
+    constructorMember: 'private readonly queueService: QueueService',
+    routePath: 'queue',
+    methodName: 'getQueueProbe',
+    serviceCall: 'this.queueService.getProbeStatus()',
+  });
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('queueProbeResult')) {
-    const stateAnchors = [
-      '  const [filesImageProbeResult, setFilesImageProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesQuotasProbeResult, setFilesQuotasProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesAccessProbeResult, setFilesAccessProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesVariantsProbeResult, setFilesVariantsProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesProbeResult, setFilesProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-    ];
-    const stateAnchor = stateAnchors.find((line) => content.includes(line));
-    if (stateAnchor) {
-      content = ensureLineAfter(
-        content,
-        stateAnchor,
-        '  const [queueProbeResult, setQueueProbeResult] = useState<ProbeResult | null>(null);',
-      );
-    }
-  }
-
-  if (!content.includes('Check queue health')) {
-    const probePath = content.includes("runProbe(setHealthResult, '/health')")
-      ? '/health/queue'
-      : '/api/health/queue';
-    const button = `        <button onClick={() => runProbe(setQueueProbeResult, '${probePath}')}>\n          Check queue health\n        </button>`;
-
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${button}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("{renderResult('Queue probe response', queueProbeResult)}")) {
-    const resultLine = "      {renderResult('Queue probe response', queueProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
-    } else {
-      const anchors = [
-        "{renderResult('Files image probe response', filesImageProbeResult)}",
-        "{renderResult('Files quotas probe response', filesQuotasProbeResult)}",
-        "{renderResult('Files access probe response', filesAccessProbeResult)}",
-        "{renderResult('Files variants probe response', filesVariantsProbeResult)}",
-        "{renderResult('Files probe response', filesProbeResult)}",
-        "{renderResult('RBAC probe response', rbacProbeResult)}",
-        "{renderResult('Rate limit probe response', rateLimitProbeResult)}",
-        "{renderResult('Auth probe response', authProbeResult)}",
-        "{renderResult('DB probe response', dbProbeResult)}",
-        "{renderResult('Validation probe response', validationProbeResult)}",
-      ];
-      const anchor = anchors.find((line) => content.includes(line));
-      if (anchor) {
-        content = ensureLineAfter(content, anchor, resultLine);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'queue',
+      title: 'Queue',
+      buttonLabel: 'Check queue health',
+      resultTitle: 'Queue probe response',
+      path: '/health/queue',
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -417,11 +298,12 @@ Operational notes:
 
 export function applyQueueModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'queue'));
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'queue' });
 
   patchApiPackage(targetRoot);
   patchAppModule(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);

@@ -35,8 +35,8 @@ Current scaffold defaults:
 
 ## Repository Layout
 
-- `apps/api` - NestJS application
-- `apps/web` - React diagnostics shell and starter UI
+- `apps/api` - internal API development harness and scaffold substrate
+- `apps/web` - internal web diagnostics harness and scaffold substrate
 - `packages/*` - reusable runtime modules and shared packages
 - `infra/*` - Docker Compose and proxy presets
 - `resources/*` - shared static assets, especially i18n dictionaries
@@ -48,6 +48,7 @@ Current scaffold defaults:
 Accepted decision:
 
 - `docs/` in the Forgeon repository is internal-only and exists for Forgeon development
+- this root repository is an internal development workspace, not a generated-project user guide
 - internal docs must not be treated as end-user project documentation
 - generated projects should not rely on copying Forgeon internal `docs/*` as part of the default scaffold
 
@@ -55,6 +56,7 @@ Generated project documentation target shape:
 
 - root `README.md` as the primary user-facing setup and usage document
 - module-specific readme files generated and updated by add-modules under `modules/<module-id>/README.md`
+- references to generated-project commands (for example `pnpm forgeon:sync-integrations`) refer to scaffolded projects unless stated otherwise
 
 This means:
 
@@ -180,6 +182,7 @@ Module probes currently in use:
 - `GET /api/health/files-access` (`files-access`)
 - `GET /api/health/files-quotas` (`files-quotas`)
 - `GET /api/health/files-image` (`files-image`)
+- `GET /api/health/queue` (`queue`)
 - `GET /api/health/scheduler` (`scheduler`)
 
 API docs:
@@ -190,10 +193,9 @@ API docs:
 
 Web diagnostics page:
 
-- default web app is a module probe shell
-- feature probes append:
-  - a new action button at the end of `<div className="actions">`
-  - a new result block before the `networkError` block
+- default web app exposes a stable probe surface through `apps/web/src/probes.ts` and `<div id="probes">`
+- feature probes register structured probe definitions instead of patching JSX directly
+- web probe wiring is optional and should be skipped when the project no longer keeps that surface
 
 ## Add-Module Rules
 
@@ -202,7 +204,7 @@ Every add-module must be:
 - idempotent on repeated install
 - safe to apply after any supported module order
 - explicit about new dependencies and follow-up steps
-- documented in root README and in a dedicated internal module note
+- documented in the generated project's root README and in a generated module note
 - aligned with repo-local skill workflow and docs consistency checks
 
 If a module changes dependency manifests (`package.json` fields such as `dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies`, or `pnpm.onlyBuiltDependencies`):
@@ -212,8 +214,8 @@ If a module changes dependency manifests (`package.json` fields such as `depende
 
 If a module can be verified safely at runtime:
 
-- it must add an API probe
-- it must add a web probe trigger and a visible result block
+- it should add an API probe when the project still exposes `apps/api/src/health/health.controller.ts`
+- it should add a web probe definition when the project still exposes `apps/web/src/App.tsx` with `#probes`
 
 Dependency handling is governed by `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
 
@@ -275,15 +277,16 @@ Current implementation status:
   - `provides`
   - `requires`
   - `optionalIntegrations`
-- existing modules still need a follow-up pass to migrate provider-specific assumptions to capability-first rules where applicable
+- remaining doctrine follow-up should target only real hotspots where provider-specific assumptions still create extension debt
 
 ## Integration Sync Strategy
 
 Cross-module patching belongs to sync rules, not to individual module installers.
 
-Project command:
+Generated-project command:
 
 - `pnpm forgeon:sync-integrations`
+- this command belongs to scaffolded projects; the root development repo may expose a different script surface
 
 Current workflow:
 
@@ -547,7 +550,7 @@ Known deferred idea:
 
 ## Files Module Family (Accepted Design)
 
-`files` is the next major module family and should be treated as a multi-stage design, not a single monolith.
+`files` is the largest implemented module family and should continue to be treated as a staged design, not a single monolith.
 
 ### Accepted Module Split
 
@@ -576,24 +579,24 @@ Known deferred idea:
 - thumbnails / resize / format conversion
 - likely based on `sharp`
 
-### `files v1` Scope
+### Current Files Scope
 
-`files v1` should include only:
+The current split is intentional:
 
-- upload endpoint(s)
-- DB-backed file metadata record
-- local storage only
-- stable file IDs
-- MIME and file-size validation
-- a safe probe/demo flow
+- `files` keeps the base metadata-first runtime:
+  - upload
+  - metadata read
+  - variant-aware download
+  - delete
+  - probe endpoints
+- `files-local` and `files-s3` are provider modules for `files-storage-adapter`
+- `files-access`, `files-quotas`, and `files-image` stay separate add-modules on top of the base runtime
 
-Excluded from `files v1`:
+This means:
 
-- advanced access-control
-- quotas
-- S3-compatible providers
-- image transforms
-- signed URLs
+- files is not a monolithic "do everything" module
+- access-control, quota policy, image hardening, and provider-specific behavior remain opt-in layers
+- future work should be justified by concrete product need, not by completeness-for-its-own-sake
 
 ### Core `files` Design Rules
 
@@ -697,65 +700,41 @@ Runtime stage is now present:
 
 Immediate next engineering targets:
 
-1. Decide and lock `FileRecord` schema v1 (with migration strategy notes)
-2. Continue files-family modules:
-   - `files-access`
-   - `files-quotas`
-   - `files-image`
-   - harden `files-s3` behavior (error handling, optional signed URL flow)
-3. Design files persistence integration-sync strategy at `db-adapter` boundary (provider-dispatch model, Prisma first strategy)
-4. Start `files v2` implementation from `docs/Blueprint/FILES_V2_PLAN.md`:
-   - lock `FileVariant` schema
-   - add `variant` query support on download route
-   - implement sync-first `preview` variant path for `files-image`
-5. After files-family runtime baseline, continue with:
-   - testing baseline
-   - CI quality gates
+1. keep internal docs and roadmap aligned with the implemented generator workflow and CI surface
+2. continue only the highest-value platform additions next:
    - cache
+   - realtime adapter
+   - notifications
    - mail
+   - scheduler distributed lock when needed
+3. keep new modules feature-first, not fullstack-by-default:
+   - backend-only, web-only, or fullstack are all valid
+   - use fullstack only when backend and web genuinely share a stable contract
+4. if/when realtime work starts, keep it capability-driven:
+   - capability: `realtime-adapter`
+   - providers: `realtime-sse`, `realtime-ws`
+   - backend publishes through a transport-agnostic event/channel boundary
+   - web consumes through transport-agnostic hooks/client helpers
+
+Files follow-up should be demand-driven, not automatic. If the files family is revisited, the highest-value open questions are:
+
+- lock the long-term `FileRecord` schema/index shape
+- decide whether files persistence sync at the `db-adapter` boundary is actually needed
+- decide whether signed URLs or deeper S3 hardening have real product demand
+- continue variants work only if the next product surface truly needs it
 
 Documentation follow-up:
 
-6. Keep generated-project documentation README-driven (`README.md` + `modules/<module-id>/README.md`)
-7. Add the future project-scoped agent context file once its format is defined
-8. Refactor existing modules to the capability-driven dependency doctrine:
-   - replace remaining concrete-module prerequisite assumptions
-   - extend current metadata usage across all modules
-   - standardize capability-based prerequisite handling where module logic is still provider-specific
-9. Add new auth-persistence provider strategies as future DB adapters are implemented
+5. keep generated-project documentation README-driven (`README.md` + `modules/<module-id>/README.md`)
+6. add the future project-scoped agent context file once its format is defined
+7. add new auth-persistence provider strategies only when new DB adapters actually appear
+8. continue capability-doctrine cleanup only where module logic still has meaningful provider-specific debt
 
-## Staged Refactor Plan (Temporary)
+## Staged Refactor Plan (Historical)
 
-This is a temporary execution plan for normalizing existing modules under the dependency doctrine and shared module standards.
+The previous staged refactor wave for implemented modules is complete enough for the current internal pre-`1.0.0` phase.
 
-Remove or collapse this section after the refactor series is complete.
-
-1. [x] `db-prisma`
-- make it the clean reference provider for capability `db-adapter`
-- normalize metadata, docs wording, README notes, and tests
-
-2. [x] `jwt-auth` + auth persistence integration
-- move conceptual persistence boundary from `db-prisma` to `db-adapter`
-- keep Prisma as the first concrete provider implementation
-
-3. [x] `rbac`
-- normalize metadata and optional integration behavior with `jwt-auth`
- - keep install fully independent; `jwt-auth` remains optional integration only
-
-4. [x] `swagger`
-- verify fully independent install behavior and remove any misleading assumptions
-
-5. [x] `logger`
-- normalize lightweight infrastructure-module structure and docs
-
-6. [x] `i18n`
-- normalize multi-package module structure, tooling docs, and install behavior
-
-7. [x] `rate-limit`
-- normalize metadata, docs, and probe behavior under the same doctrine
-
-8. [x] integration-layer cleanup
-- unify integration descriptors, warning output, and shared install behavior
+Keep this as historical context only; do not reopen it unless a specific module hotspot justifies new work.
 
 ## Internal Detail Docs
 
@@ -774,9 +753,3 @@ Use these only when the task needs more detail than this file:
 - `docs/Blueprint/IDEAS.md`
 - `docs/Blueprint/SKILLS.md`
 - `docs/Blueprint/TASKS.md`
-
-
-
-
-
-

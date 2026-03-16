@@ -50,9 +50,10 @@ Checklist of recurring Docker build failures in generated Forgeon projects and h
 
 Before publishing `create-forgeon`, run:
 
-1. `node --test --test-isolation=none` in `packages/create-forgeon`
-2. Generate test project with i18n + caddy
-3. In generated project:
+1. `pnpm test:create-forgeon`
+2. `pnpm smoke:generated-project:full`
+3. Generate test project with i18n + caddy
+4. In generated project:
    - `pnpm install`
    - `pnpm i18n:check`
    - `pnpm --filter @forgeon/web build`

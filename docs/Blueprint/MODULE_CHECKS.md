@@ -1,14 +1,14 @@
-# MODULE CHECKS
+﻿# MODULE CHECKS
 
 ## Purpose
 
 Define mandatory runtime verification hooks for Forgeon modules.
 
-If a module can be validated through a safe API call, it must provide:
+If a module can be validated through a safe API call, it should provide:
 
-1. A probe endpoint in API (`/api/health/*`).
-2. A probe trigger on default web page (`apps/web/src/App.tsx`).
-3. A visible result block in UI with HTTP status and JSON body.
+1. A probe endpoint in API (`/api/health/*`) when the project still exposes `apps/api/src/health/health.controller.ts`.
+2. A probe definition in `apps/web/src/probes.ts` when the project still exposes `apps/web/src/App.tsx` with a `<div id="probes">` container.
+3. A visible probe card in UI with title, button, HTTP status, and JSON body.
 
 ## Current Baseline Probes
 
@@ -23,7 +23,7 @@ If a module can be validated through a safe API call, it must provide:
 - Probe must be deterministic and documented (expected status + payload shape).
 - If probe writes data, it must use clearly marked probe/test records.
 - Probe should not require hidden setup beyond documented env/dependencies.
-- `create-forgeon add <module>` must wire both API probe and web probe UI when feasible.
-- Web probes should be appended to the existing probe UI structure in `apps/web/src/App.tsx`:
-  - add new action button at the end of `<div className="actions">`
-  - add new result block before the `networkError` render block
+- `create-forgeon add <module>` should wire API probe additions only when probes are enabled and the `HealthController` surface still exists.
+- Web probe wiring should go through the shared probe registry in `apps/web/src/probes.ts`, not by patching JSX fragments in `App.tsx`.
+- Web probe wiring should be skipped with a warning when `App.tsx` is missing or the `#probes` container was intentionally removed.
+- Probe definitions must be inserted in canonical order through the shared generator helper, not by module install order.

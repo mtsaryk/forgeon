@@ -3,15 +3,33 @@ import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
   ensureBuildSteps,
-  ensureClassMember,
   ensureDependency,
-  ensureImportLine,
   ensureLineAfter,
   ensureLineBefore,
-  ensureLoadItem,
-  ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { patchAppModuleRegistration, patchHealthControllerServiceProbe } from './shared/nest-runtime-wiring.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
+
+const JWT_AUTH_PERSISTENCE_MARKERS = {
+  start: '<!-- forgeon:jwt-auth:persistence:start -->',
+  end: '<!-- forgeon:jwt-auth:persistence:end -->',
+};
+
+const JWT_AUTH_RBAC_MARKERS = {
+  start: '<!-- forgeon:jwt-auth:rbac:start -->',
+  end: '<!-- forgeon:jwt-auth:rbac:end -->',
+};
+
+const JWT_AUTH_DEFAULT_PERSISTENCE_BLOCK = [
+  '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
+  '- to enable persistence later:',
+  '  1. install a DB adapter provider first (current provider: `create-forgeon add db-prisma --project .`);',
+  '  2. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation.',
+].join('\n');
+
+const JWT_AUTH_DEFAULT_RBAC_BLOCK =
+  '- RBAC integration: not enabled by default (add `rbac` and run `pnpm forgeon:sync-integrations` to include demo `health.rbac` claims).';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'jwt-auth', relativePath);
@@ -42,186 +60,47 @@ function patchApiPackage(targetRoot) {
 }
 
 function patchAppModule(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  if (!content.includes("from '@forgeon/auth-api';")) {
-    if (content.includes("import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';")) {
-      content = ensureLineAfter(
-        content,
-        "import { ForgeonI18nModule, i18nConfig, i18nEnvSchema } from '@forgeon/i18n';",
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-      );
-    } else if (
-      content.includes("import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';")
-    ) {
-      content = ensureLineAfter(
-        content,
-        "import { ForgeonLoggerModule, loggerConfig, loggerEnvSchema } from '@forgeon/logger';",
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-      );
-    } else if (
-      content.includes("import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';")
-    ) {
-      content = ensureLineAfter(
-        content,
-        "import { ForgeonSwaggerModule, swaggerConfig, swaggerEnvSchema } from '@forgeon/swagger';",
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-      );
-    } else if (
-      content.includes("import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';")
-    ) {
-      content = ensureLineAfter(
-        content,
-        "import { dbPrismaConfig, dbPrismaEnvSchema, DbPrismaModule } from '@forgeon/db-prisma';",
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-      );
-    } else {
-      content = ensureLineAfter(
-        content,
-        "import { ConfigModule } from '@nestjs/config';",
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-      );
-    }
-  }
-
-  content = ensureLoadItem(content, 'authConfig');
-  content = ensureValidatorSchema(content, 'authEnvSchema');
-
-  if (!content.includes('ForgeonAuthModule.register(')) {
-    const moduleBlock = '    ForgeonAuthModule.register(),';
-
-    if (content.includes('    ForgeonI18nModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', moduleBlock);
-    } else if (content.includes('    DbPrismaModule,')) {
-      content = ensureLineAfter(content, '    DbPrismaModule,', moduleBlock);
-    } else if (content.includes('    ForgeonLoggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonLoggerModule,', moduleBlock);
-    } else if (content.includes('    ForgeonSwaggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', moduleBlock);
-    } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', moduleBlock);
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+  patchAppModuleRegistration(targetRoot, {
+    importLine: "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+    loadItem: 'authConfig',
+    envSchema: 'authEnvSchema',
+    moduleLine: '    ForgeonAuthModule.register(),',
+    beforeAnchors: [
+      '    ForgeonI18nModule.register({',
+    ],
+    afterAnchors: [
+      '    DbPrismaModule,',
+      '    ForgeonLoggerModule,',
+      '    ForgeonSwaggerModule,',
+    ],
+    fallbackAnchor: '    CoreErrorsModule,',
+  });
 }
 
-function patchHealthController(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-
-  if (!content.includes("from '@forgeon/auth-api';")) {
-    content = ensureImportLine(content, "import { AuthService } from '@forgeon/auth-api';");
-  }
-
-  if (!content.includes('private readonly authService: AuthService')) {
-    const constructorMatch = content.match(/constructor\(([\s\S]*?)\)\s*\{/m);
-    if (constructorMatch) {
-      const original = constructorMatch[0];
-      const inner = constructorMatch[1].trimEnd();
-      const normalizedInner = inner.replace(/,\s*$/, '');
-      const separator = normalizedInner.length > 0 ? ',' : '';
-      const next = `constructor(${normalizedInner}${separator}
-    private readonly authService: AuthService,
-  ) {`;
-      content = content.replace(original, next);
-    } else {
-      const classAnchor = 'export class HealthController {';
-      if (content.includes(classAnchor)) {
-        content = content.replace(
-          classAnchor,
-          `${classAnchor}
-  constructor(private readonly authService: AuthService) {}
-`,
-        );
-      }
-    }
-  }
-
-  if (!content.includes("@Get('auth')")) {
-    const method = `
-  @Get('auth')
-  getAuthProbe() {
-    return this.authService.getProbeStatus();
-  }
-`;
-    const beforeNeedle = content.includes("@Post('db')") ? "@Post('db')" : 'private translate(';
-    content = ensureClassMember(content, 'HealthController', method, { beforeNeedle });
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function patchHealthController(targetRoot, probeTargets) {
+  patchHealthControllerServiceProbe(targetRoot, probeTargets, {
+    importLine: "import { AuthService } from '@forgeon/auth-api';",
+    constructorMember: 'private readonly authService: AuthService',
+    routePath: 'auth',
+    methodName: 'getAuthProbe',
+    serviceCall: 'this.authService.getProbeStatus()',
+    beforeNeedles: ["@Post('db')"],
+    beforeNeedle: 'private translate(',
+  });
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('authProbeResult')) {
-    if (content.includes('  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);')) {
-      content = content.replace(
-        '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-        `  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);
-  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);`,
-      );
-    } else if (content.includes('  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);')) {
-      content = content.replace(
-        '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-        `  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);
-  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);`,
-      );
-    }
-  }
-
-  if (!content.includes('Check JWT auth probe')) {
-    const path = content.includes("runProbe(setHealthResult, '/health')") ? '/health/auth' : '/api/health/auth';
-    const authButton = `        <button onClick={() => runProbe(setAuthProbeResult, '${path}')}>Check JWT auth probe</button>`;
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${authButton}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("renderResult('Auth probe response', authProbeResult)")) {
-    const authResultLine = "      {renderResult('Auth probe response', authProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${authResultLine}\n${networkLine}`);
-    } else if (content.includes("{renderResult('DB probe response', dbProbeResult)}")) {
-      content = content.replace(
-        "{renderResult('DB probe response', dbProbeResult)}",
-        `{renderResult('DB probe response', dbProbeResult)}
-      {renderResult('Auth probe response', authProbeResult)}`,
-      );
-    } else if (content.includes("{renderResult('Validation probe response', validationProbeResult)}")) {
-      content = content.replace(
-        "{renderResult('Validation probe response', validationProbeResult)}",
-        `{renderResult('Validation probe response', validationProbeResult)}
-      {renderResult('Auth probe response', authProbeResult)}`,
-      );
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'auth',
+      title: 'JWT Auth',
+      buttonLabel: 'Check JWT auth probe',
+      resultTitle: 'Auth probe response',
+      path: '/health/auth',
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -308,33 +187,33 @@ function patchReadme(targetRoot) {
     return;
   }
 
-  const persistenceSummary =
-    '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)';
-  const dbFollowUp = `- to enable persistence later:
-  1. install a DB adapter provider first (current provider: \`create-forgeon add db-prisma --project .\`);
-  2. run \`pnpm forgeon:sync-integrations\` to wire auth persistence to the active DB adapter implementation.`;
-
-  const section = `## JWT Auth Module
-
-The jwt-auth add-module provides:
-- \`@forgeon/auth-contracts\` shared auth routes/types/error codes
-- \`@forgeon/auth-api\` Nest auth module (\`login\`, \`refresh\`, \`logout\`, \`me\`)
-- JWT guard + passport strategy
-- auth probe endpoint: \`GET /api/health/auth\`
-
-Current mode:
-${persistenceSummary}
-${dbFollowUp}
-
-Default demo credentials:
-- \`AUTH_DEMO_EMAIL=demo@forgeon.local\`
-- \`AUTH_DEMO_PASSWORD=forgeon-demo-password\`
-
-Default routes:
-- \`POST /api/auth/login\`
-- \`POST /api/auth/refresh\`
-- \`POST /api/auth/logout\`
-- \`GET /api/auth/me\``;
+  const section = [
+    '## JWT Auth Module',
+    '',
+    'The jwt-auth add-module provides:',
+    '- `@forgeon/auth-contracts` shared auth routes/types/error codes',
+    '- `@forgeon/auth-api` Nest auth module (`login`, `refresh`, `logout`, `me`)',
+    '- JWT guard + passport strategy',
+    '- auth probe endpoint: `GET /api/health/auth`',
+    '',
+    'Current mode:',
+    JWT_AUTH_PERSISTENCE_MARKERS.start,
+    JWT_AUTH_DEFAULT_PERSISTENCE_BLOCK,
+    JWT_AUTH_PERSISTENCE_MARKERS.end,
+    JWT_AUTH_RBAC_MARKERS.start,
+    JWT_AUTH_DEFAULT_RBAC_BLOCK,
+    JWT_AUTH_RBAC_MARKERS.end,
+    '',
+    'Default demo credentials:',
+    '- `AUTH_DEMO_EMAIL=demo@forgeon.local`',
+    '- `AUTH_DEMO_PASSWORD=forgeon-demo-password`',
+    '',
+    'Default routes:',
+    '- `POST /api/auth/login`',
+    '- `POST /api/auth/refresh`',
+    '- `POST /api/auth/logout`',
+    '- `GET /api/auth/me`',
+  ].join('\n');
 
   let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
   const sectionHeading = '## JWT Auth Module';
@@ -360,10 +239,12 @@ export function applyJwtAuthModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'auth-api'));
 
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'jwt-auth' });
+
   patchApiPackage(targetRoot);
   patchAppModule(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);

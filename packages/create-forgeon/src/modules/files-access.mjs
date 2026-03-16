@@ -11,6 +11,7 @@ import {
   ensureLineBefore,
   ensureNestCommonImport,
 } from './shared/patch-utils.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files-access', relativePath);
@@ -159,24 +160,6 @@ function patchFilesController(targetRoot) {
   }`,
     );
 
-    content = content.replace(
-      `  async download(@Param('publicId') publicId: string) {
-    const payload = await this.filesService.openDownload(publicId);
-    return new StreamableFile(payload.stream, {
-      disposition: \`inline; filename="\${payload.fileName}"\`,
-      type: payload.mimeType,
-    });
-  }`,
-      `  async download(@Param('publicId') publicId: string, @Req() req: any) {
-    const file = await this.filesService.getByPublicId(publicId);
-    this.filesAccessService.assertCanRead(file, extractFilesAccessSubject(req));
-    const payload = await this.filesService.openDownload(publicId);
-    return new StreamableFile(payload.stream, {
-      disposition: \`inline; filename="\${payload.fileName}"\`,
-      type: payload.mimeType,
-    });
-  }`,
-    );
 
     content = content.replace(
       `  async remove(@Param('publicId') publicId: string) {
@@ -193,7 +176,11 @@ function patchFilesController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchHealthController(targetRoot) {
+function patchHealthController(targetRoot, probeTargets) {
+  if (!probeTargets.allowApi) {
+    return;
+  }
+
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
   if (!fs.existsSync(filePath)) {
     return;
@@ -256,83 +243,23 @@ function patchHealthController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('filesAccessProbeResult')) {
-    const stateAnchors = [
-      '  const [filesProbeResult, setFilesProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-    ];
-    const stateAnchor = stateAnchors.find((line) => content.includes(line));
-    if (stateAnchor) {
-      content = ensureLineAfter(
-        content,
-        stateAnchor,
-        '  const [filesAccessProbeResult, setFilesAccessProbeResult] = useState<ProbeResult | null>(null);',
-      );
-    }
-  }
-
-  if (!content.includes('Check files access')) {
-    const probePath = content.includes("runProbe(setHealthResult, '/health')")
-      ? '/health/files-access'
-      : '/api/health/files-access';
-    const button = `        <button
-          onClick={() =>
-            runProbe(setFilesAccessProbeResult, '${probePath}', {
-              headers: { 'x-forgeon-user-id': 'probe-owner' },
-            })
-          }
-        >
-          Check files access
-        </button>`;
-
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${button}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("{renderResult('Files access probe response', filesAccessProbeResult)}")) {
-    const resultLine = "      {renderResult('Files access probe response', filesAccessProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
-    } else {
-      const anchors = [
-        "      {renderResult('Files probe response', filesProbeResult)}",
-        "      {renderResult('RBAC probe response', rbacProbeResult)}",
-        "      {renderResult('Rate limit probe response', rateLimitProbeResult)}",
-        "      {renderResult('Auth probe response', authProbeResult)}",
-        "      {renderResult('DB probe response', dbProbeResult)}",
-        "      {renderResult('Validation probe response', validationProbeResult)}",
-      ];
-      const anchor = anchors.find((line) => content.includes(line));
-      if (anchor) {
-        content = ensureLineAfter(content, anchor, resultLine);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'files-access',
+      title: 'Files Access',
+      buttonLabel: 'Check files access',
+      resultTitle: 'Files access probe response',
+      path: '/health/files-access',
+      request: {
+        headers: {
+          'x-forgeon-user-id': 'probe-owner',
+        },
+      },
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -435,12 +362,14 @@ Actor context for probe/testing:
 
 export function applyFilesAccessModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-access'));
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'files-access' });
+
   patchApiPackage(targetRoot);
   patchFilesPackage(targetRoot);
   patchAppModule(targetRoot);
   patchFilesController(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchReadme(targetRoot);
 }

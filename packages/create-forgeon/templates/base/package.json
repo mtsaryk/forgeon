@@ -19,6 +19,12 @@
       "esbuild",
       "prisma"
     ]
+  },
+  "forgeon": {
+    "diagnostics": {
+      "probes": {
+        "enabled": true
+      }
+    }
   }
 }
-

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -16,6 +16,21 @@ function createMinimalForgeonProject(targetRoot) {
   fs.mkdirSync(path.join(targetRoot, 'apps', 'api'), { recursive: true });
   fs.writeFileSync(path.join(targetRoot, 'package.json'), '{"name":"demo"}\n', 'utf8');
   fs.writeFileSync(path.join(targetRoot, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n', 'utf8');
+}
+
+function readFile(filePath) {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function readWebProbes(projectRoot) {
+  return readFile(path.join(projectRoot, 'apps', 'web', 'src', 'probes.ts'));
+}
+
+function assertWebProbeShell(projectRoot) {
+  const appTsx = readFile(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'));
+  assert.match(appTsx, /id="probes"/);
+  assert.match(appTsx, /from '\.\/probes'/);
+  return appTsx;
 }
 
 function assertDbPrismaWiring(projectRoot) {
@@ -75,10 +90,12 @@ function assertRateLimitWiring(projectRoot) {
   assert.match(healthController, /@Get\('rate-limit'\)/);
   assert.match(healthController, /TOO_MANY_REQUESTS/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
+  const appTsx = assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
   assert.match(appTsx, /cache: 'no-store'/);
-  assert.match(appTsx, /Check rate limit \(click repeatedly\)/);
-  assert.match(appTsx, /Rate limit probe response/);
+  assert.match(probesTs, /"id": "rate-limit"/);
+  assert.match(probesTs, /"buttonLabel": "Check rate limit \(click repeatedly\)"/);
+  assert.match(probesTs, /"resultTitle": "Rate limit probe response"/);
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Rate Limit Module/);
@@ -109,9 +126,11 @@ function assertQueueWiring(projectRoot) {
   assert.match(healthController, /@Get\('queue'\)/);
   assert.match(healthController, /queueService\.getProbeStatus/);
 
-  const webApp = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(webApp, /Check queue health/);
-  assert.match(webApp, /Queue probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "queue"/);
+  assert.match(probesTs, /"buttonLabel": "Check queue health"/);
+  assert.match(probesTs, /"resultTitle": "Queue probe response"/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /QUEUE_ENABLED=true/);
@@ -156,9 +175,11 @@ function assertSchedulerWiring(projectRoot) {
   assert.match(healthController, /@Get\('scheduler'\)/);
   assert.match(healthController, /schedulerService\.getProbeStatus/);
 
-  const webApp = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(webApp, /Check scheduler health/);
-  assert.match(webApp, /Scheduler probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "scheduler"/);
+  assert.match(probesTs, /"buttonLabel": "Check scheduler health"/);
+  assert.match(probesTs, /"resultTitle": "Scheduler probe response"/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /SCHEDULER_ENABLED=true/);
@@ -200,10 +221,12 @@ function assertRbacWiring(projectRoot) {
   assert.match(healthController, /@Get\('rbac'\)/);
   assert.match(healthController, /@Permissions\('health\.rbac'\)/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check RBAC access/);
-  assert.match(appTsx, /RBAC probe response/);
-  assert.match(appTsx, /x-forgeon-permissions/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "rbac"/);
+  assert.match(probesTs, /"buttonLabel": "Check RBAC access"/);
+  assert.match(probesTs, /"resultTitle": "RBAC probe response"/);
+  assert.match(probesTs, /x-forgeon-permissions/);
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## RBAC \/ Permissions Module/);
@@ -262,11 +285,14 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
   assert.match(filesService, /variants:\s*\{[\s\S]*?none:\s*\{[\s\S]*?\}/);
   assert.match(filesService, /prisma\.fileBlob/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check files probe \(create metadata\)/);
-  assert.match(appTsx, /Check files variants capability/);
-  assert.match(appTsx, /Files probe response/);
-  assert.match(appTsx, /Files variants probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "files"/);
+  assert.match(probesTs, /"buttonLabel": "Check files probe \(create metadata\)"/);
+  assert.match(probesTs, /"resultTitle": "Files probe response"/);
+  assert.match(probesTs, /"id": "files-variants"/);
+  assert.match(probesTs, /"buttonLabel": "Check files variants capability"/);
+  assert.match(probesTs, /"resultTitle": "Files variants probe response"/);
 
   const schema = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'prisma', 'schema.prisma'), 'utf8');
   assert.match(schema, /model FileRecord \{/);
@@ -410,10 +436,12 @@ function assertFilesAccessWiring(projectRoot) {
   assert.match(healthController, /extractFilesAccessSubject/);
   assert.match(healthController, /filesAccessService\.canRead/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check files access/);
-  assert.match(appTsx, /Files access probe response/);
-  assert.match(appTsx, /x-forgeon-user-id/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "files-access"/);
+  assert.match(probesTs, /"buttonLabel": "Check files access"/);
+  assert.match(probesTs, /"resultTitle": "Files access probe response"/);
+  assert.match(probesTs, /x-forgeon-user-id/);
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Files Access Module/);
@@ -436,7 +464,8 @@ function assertFilesQuotasWiring(projectRoot) {
   );
 
   const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
-  assert.match(filesPackage, /@forgeon\/files-quotas/);
+  assert.doesNotMatch(filesPackage, /@forgeon\/files-quotas/);
+  assert.match(filesPackage, /@nestjs\/core/);
 
   const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
   assert.match(
@@ -455,7 +484,9 @@ function assertFilesQuotasWiring(projectRoot) {
     path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
     'utf8',
   );
-  assert.match(filesController, /FilesQuotasService/);
+  assert.match(filesController, /ModuleRef/);
+  assert.match(filesController, /FORGEON_FILES_UPLOAD_QUOTA_SERVICE/);
+  assert.match(filesController, /getFilesUploadQuotaService/);
   assert.match(filesController, /filesQuotasService\.assertUploadAllowed/);
 
   const healthController = fs.readFileSync(
@@ -465,9 +496,11 @@ function assertFilesQuotasWiring(projectRoot) {
   assert.match(healthController, /@Get\('files-quotas'\)/);
   assert.match(healthController, /filesQuotasService\.getProbeStatus/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check files quotas/);
-  assert.match(appTsx, /Files quotas probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "files-quotas"/);
+  assert.match(probesTs, /"buttonLabel": "Check files quotas"/);
+  assert.match(probesTs, /"resultTitle": "Files quotas probe response"/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_QUOTAS_ENABLED=true/);
@@ -552,9 +585,11 @@ function assertFilesImageWiring(projectRoot) {
   assert.match(healthController, /@Get\('files-image'\)/);
   assert.match(healthController, /filesImageService\.getProbeStatus/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check files image sanitize/);
-  assert.match(appTsx, /Files image probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "files-image"/);
+  assert.match(probesTs, /"buttonLabel": "Check files image sanitize"/);
+  assert.match(probesTs, /"resultTitle": "Files image probe response"/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_IMAGE_ENABLED=true/);
@@ -617,9 +652,11 @@ function assertJwtAuthWiring(projectRoot, withPrismaStore) {
   assert.match(healthController, /authService\.getProbeStatus/);
   assert.doesNotMatch(healthController, /,\s*,/);
 
-  const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-  assert.match(appTsx, /Check JWT auth probe/);
-  assert.match(appTsx, /Auth probe response/);
+  assertWebProbeShell(projectRoot);
+  const probesTs = readWebProbes(projectRoot);
+  assert.match(probesTs, /"id": "auth"/);
+  assert.match(probesTs, /"buttonLabel": "Check JWT auth probe"/);
+  assert.match(probesTs, /"resultTitle": "Auth probe response"/);
 
   const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
   assert.match(
@@ -1188,6 +1225,16 @@ describe('addModule', () => {
       assert.match(loggerModule, /ForgeonHttpLoggingMiddleware/);
       assert.match(loggerModule, /consumer\.apply\(RequestIdMiddleware, ForgeonHttpLoggingMiddleware\)\.forRoutes\('\*'\);/);
 
+      const loggerIndex = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'logger', 'src', 'index.ts'),
+        'utf8',
+      );
+      assert.doesNotMatch(loggerIndex, /http-logging\.interceptor/);
+      assert.equal(
+        fs.existsSync(path.join(projectRoot, 'packages', 'logger', 'src', 'http-logging.interceptor.ts')),
+        false,
+      );
+
       const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
       assert.match(apiEnv, /LOGGER_LEVEL=log/);
       assert.match(apiEnv, /LOGGER_HTTP_ENABLED=true/);
@@ -1604,8 +1651,9 @@ describe('addModule', () => {
       assert.match(healthController, /@Get\('files-access'\)/);
       assert.match(healthController, /@Get\('files-quotas'\)/);
 
-      const appTsx = fs.readFileSync(path.join(projectRoot, 'apps', 'web', 'src', 'App.tsx'), 'utf8');
-      const filesChecks = appTsx.match(/Check files /g) ?? [];
+      assertWebProbeShell(projectRoot);
+      const probesTs = readWebProbes(projectRoot);
+      const filesChecks = probesTs.match(/"buttonLabel": "Check files /g) ?? [];
       assert.equal(filesChecks.length, 5);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -1920,6 +1968,51 @@ describe('addModule', () => {
       const mainTs = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'main.ts'), 'utf8');
       assert.match(mainTs, /setupSwagger/);
       assert.match(mainTs, /SwaggerConfigService/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+
+  it('applies i18n after probe modules and preserves managed probe registry entries', () => {
+    const targetRoot = mkTmp('forgeon-module-i18n-probes-');
+    const projectRoot = path.join(targetRoot, 'demo-i18n-probes');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-i18n-probes',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: false,
+        proxy: 'caddy',
+      });
+
+      addModule({ moduleId: 'rate-limit', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'rbac', targetRoot: projectRoot, packageRoot });
+
+      const probesBeforeI18n = readWebProbes(projectRoot);
+      assert.match(probesBeforeI18n, /"id": "rate-limit"/);
+      assert.match(probesBeforeI18n, /"id": "rbac"/);
+
+      const i18nResult = addModule({
+        moduleId: 'i18n',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+      assert.equal(i18nResult.applied, true);
+
+      const probesAfterI18n = readWebProbes(projectRoot);
+      assert.match(probesAfterI18n, /"id": "rate-limit"/);
+      assert.match(probesAfterI18n, /"id": "rbac"/);
+
+      const rateLimitIndex = probesAfterI18n.indexOf('"id": "rate-limit"');
+      const rbacIndex = probesAfterI18n.indexOf('"id": "rbac"');
+      assert.equal(rbacIndex >= 0 && rateLimitIndex > rbacIndex, true);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -2501,5 +2594,8 @@ describe('addModule', () => {
     }
   });
 });
+
+
+
 
 

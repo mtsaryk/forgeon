@@ -1,12 +1,14 @@
 {
   "name": "create-forgeon",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "description": "Forgeon project generator CLI",
   "license": "MIT",
   "author": "Forgeon",
   "type": "module",
   "scripts": {
-    "test": "node --test src/cli/options.test.mjs src/cli/add-options.test.mjs src/cli/prompt-select.test.mjs src/core/docs.test.mjs src/core/validate.test.mjs src/modules/executor.test.mjs"
+    "test": "node --test --test-concurrency=1 src/cli/options.test.mjs src/cli/add-options.test.mjs src/cli/prompt-select.test.mjs src/core/docs.test.mjs src/core/validate.test.mjs src/core/scaffold.test.mjs src/modules/dependencies.test.mjs src/modules/executor.test.mjs src/modules/probes.test.mjs src/modules/idempotency.test.mjs src/modules/sync-integrations.test.mjs src/run-add-module.test.mjs",
+    "smoke:generated-project": "node scripts/generated-project-smoke.mjs",
+    "smoke:generated-project:full": "node scripts/generated-project-full-smoke.mjs"
   },
   "bin": {
     "create-forgeon": "bin/create-forgeon.mjs"

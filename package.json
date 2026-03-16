@@ -1,6 +1,6 @@
 {
   "name": "forgeon",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {
@@ -11,7 +11,11 @@
     "release:patch": "node scripts/release-patch.mjs",
     "release:minor": "node scripts/release-patch.mjs --minor",
     "docker:up": "docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build",
-    "docker:down": "docker compose -f infra/docker/compose.yml down -v"
+    "docker:down": "docker compose -f infra/docker/compose.yml down -v",
+    "test:create-forgeon": "pnpm --dir packages/create-forgeon test",
+    "smoke:generated-project": "pnpm --dir packages/create-forgeon smoke:generated-project",
+    "test": "pnpm test:create-forgeon",
+    "smoke:generated-project:full": "pnpm --dir packages/create-forgeon smoke:generated-project:full"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

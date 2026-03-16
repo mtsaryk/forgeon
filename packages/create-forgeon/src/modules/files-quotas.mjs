@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -14,6 +14,7 @@ import {
   ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files-quotas', relativePath);
@@ -49,7 +50,7 @@ function patchFilesPackage(targetRoot) {
   }
 
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-  ensureDependency(packageJson, '@forgeon/files-quotas', 'workspace:*');
+  ensureDependency(packageJson, '@nestjs/core', '^11.0.1');
   writeJson(packagePath, packageJson);
 }
 
@@ -99,9 +100,24 @@ function patchFilesController(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(content, "import { FilesQuotasService } from '@forgeon/files-quotas';");
+  content = ensureImportLine(content, "import { ModuleRef } from '@nestjs/core';");
 
-  if (!content.includes('private readonly filesQuotasService: FilesQuotasService')) {
+  if (!content.includes("const FORGEON_FILES_UPLOAD_QUOTA_SERVICE = 'FORGEON_FILES_UPLOAD_QUOTA_SERVICE';")) {
+    content = content.replace(
+      '};\n\n@Controller(\'files\')',
+      `};
+
+const FORGEON_FILES_UPLOAD_QUOTA_SERVICE = 'FORGEON_FILES_UPLOAD_QUOTA_SERVICE';
+
+type FilesUploadQuotaService = {
+  assertUploadAllowed(input: { ownerType: string; ownerId: string | null; fileSize: number }): Promise<void>;
+};
+
+@Controller('files')`,
+    );
+  }
+
+  if (!content.includes('private readonly moduleRef: ModuleRef')) {
     const constructorMatch = content.match(/constructor\(([\s\S]*?)\)\s*\{/m);
     if (constructorMatch) {
       const original = constructorMatch[0];
@@ -109,29 +125,51 @@ function patchFilesController(targetRoot) {
       const normalizedInner = inner.replace(/,\s*$/, '');
       const separator = normalizedInner.length > 0 ? ',' : '';
       const next = `constructor(${normalizedInner}${separator}
-    private readonly filesQuotasService: FilesQuotasService,
+    private readonly moduleRef: ModuleRef,
   ) {`;
       content = content.replace(original, next);
     }
   }
 
-  if (!content.includes('filesQuotasService.assertUploadAllowed')) {
+  if (!content.includes('const filesQuotasService = this.getFilesUploadQuotaService();')) {
     content = content.replace(
       '    return this.filesService.create({',
-      `    await this.filesQuotasService.assertUploadAllowed({
-      ownerType: body.ownerType ?? 'system',
-      ownerId: body.ownerId ?? null,
-      fileSize: file.size,
-    });
+      `    const filesQuotasService = this.getFilesUploadQuotaService();
+    if (filesQuotasService) {
+      await filesQuotasService.assertUploadAllowed({
+        ownerType: body.ownerType ?? 'system',
+        ownerId: body.ownerId ?? null,
+        fileSize: file.size,
+      });
+    }
 
     return this.filesService.create({`,
+    );
+  }
+
+  if (!content.includes('private getFilesUploadQuotaService(): FilesUploadQuotaService | null {')) {
+    content = content.replace(
+      '  private parseVariant(variantQuery?: string): FileVariantKey {',
+      `  private getFilesUploadQuotaService(): FilesUploadQuotaService | null {
+    try {
+      return this.moduleRef.get(FORGEON_FILES_UPLOAD_QUOTA_SERVICE, { strict: false });
+    } catch {
+      return null;
+    }
+  }
+
+  private parseVariant(variantQuery?: string): FileVariantKey {`,
     );
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchHealthController(targetRoot) {
+function patchHealthController(targetRoot, probeTargets) {
+  if (!probeTargets.allowApi) {
+    return;
+  }
+
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
   if (!fs.existsSync(filePath)) {
     return;
@@ -177,79 +215,18 @@ function patchHealthController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('filesQuotasProbeResult')) {
-    const stateAnchors = [
-      '  const [filesAccessProbeResult, setFilesAccessProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesProbeResult, setFilesProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-    ];
-    const stateAnchor = stateAnchors.find((line) => content.includes(line));
-    if (stateAnchor) {
-      content = ensureLineAfter(
-        content,
-        stateAnchor,
-        '  const [filesQuotasProbeResult, setFilesQuotasProbeResult] = useState<ProbeResult | null>(null);',
-      );
-    }
-  }
-
-  if (!content.includes('Check files quotas')) {
-    const probePath = content.includes("runProbe(setHealthResult, '/health')")
-      ? '/health/files-quotas'
-      : '/api/health/files-quotas';
-    const button = `        <button onClick={() => runProbe(setFilesQuotasProbeResult, '${probePath}')}>
-          Check files quotas
-        </button>`;
-
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${button}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("{renderResult('Files quotas probe response', filesQuotasProbeResult)}")) {
-    const resultLine = "      {renderResult('Files quotas probe response', filesQuotasProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
-    } else {
-      const anchors = [
-        "      {renderResult('Files access probe response', filesAccessProbeResult)}",
-        "      {renderResult('Files probe response', filesProbeResult)}",
-        "      {renderResult('RBAC probe response', rbacProbeResult)}",
-        "      {renderResult('Rate limit probe response', rateLimitProbeResult)}",
-        "      {renderResult('Auth probe response', authProbeResult)}",
-        "      {renderResult('DB probe response', dbProbeResult)}",
-        "      {renderResult('Validation probe response', validationProbeResult)}",
-      ];
-      const anchor = anchors.find((line) => content.includes(line));
-      if (anchor) {
-        content = ensureLineAfter(content, anchor, resultLine);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'files-quotas',
+      title: 'Files Quotas',
+      buttonLabel: 'Check files quotas',
+      resultTitle: 'Files quotas probe response',
+      path: '/health/files-quotas',
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -379,12 +356,14 @@ Key env:
 
 export function applyFilesQuotasModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-quotas'));
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'files-quotas' });
+
   patchApiPackage(targetRoot);
   patchFilesPackage(targetRoot);
   patchAppModule(targetRoot);
   patchFilesController(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);
@@ -400,3 +379,4 @@ export function applyFilesQuotasModule({ packageRoot, targetRoot }) {
     'FILES_QUOTA_MAX_BYTES_PER_OWNER=104857600',
   ]);
 }
+

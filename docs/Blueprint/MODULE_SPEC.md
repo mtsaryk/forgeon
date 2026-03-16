@@ -2,19 +2,31 @@
 
 ## Goal
 
-Define one repeatable fullstack pattern for Forgeon add-modules.
+Define repeatable reusable-module patterns for Forgeon add-modules.
+
+Forgeon is a generator monorepo for reusable product features that recur across our projects. A module is not fullstack by default just because Forgeon can generate both backend and frontend projects.
+
+Reusable features may be backend services, frontend product surfaces, or shared cross-runtime capabilities. Typical examples include validation, authentication, files, i18n, logging, themes, UI kits, or other reusable application services.
 
 Dependency handling rules are defined in `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
 
-Most feature modules should be split into:
+Classify each new module explicitly as one of these shapes:
+
+1. backend-only
+2. web-only
+3. fullstack
+
+A fullstack module is the canonical choice only when backend and frontend implementations belong to the same feature and should share one stable contract.
+
+In that case, split it into:
 
 1. `@forgeon/<feature>-contracts`
 2. `@forgeon/<feature>-api`
 3. `@forgeon/<feature>-web`
 
-Exception:
+Backend-only infrastructure or security modules may use a single runtime package when shared contracts and a dedicated web package add no real value.
 
-- backend-only infrastructure or security modules may use a single runtime package (`@forgeon/<feature>`) when shared contracts and a dedicated web package add no real value.
+Web-only modules may expose only frontend-facing packages when there is no meaningful backend/runtime counterpart.
 
 ## 1) Contracts Package
 
@@ -68,7 +80,7 @@ Must contain:
 - No duplicate error-code enums across api/web.
 - Contracts package can be imported from both sides without circular dependencies.
 - Contracts package exports are stable from `dist/index` entrypoint.
-- Generated project user-facing docs live in:
+- In generated projects, user-facing docs live in:
   - root `README.md`
   - `modules/<module-id>/README.md`
 - Module docs must explain: why it exists, what it adds, how it works, how to use it, how to configure it, and current operational limits.
@@ -76,9 +88,9 @@ Must contain:
 - Infrastructure-only modules may explicitly skip probe hooks when operational verification is the correct check (for example, structured logging observed through stdout/stderr); this exception must be documented in both root and module README text.
 - If i18n is enabled, module-specific namespaces must be created and wired for both API and web.
 - If module is added before i18n, namespace templates must still be prepared and applied when i18n is installed later.
-- Module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.
-- `create-forgeon add <module-id>` may scan and offer relevant pending pair integrations, but it must not apply them silently.
-- Pair integrations can be applied from the post-add prompt or later via `pnpm forgeon:sync-integrations`.
+- In generated projects, module integration with other modules must be represented as idempotent sync rules and runnable via `pnpm forgeon:sync-integrations`.
+- In generated projects, `create-forgeon add <module-id>` may scan and offer relevant pending pair integrations, but it must not apply them silently.
+- In generated projects, pair integrations can be applied from the post-add prompt or later via `pnpm forgeon:sync-integrations`.
 - Module prerequisites must be expressed as capabilities where possible, not concrete providers.
 - Modules must not assume `db-prisma` is present unless the provider itself is intentionally hard-coded for a temporary stage.
 - New module work should prefer `db-adapter` over `db-prisma` as the dependency boundary.

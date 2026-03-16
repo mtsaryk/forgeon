@@ -1,4 +1,4 @@
-﻿# SKILLS
+# SKILLS
 
 This document defines the repo-local AI skills architecture for Forgeon.
 
@@ -65,7 +65,7 @@ Forgeon uses two layers:
 - Docker build/runtime diagnosis in generated projects
 
 8. `forgeon-doc-consistency`
-- internal docs drift detection and update recommendations
+- internal docs drift detection, patch planning, and maintenance workflow
 
 ## Current Wave 2 Skills
 

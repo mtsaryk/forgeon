@@ -15,6 +15,7 @@ import {
   ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'db-prisma', relativePath);
@@ -110,7 +111,11 @@ function patchAppModule(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchHealthController(targetRoot) {
+function patchHealthController(targetRoot, probeTargets) {
+  if (!probeTargets.allowApi) {
+    return;
+  }
+
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
   if (!fs.existsSync(filePath)) {
     return;
@@ -171,58 +176,19 @@ function patchHealthController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('dbProbeResult')) {
-    const stateAnchor = '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);';
-    if (content.includes(stateAnchor)) {
-      content = ensureLineAfter(
-        content,
-        stateAnchor,
-        '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      );
-    }
-  }
-
-  if (!content.includes('Check database (create user)')) {
-    const dbButton = content.includes("runProbe(setHealthResult, '/health')")
-      ? "        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>"
-      : "        <button onClick={() => runProbe(setDbProbeResult, '/api/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>";
-
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${dbButton}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("{renderResult('DB probe response', dbProbeResult)}")) {
-    const dbResultLine = "      {renderResult('DB probe response', dbProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${dbResultLine}\n${networkLine}`);
-    } else {
-      const resultAnchor = "{renderResult('Validation probe response', validationProbeResult)}";
-      if (content.includes(resultAnchor)) {
-        content = ensureLineAfter(content, resultAnchor, dbResultLine);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'db',
+      title: 'Database',
+      buttonLabel: 'Check database (create user)',
+      resultTitle: 'DB probe response',
+      path: '/health/db',
+      request: { method: 'POST' },
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -349,11 +315,13 @@ export function applyDbPrismaModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'db-prisma'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'api', 'prisma'));
 
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'db-prisma' });
+
   patchApiPackage(targetRoot);
   patchRootPackage(targetRoot);
   patchAppModule(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);

@@ -44,10 +44,6 @@ function patchMain(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content.replace(
-    "import { ForgeonHttpLoggingInterceptor, ForgeonLoggerService } from '@forgeon/logger';",
-    "import { ForgeonLoggerService } from '@forgeon/logger';",
-  );
   content = ensureLineBefore(
     content,
     "import { NestFactory } from '@nestjs/core';",
@@ -57,11 +53,6 @@ function patchMain(targetRoot) {
   content = content.replace(
     'const app = await NestFactory.create(AppModule);',
     'const app = await NestFactory.create(AppModule, { bufferLogs: true });',
-  );
-
-  content = content.replace(
-    /\n\s*app\.useGlobalInterceptors\(app\.get\(ForgeonHttpLoggingInterceptor\)\);\s*/g,
-    '\n',
   );
 
   if (!content.includes('app.useLogger(app.get(ForgeonLoggerService));')) {

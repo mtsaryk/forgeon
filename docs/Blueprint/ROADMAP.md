@@ -15,7 +15,7 @@ This is a living plan. Scope and priorities may change.
   - [x] `@forgeon/i18n`, `@forgeon/i18n-contracts`, `@forgeon/i18n-web`
   - [x] shared dictionaries in `resources/i18n/*`
   - [x] tooling: `i18n:sync`, `i18n:check`, `i18n:types`, `i18n:add`
-- [x] module diagnostics probes pattern (`/api/health/*` + web test buttons)
+- [x] module diagnostics probes pattern (`/api/health/*` + managed web probe registry)
 
 ## Standards (Accepted)
 
@@ -88,12 +88,12 @@ This is a living plan. Scope and priorities may change.
     - [x] add probe cleanup flow (create + cleanup)
     - [x] deliver initial DTO contracts
     - [ ] lock final long-term FileRecord schema/indexes
-  - [ ] future split already accepted:
+  - [x] future split already delivered as separate modules:
     - [x] `files-s3` (runtime baseline)
     - [x] `files-access`
     - [x] `files-quotas`
     - [x] `files-image`
-  - [ ] `files v2` variants rollout
+  - [x] `files v2` current rollout slice
     - [x] lock initial `FileVariant` schema + migration
     - [x] add `variant` route/query semantics
     - [x] implement sync-first variant generation path (`files-image` optional preview)
@@ -104,12 +104,12 @@ This is a living plan. Scope and priorities may change.
 
 ### P1 (Strongly Recommended)
 
-- [ ] dependency doctrine refactor for existing modules
-  - [ ] add capability metadata to module definitions
-  - [ ] refactor `create-forgeon add` prerequisite resolution
-  - [ ] replace concrete-module prerequisite assumptions where possible
-  - [ ] add non-TTY support for `--with-required` and `--provider`
-  - [ ] standardize optional integration warnings
+- [~] dependency doctrine refactor for existing modules
+  - [x] add capability metadata to module definitions
+  - [x] refactor `create-forgeon add` prerequisite resolution
+  - [~] replace concrete-module prerequisite assumptions where possible
+  - [x] add non-TTY support for `--with-required` and `--provider`
+  - [x] standardize optional integration warnings
 
 - [ ] `jwt-auth` persistence boundary refactor
   - [x] move from `db-prisma` assumption to `db-adapter`
@@ -117,13 +117,16 @@ This is a living plan. Scope and priorities may change.
   - [x] refactor auth-persistence sync to a provider-strategy dispatcher before `files`
   - [ ] add new DB provider strategies through the same conceptual boundary as new DB modules are implemented
 
-- [ ] `testing baseline`
+- [~] `testing baseline`
   - [ ] unit + e2e presets
-  - [ ] test helpers for add-modules
-  - [ ] smoke test template for generated project
+  - [x] test helpers for add-modules
+  - [x] smoke test template for generated project
 
-- [ ] `CI quality gates`
-  - [ ] `typecheck`, `lint`, `test`, docker build smoke
+- [~] `CI quality gates`
+  - [x] automated `test` gate
+  - [x] monorepo `build` gate
+  - [x] generated-project docker build smoke
+  - [ ] separate `typecheck` / `lint` gates
   - [ ] release gate checklist
 
 - [ ] `cache` (Redis)
@@ -141,6 +144,17 @@ This is a living plan. Scope and priorities may change.
   - [ ] templates: verify email, reset password
   - [ ] optional outbox with queue
 
+- [ ] `realtime adapter`
+  - [ ] capability: `realtime-adapter`
+  - [ ] providers: `realtime-sse`, `realtime-ws`
+  - [ ] backend event publisher / channel abstraction
+  - [ ] frontend transport-agnostic hooks/client
+
+- [ ] `notifications`
+  - [ ] event -> notification intent -> delivery flow
+  - [ ] in-app delivery via realtime adapter
+  - [ ] mail delivery integration
+
 - [ ] workspace `eslint/prettier` config package
 
 ### P2 (Later)
@@ -149,14 +163,16 @@ This is a living plan. Scope and priorities may change.
 - [ ] frontend UI kit package
   - [ ] migrate reusable parts from `eso-dt` (when available)
   - [ ] extend missing primitives
-- [ ] `realtime` (ws)
-  - [ ] gateway baseline
-  - [ ] jwt auth for ws
-  - [ ] rooms + basic events
 - [ ] `webhooks` module (subject to scope validation)
   - [ ] signed inbound verify (HMAC)
   - [ ] signed outbound sender
   - [ ] replay protection (timestamp/nonce)
+- [ ] `billing`
+  - [ ] define the first concrete pricing/subscription model before implementation
+  - [ ] keep provider choice scoped to actual product demand
+- [ ] generic `quotas` policy layer
+  - [ ] separate this from `files-quotas`
+  - [ ] design it only after the first non-files quota use-case appears
 
 ## Execution Plan (3 Sprints)
 
@@ -194,12 +210,15 @@ Definition of Done:
 
 Scope:
 - `scheduler`
+- `realtime adapter`
+- `notifications`
 - `mail`
 - workspace `eslint/prettier` config package
 - frontend `http-client`
 
 Definition of Done:
-- queue/scheduler/mail basic scenarios work in local + docker
+- queue/scheduler/realtime/mail basic scenarios work in local + docker
+- notifications delivery flow is validated through at least one concrete channel
 - frontend http-client consumes api contracts with typed errors
 - lint/typecheck/test/build pass through CI gate preset
 - docs include migration notes and extension points
@@ -209,13 +228,13 @@ Definition of Done:
 - `rbac` installs independently and integrates optionally with `jwt-auth`
 - `rate-limit` should follow Redis/queue foundation for scalable mode
 - `mail` should reuse queue foundation where possible
+- `realtime adapter` should stay capability-driven and land before transport-specific add-ons
+- `notifications` should compose delivery channels (realtime/mail) instead of embedding transport logic directly
 - `openapi` is most useful before/with `jwt-auth` and `http-client`
-- `realtime` and `webhooks` stay post-MVP unless a concrete use-case appears
+- `webhooks` stay post-MVP unless a concrete use-case appears
 
 ## i18n Policy For Add-Modules
 
 - [ ] each add-module that introduces user-facing text defines its own namespace templates
 - [ ] if i18n is already enabled, namespace files are added during module installation
 - [ ] if module is installed first and i18n later, namespaces are merged during i18n installation
-
-

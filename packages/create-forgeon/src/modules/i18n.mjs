@@ -13,6 +13,7 @@ import {
   ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { ensureWebProbeDefinition, readManagedWebProbeDefinitions } from './shared/probes.mjs';
 
 function copyFromBase(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'base', relativePath);
@@ -39,10 +40,6 @@ function patchApiDockerfile(targetRoot) {
   }
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content.replace(
-    /^COPY package\.json pnpm-workspace\.yaml tsconfig\.base\.json \.\/$/m,
-    'COPY package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.base.node.json tsconfig.base.esm.json ./',
-  );
 
   content = ensureLineAfter(
     content,
@@ -95,22 +92,6 @@ function patchProxyDockerfile(filePath) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-
-  content = ensureLineAfter(
-    content,
-    'COPY package.json pnpm-workspace.yaml ./',
-    'COPY tsconfig.base.json ./',
-  );
-  content = ensureLineAfter(
-    content,
-    'COPY tsconfig.base.json ./',
-    'COPY tsconfig.base.node.json ./',
-  );
-  content = ensureLineAfter(
-    content,
-    'COPY tsconfig.base.node.json ./',
-    'COPY tsconfig.base.esm.json ./',
-  );
   content = ensureLineAfter(
     content,
     'COPY apps/web/package.json apps/web/package.json',
@@ -449,118 +430,32 @@ Module env:
   fs.writeFileSync(readmePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function restoreKnownWebProbes(targetRoot, previousAppContent) {
-  if (!previousAppContent) {
+function restoreManagedWebProbes(targetRoot, definitions) {
+  if (!Array.isArray(definitions) || definitions.length === 0) {
     return;
   }
 
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
+  const probesFilePath = path.join(targetRoot, 'apps', 'web', 'src', 'probes.ts');
+  if (!fs.existsSync(probesFilePath)) {
     return;
   }
 
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-
-  const ensureProbeState = (stateLine) => {
-    if (content.includes(stateLine)) {
-      return;
-    }
-    const anchors = [
-      '  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-    ];
-    const anchor = anchors.find((line) => content.includes(line));
-    if (anchor) {
-      content = ensureLineAfter(content, anchor, stateLine);
-    }
+  const probeTargets = {
+    allowWeb: true,
+    probesFilePath,
   };
 
-  const ensureProbeButton = (buttonText, buttonCode) => {
-    if (content.includes(buttonText)) {
-      return;
-    }
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart < 0) {
-      return;
-    }
-    const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-    if (actionsEnd < 0) {
-      return;
-    }
-    content = `${content.slice(0, actionsEnd)}\n${buttonCode}${content.slice(actionsEnd)}`;
-  };
-
-  const ensureProbeResult = (resultLine) => {
-    if (content.includes(resultLine)) {
-      return;
-    }
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
-      return;
-    }
-    const anchors = [
-      "      {renderResult('RBAC probe response', rbacProbeResult)}",
-      "      {renderResult('Rate limit probe response', rateLimitProbeResult)}",
-      "      {renderResult('Auth probe response', authProbeResult)}",
-      "      {renderResult('DB probe response', dbProbeResult)}",
-      "      {renderResult('Validation probe response', validationProbeResult)}",
-    ];
-    const anchor = anchors.find((line) => content.includes(line));
-    if (anchor) {
-      content = ensureLineAfter(content, anchor, resultLine);
-    }
-  };
-
-  if (previousAppContent.includes('Check database (create user)')) {
-    ensureProbeState('  const [dbProbeResult, setDbProbeResult] = useState<ProbeResult | null>(null);');
-    ensureProbeButton(
-      'Check database (create user)',
-      "        <button onClick={() => runProbe(setDbProbeResult, '/health/db', { method: 'POST' })}>\n          Check database (create user)\n        </button>",
-    );
-    ensureProbeResult("      {renderResult('DB probe response', dbProbeResult)}");
+  for (const definition of definitions) {
+    ensureWebProbeDefinition({
+      targetRoot,
+      probeTargets,
+      definition,
+    });
   }
-
-  if (previousAppContent.includes('Check JWT auth probe')) {
-    ensureProbeState('  const [authProbeResult, setAuthProbeResult] = useState<ProbeResult | null>(null);');
-    ensureProbeButton(
-      'Check JWT auth probe',
-      "        <button onClick={() => runProbe(setAuthProbeResult, '/health/auth')}>Check JWT auth probe</button>",
-    );
-    ensureProbeResult("      {renderResult('Auth probe response', authProbeResult)}");
-  }
-
-  if (previousAppContent.includes('Check rate limit (click repeatedly)')) {
-    ensureProbeState(
-      '  const [rateLimitProbeResult, setRateLimitProbeResult] = useState<ProbeResult | null>(null);',
-    );
-    ensureProbeButton(
-      'Check rate limit (click repeatedly)',
-      "        <button onClick={() => runProbe(setRateLimitProbeResult, '/health/rate-limit')}>\n          Check rate limit (click repeatedly)\n        </button>",
-    );
-    ensureProbeResult("      {renderResult('Rate limit probe response', rateLimitProbeResult)}");
-  }
-
-  if (previousAppContent.includes('Check RBAC access')) {
-    ensureProbeState('  const [rbacProbeResult, setRbacProbeResult] = useState<ProbeResult | null>(null);');
-    ensureProbeButton(
-      'Check RBAC access',
-      "        <button\n          onClick={() =>\n            runProbe(setRbacProbeResult, '/health/rbac', {\n              headers: { 'x-forgeon-permissions': 'health.rbac' },\n            })\n          }\n        >\n          Check RBAC access\n        </button>",
-    );
-    ensureProbeResult("      {renderResult('RBAC probe response', rbacProbeResult)}");
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
 export function applyI18nModule({ packageRoot, targetRoot }) {
-  const existingWebAppPath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  const previousAppContent = fs.existsSync(existingWebAppPath)
-    ? fs.readFileSync(existingWebAppPath, 'utf8')
-    : '';
+  const previousProbeDefinitions = readManagedWebProbeDefinitions(targetRoot);
 
   copyFromBase(packageRoot, targetRoot, path.join('scripts', 'i18n-add.mjs'));
   copyFromBase(packageRoot, targetRoot, path.join('packages', 'i18n'));
@@ -568,10 +463,11 @@ export function applyI18nModule({ packageRoot, targetRoot }) {
 
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'i18n-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'i18n-web'));
+  copyFromBase(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'probes.ts'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'App.tsx'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'i18n.ts'));
   copyFromPreset(packageRoot, targetRoot, path.join('apps', 'web', 'src', 'main.tsx'));
-  restoreKnownWebProbes(targetRoot, previousAppContent);
+  restoreManagedWebProbes(targetRoot, previousProbeDefinitions);
 
   patchI18nPackage(targetRoot);
   patchApiPackage(targetRoot);

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateDocs } from './docs.mjs';
+import { scaffoldProject } from './scaffold.mjs';
 
 function makeTempDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -45,6 +46,8 @@ describe('generateDocs', () => {
       assert.match(readme, /Module notes index: `modules\/README\.md`/);
       assert.doesNotMatch(readme, /i18n Configuration/);
       assert.doesNotMatch(readme, /Prisma In Container Start/);
+      assert.doesNotMatch(readme, /docs\/README\.md/);
+      assert.doesNotMatch(readme, /docs\/Agents\.md/);
       assert.equal(fs.existsSync(path.join(targetRoot, 'docs')), false);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -77,9 +80,45 @@ describe('generateDocs', () => {
       assert.match(readme, /Prisma In Container Start/);
       assert.match(readme, /Error Handling \(`core-errors`\)/);
       assert.match(readme, /Module-specific notes: `modules\/<module-id>\/README\.md`/);
+      assert.doesNotMatch(readme, /docs\/README\.md/);
+      assert.doesNotMatch(readme, /docs\/Agents\.md/);
       assert.equal(fs.existsSync(path.join(targetRoot, 'docs')), false);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('scaffolds a generated project without copying internal docs payload', () => {
+    const tempRoot = makeTempDir('forgeon-scaffold-doc-boundary-');
+    const targetRoot = path.join(tempRoot, 'demo-doc-boundary');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot,
+        projectName: 'demo-doc-boundary',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: true,
+        proxy: 'caddy',
+      });
+
+      const readme = readFile(path.join(targetRoot, 'README.md'));
+      const packageJson = readFile(path.join(targetRoot, 'package.json'));
+
+      assert.equal(fs.existsSync(path.join(targetRoot, 'docs')), false);
+      assert.match(readme, /Module notes index: `modules\/README\.md`/);
+      assert.doesNotMatch(readme, /temporary template placeholder/i);
+      assert.doesNotMatch(readme, /built-in docs/i);
+      assert.doesNotMatch(readme, /docs\/README\.md/);
+      assert.doesNotMatch(readme, /docs\/Agents\.md/);
+      assert.doesNotMatch(packageJson, /"create:forgeon"/);
+      assert.match(packageJson, /"forgeon:sync-integrations"/);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 });

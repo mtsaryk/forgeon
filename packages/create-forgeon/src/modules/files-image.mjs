@@ -14,6 +14,7 @@ import {
   ensureValidatorSchema,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files-image', relativePath);
@@ -76,27 +77,6 @@ function patchRootPackage(targetRoot) {
   writeJson(packagePath, packageJson);
 }
 
-function patchFilesTypes(targetRoot) {
-  const filePath = path.join(targetRoot, 'packages', 'files', 'src', 'files.types.ts');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  if (!content.includes('auditContext?:')) {
-    content = content.replace(
-      /(\s+createdById\?: string;\n)(\};)/m,
-      `$1  auditContext?: {
-    requestId?: string | null;
-    ip?: string | null;
-    userId?: string | null;
-  };
-$2`,
-    );
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
-}
 
 function patchAppModule(targetRoot) {
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts');
@@ -143,14 +123,10 @@ function patchFilesModule(targetRoot) {
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = ensureImportLine(content, "import { ForgeonFilesImageModule } from '@forgeon/files-image';");
-  if (!content.includes('ForgeonFilesImageModule')) {
-    content = content.replace('imports: [FilesConfigModule],', 'imports: [FilesConfigModule, ForgeonFilesImageModule],');
-  } else {
-    content = content.replace(
-      'imports: [FilesConfigModule],',
-      'imports: [FilesConfigModule, ForgeonFilesImageModule],',
-    );
-  }
+  content = content.replace(
+    'imports: [FilesConfigModule],',
+    'imports: [FilesConfigModule, ForgeonFilesImageModule],',
+  );
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
@@ -298,7 +274,11 @@ function patchFilesService(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchHealthController(targetRoot) {
+function patchHealthController(targetRoot, probeTargets) {
+  if (!probeTargets.allowApi) {
+    return;
+  }
+
   const filePath = path.join(targetRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts');
   if (!fs.existsSync(filePath)) {
     return;
@@ -335,73 +315,18 @@ function patchHealthController(targetRoot) {
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
-function patchWebApp(targetRoot) {
-  const filePath = path.join(targetRoot, 'apps', 'web', 'src', 'App.tsx');
-  if (!fs.existsSync(filePath)) {
-    return;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = content
-    .replace(/^\s*\{\/\* forgeon:probes:actions:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:actions:end \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:start \*\/\}\r?\n?/gm, '')
-    .replace(/^\s*\{\/\* forgeon:probes:results:end \*\/\}\r?\n?/gm, '');
-
-  if (!content.includes('filesImageProbeResult')) {
-    const stateAnchors = [
-      '  const [filesQuotasProbeResult, setFilesQuotasProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesAccessProbeResult, setFilesAccessProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [filesProbeResult, setFilesProbeResult] = useState<ProbeResult | null>(null);',
-      '  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);',
-    ];
-    const stateAnchor = stateAnchors.find((line) => content.includes(line));
-    if (stateAnchor) {
-      content = ensureLineAfter(
-        content,
-        stateAnchor,
-        '  const [filesImageProbeResult, setFilesImageProbeResult] = useState<ProbeResult | null>(null);',
-      );
-    }
-  }
-
-  if (!content.includes('Check files image sanitize')) {
-    const probePath = content.includes("runProbe(setHealthResult, '/health')")
-      ? '/health/files-image'
-      : '/api/health/files-image';
-    const button = `        <button onClick={() => runProbe(setFilesImageProbeResult, '${probePath}')}>
-          Check files image sanitize
-        </button>`;
-
-    const actionsStart = content.indexOf('<div className="actions">');
-    if (actionsStart >= 0) {
-      const actionsEnd = content.indexOf('\n      </div>', actionsStart);
-      if (actionsEnd >= 0) {
-        content = `${content.slice(0, actionsEnd)}\n${button}${content.slice(actionsEnd)}`;
-      }
-    }
-  }
-
-  if (!content.includes("{renderResult('Files image probe response', filesImageProbeResult)}")) {
-    const resultLine = "      {renderResult('Files image probe response', filesImageProbeResult)}";
-    const networkLine = '      {networkError ? <p className="error">{networkError}</p> : null}';
-    if (content.includes(networkLine)) {
-      content = content.replace(networkLine, `${resultLine}\n${networkLine}`);
-    } else {
-      const anchors = [
-        "      {renderResult('Files quotas probe response', filesQuotasProbeResult)}",
-        "      {renderResult('Files access probe response', filesAccessProbeResult)}",
-        "      {renderResult('Files probe response', filesProbeResult)}",
-        "      {renderResult('Validation probe response', validationProbeResult)}",
-      ];
-      const anchor = anchors.find((line) => content.includes(line));
-      if (anchor) {
-        content = ensureLineAfter(content, anchor, resultLine);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
+function registerWebProbe(targetRoot, probeTargets) {
+  ensureWebProbeDefinition({
+    targetRoot,
+    probeTargets,
+    definition: {
+      id: 'files-image',
+      title: 'Files Image',
+      buttonLabel: 'Check files image sanitize',
+      resultTitle: 'Files image probe response',
+      path: '/health/files-image',
+    },
+  });
 }
 
 function patchApiDockerfile(targetRoot) {
@@ -547,16 +472,17 @@ Key env:
 
 export function applyFilesImageModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files-image'));
+  const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'files-image' });
+
   patchApiPackage(targetRoot);
   patchFilesPackage(targetRoot);
   patchRootPackage(targetRoot);
-  patchFilesTypes(targetRoot);
   patchAppModule(targetRoot);
   patchFilesModule(targetRoot);
   patchFilesController(targetRoot);
   patchFilesService(targetRoot);
-  patchHealthController(targetRoot);
-  patchWebApp(targetRoot);
+  patchHealthController(targetRoot, probeTargets);
+  registerWebProbe(targetRoot, probeTargets);
   patchApiDockerfile(targetRoot);
   patchCompose(targetRoot);
   patchReadme(targetRoot);

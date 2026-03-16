@@ -83,6 +83,34 @@ function ensureLineAfter(content, anchorLine, lineToInsert) {
   return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
 }
 
+const JWT_AUTH_PERSISTENCE_MARKERS = {
+  start: '<!-- forgeon:jwt-auth:persistence:start -->',
+  end: '<!-- forgeon:jwt-auth:persistence:end -->',
+};
+
+const JWT_AUTH_RBAC_MARKERS = {
+  start: '<!-- forgeon:jwt-auth:rbac:start -->',
+  end: '<!-- forgeon:jwt-auth:rbac:end -->',
+};
+
+const JWT_AUTH_DB_PRISMA_PERSISTENCE_BLOCK = [
+  '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
+  '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
+].join('\n');
+
+const JWT_AUTH_RBAC_ENABLED_BLOCK = '- RBAC integration: demo auth tokens include `health.rbac` permission';
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function replaceReadmeManagedBlock(content, startMarker, endMarker, nextBody) {
+  const pattern = new RegExp(`${escapeRegExp(startMarker)}\\n[\\s\\S]*?\\n${escapeRegExp(endMarker)}`);
+  if (!pattern.test(content)) {
+    return content;
+  }
+  return content.replace(pattern, `${startMarker}\n${nextBody}\n${endMarker}`);
+}
 function resolveAuthPersistenceStrategy(detected) {
   const matched = AUTH_PERSISTENCE_STRATEGIES.filter((strategy) => strategy.isDetected(detected));
   if (matched.length === 0) {
@@ -181,14 +209,24 @@ function syncJwtDbPrisma({ rootDir, changedFiles }) {
   if (fs.existsSync(readmePath)) {
     let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
     const originalReadme = readme;
-    readme = readme.replace(
-      '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
-      '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
+    const managedReadme = replaceReadmeManagedBlock(
+      readme,
+      JWT_AUTH_PERSISTENCE_MARKERS.start,
+      JWT_AUTH_PERSISTENCE_MARKERS.end,
+      JWT_AUTH_DB_PRISMA_PERSISTENCE_BLOCK,
     );
-    readme = readme.replace(
-      /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation\./m,
-      '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
-    );
+    if (managedReadme !== readme) {
+      readme = managedReadme;
+    } else {
+      readme = readme.replace(
+        '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
+        '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
+      );
+      readme = readme.replace(
+        /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation\./m,
+        '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
+      );
+    }
     if (readme !== originalReadme) {
       fs.writeFileSync(readmePath, `${readme.trimEnd()}\n`, 'utf8');
       changedFiles.add(readmePath);
@@ -281,14 +319,20 @@ function syncJwtRbacClaims({ rootDir, changedFiles }) {
   if (fs.existsSync(readmePath)) {
     let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
     const originalReadme = readme;
-    if (!readme.includes('- RBAC integration: demo auth tokens include `health.rbac` permission')) {
+    const managedReadme = replaceReadmeManagedBlock(
+      readme,
+      JWT_AUTH_RBAC_MARKERS.start,
+      JWT_AUTH_RBAC_MARKERS.end,
+      JWT_AUTH_RBAC_ENABLED_BLOCK,
+    );
+    if (managedReadme !== readme) {
+      readme = managedReadme;
+    } else if (!readme.includes('- RBAC integration: demo auth tokens include `health.rbac` permission')) {
       const marker = 'Default demo credentials:';
       if (readme.includes(marker)) {
         readme = readme.replace(
           marker,
-          `- RBAC integration: demo auth tokens include \`health.rbac\` permission
-
-Default demo credentials:`,
+          '- RBAC integration: demo auth tokens include `health.rbac` permission\n\nDefault demo credentials:',
         );
       }
     }

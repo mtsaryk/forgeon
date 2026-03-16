@@ -1,23 +1,28 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import * as i18nWeb from '@forgeon/i18n-web';
 import type { I18nLocale } from '@forgeon/i18n-web';
+import { probeDefinitions, type ProbeDefinition, type ProbeResult } from './probes';
 import './styles.css';
 
-type ProbeResult = {
-  statusCode: number;
-  body: unknown;
+type ProbeState = {
+  result: ProbeResult | null;
+  error: string | null;
+  loading: boolean;
+};
+
+const emptyProbeState: ProbeState = {
+  result: null,
+  error: null,
+  loading: false,
 };
 
 export default function App() {
   const { t } = useTranslation(['ui']);
   const { I18N_LOCALES, getInitialLocale, persistLocale, toLangQuery } = i18nWeb;
   const [locale, setLocale] = useState<I18nLocale>(getInitialLocale);
-  const [healthResult, setHealthResult] = useState<ProbeResult | null>(null);
-  const [errorProbeResult, setErrorProbeResult] = useState<ProbeResult | null>(null);
-  const [validationProbeResult, setValidationProbeResult] = useState<ProbeResult | null>(null);
-  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [probeState, setProbeState] = useState<Record<string, ProbeState>>({});
 
   const changeLocale = (nextLocale: I18nLocale) => {
     setLocale(nextLocale);
@@ -25,12 +30,12 @@ export default function App() {
     void i18n.changeLanguage(nextLocale);
   };
 
-  const requestProbe = async (path: string, init?: RequestInit): Promise<ProbeResult> => {
-    const response = await fetch(`/api${path}${toLangQuery(locale)}`, {
-      ...(init ?? {}),
+  const requestProbe = async (probe: ProbeDefinition): Promise<ProbeResult> => {
+    const response = await fetch(`/api${probe.path}${toLangQuery(locale)}`, {
+      ...(probe.request ?? {}),
       cache: 'no-store',
       headers: {
-        ...(init?.headers ?? {}),
+        ...(probe.request?.headers ?? {}),
         'Accept-Language': locale,
       },
     });
@@ -48,26 +53,37 @@ export default function App() {
     };
   };
 
-  const runProbe = async (
-    setter: (value: ProbeResult | null) => void,
-    path: string,
-    init?: RequestInit,
-  ) => {
-    setNetworkError(null);
+  const runProbe = async (probe: ProbeDefinition) => {
+    setProbeState((current) => ({
+      ...current,
+      [probe.id]: {
+        ...(current[probe.id] ?? emptyProbeState),
+        error: null,
+        loading: true,
+      },
+    }));
+
     try {
-      const result = await requestProbe(path, init);
-      setter(result);
+      const result = await requestProbe(probe);
+      setProbeState((current) => ({
+        ...current,
+        [probe.id]: {
+          result,
+          error: null,
+          loading: false,
+        },
+      }));
     } catch (err) {
-      setNetworkError(err instanceof Error ? err.message : 'Unknown error');
+      setProbeState((current) => ({
+        ...current,
+        [probe.id]: {
+          result: current[probe.id]?.result ?? null,
+          error: err instanceof Error ? err.message : 'Unknown error',
+          loading: false,
+        },
+      }));
     }
   };
-
-  const renderResult = (title: string, result: ProbeResult | null) => (
-    <section>
-      <h3>{title}</h3>
-      {result ? <pre>{JSON.stringify(result, null, 2)}</pre> : null}
-    </section>
-  );
 
   return (
     <main className="page">
@@ -85,19 +101,30 @@ export default function App() {
           </option>
         ))}
       </select>
-      <div className="actions">
-        <button onClick={() => runProbe(setHealthResult, '/health')}>Check API health</button>
-        <button onClick={() => runProbe(setErrorProbeResult, '/health/error')}>
-          Check error envelope
-        </button>
-        <button onClick={() => runProbe(setValidationProbeResult, '/health/validation')}>
-          Check validation (expect 400)
-        </button>
+      <div id="probes" className="probes">
+        {probeDefinitions.map((probe) => {
+          const current = probeState[probe.id] ?? emptyProbeState;
+
+          return (
+            <section key={probe.id} className="probe">
+              <div className="probe-header">
+                <h2>{probe.title}</h2>
+                <button type="button" onClick={() => runProbe(probe)} disabled={current.loading}>
+                  {current.loading ? 'Running...' : probe.buttonLabel}
+                </button>
+              </div>
+              <div className="probe-output">
+                <h3>{probe.resultTitle}</h3>
+                {current.error ? <p className="error">{current.error}</p> : null}
+                {current.result ? <pre>{JSON.stringify(current.result, null, 2)}</pre> : null}
+                {!current.error && !current.result ? (
+                  <p className="placeholder">No probe result yet.</p>
+                ) : null}
+              </div>
+            </section>
+          );
+        })}
       </div>
-      {renderResult('Health response', healthResult)}
-      {renderResult('Error probe response', errorProbeResult)}
-      {renderResult('Validation probe response', validationProbeResult)}
-      {networkError ? <p className="error">{networkError}</p> : null}
     </main>
   );
 }

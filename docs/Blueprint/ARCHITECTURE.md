@@ -1,8 +1,10 @@
 # ARCHITECTURE
 
+This file describes Forgeon's internal generator/scaffold architecture. It is not generated-project end-user documentation.
+
 ## Monorepo Layout
 
-- `apps/*` - deployable apps
+- `apps/*` - internal development harness apps and scaffold substrate
 - `packages/*` - reusable modules/presets
 - `infra/*` - runtime infrastructure
 - `resources/*` - static assets (translations)
@@ -41,9 +43,28 @@ Current default DB module is Prisma + Postgres (`db-prisma`).
 
 ## Module Strategy
 
-Reusable features should be added as fullstack add-modules:
+Forgeon is a generator monorepo that keeps reusable feature implementations in one place so generated projects can install common product features with one command.
 
-- `contracts` package (shared DTO/routes/errors)
+The primary goal is to centralize reusable features that recur across our products in one internal workspace, then expose them through scaffold generation and `create-forgeon add <module>`.
+
+These reusable features are feature-first, not fullstack-by-default. They may represent:
+
+- backend infrastructure or runtime services
+- frontend product surfaces such as themes or UI kits
+- shared feature contracts and integrations across backend and frontend
+- domain-oriented product capabilities such as auth, validation, files, or i18n
+
+A module may be:
+
+- backend-only
+- web-only
+- fullstack
+
+Use a fullstack split only when backend and frontend both need first-class support for the same reusable feature and should share a stable contract.
+
+In that case, the canonical shape is:
+
+- `contracts` package (shared DTO/routes/errors/constants)
 - `api` package (NestJS integration)
 - `web` package (React integration)
 
@@ -53,8 +74,9 @@ Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
 
 ## Integration Sync Strategy
 
-- Integration orchestration is a default project toolchain command:
+- In generated projects, integration orchestration is exposed as a toolchain command:
   - `pnpm forgeon:sync-integrations`
+- this script is part of scaffolded project output; the root development repo may use a different script surface
 - Purpose:
   - keep add-modules composable when installed in arbitrary order;
   - apply module-to-module integration patches idempotently.
@@ -122,3 +144,5 @@ Optional integrations:
   - `error.details` (optional)
   - `error.requestId` (optional)
   - `error.timestamp`
+
+

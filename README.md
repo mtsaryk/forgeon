@@ -1,87 +1,85 @@
-# Forgeon Fullstack Scaffold
+# Forgeon Repository
 
-Canonical monorepo scaffold focused on one stable stack:
+Internal development monorepo for Forgeon.
 
-- NestJS API
-- React + Vite web
-- Docker runtime (always generated)
-- Proxy preset: `caddy` (default), `nginx`, or `none`
-- DB layer: `db-prisma` add-module (enabled by default, can be disabled at scaffold time)
+This repository is where Forgeon modules, generator flows, scaffold templates, docs fragments, and internal doctrine are developed. It is not the generated project itself, and its root command surface does not need to match the command surface of scaffolded projects.
 
-Current release line: `0.1.0`.
+## What Lives Here
 
-## Quick Start (Dev)
+- `packages/create-forgeon`
+  - generator CLI
+  - add-module flows
+  - integration sync orchestration
+  - scaffold templates and generated-doc fragments
+- `packages/*`
+  - runtime modules and shared packages developed in this repo
+- `apps/api` and `apps/web`
+  - internal development harness and scaffold substrate
+- `docs/*`
+  - internal Forgeon documentation only
+- `resources/*`
+  - shared assets used by runtime modules and generated projects
 
-1. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-2. Start local Postgres:
-   ```bash
-   docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up db -d
-   ```
-   Skip this step if project was generated with `--db-prisma false`.
-3. Run API + web in dev mode:
-   ```bash
-   pnpm dev
-   ```
+## Working On The Repo
 
-## Quick Start (Docker)
+Install dependencies:
 
 ```bash
-docker compose --env-file infra/docker/.env.example -f infra/docker/compose.yml up --build
+pnpm install
 ```
 
-- `proxy=caddy|nginx`: open `http://localhost:8080`
-- `proxy=none`: API at `http://localhost:3000/api/health`, web via `pnpm dev`
+Run the internal development harness:
 
-## Generator
+```bash
+pnpm dev
+```
+
+Build all workspace packages:
+
+```bash
+pnpm build
+```
+
+Run the internal Docker stack:
+
+```bash
+pnpm docker:up
+```
+
+## Testing The Generator
+
+Create a local project from this workspace:
+
+```bash
+pnpm create:forgeon -- my-app --i18n true --db-prisma true --proxy caddy
+pnpm create:forgeon -- my-app --db-prisma false --proxy none
+```
+
+Published CLI examples:
 
 ```bash
 npx create-forgeon@latest my-app --i18n true --db-prisma true --proxy caddy
-npx create-forgeon@latest my-app --db-prisma false --proxy caddy
-```
-
-Local invocation:
-
-```bash
-pnpm create:forgeon -- my-app --i18n true --proxy caddy
-```
-
-## Add Modules
-
-```bash
-npx create-forgeon@latest add --list
-npx create-forgeon@latest add i18n --project ./my-app
 npx create-forgeon@latest add jwt-auth --project ./my-app
 ```
 
-## Integration Sync
+Generated projects have their own command surface. For example, `pnpm forgeon:sync-integrations` is a generated-project command provided by scaffolded project templates, not a root script of this development repo.
 
-After installing modules in any order, you can run:
+## Documentation Boundaries
 
-```bash
-pnpm forgeon:sync-integrations
-```
+- Root `docs/*` is internal-only Forgeon documentation.
+- Generated project user docs are produced from:
+  - `packages/create-forgeon/templates/docs-fragments/README/*`
+  - `packages/create-forgeon/templates/module-fragments/*`
+- Generated projects should expose user-facing docs through:
+  - root `README.md`
+  - `modules/<module-id>/README.md`
 
-Current sync rules:
-- `jwt-auth + db-prisma`: wires persistent refresh-token storage
-- `jwt-auth + rbac`: adds demo RBAC claims to auth payloads
+Start here for internal repo context:
 
-`create-forgeon add <module>` scans relevant pending integrations and offers them interactively. It does not apply them silently.
+- `docs/README.md`
+- `docs/Agents.md`
 
-## Validation (`core-validation`)
+## Notes
 
-Validation is centralized in `@forgeon/core` via `createValidationPipe()`.
-
-- Registered globally in `apps/api/src/main.ts`
-- Default options: `whitelist: true`, `transform: true`
-- Validation errors are normalized into structured `error.details`
-
-Use standard `class-validator` decorators in DTOs; the global pipe and envelope formatting are applied automatically.
-
-## Docs
-
-- Project docs index: `docs/README.md`
-- Agent context: `docs/Agents.md`
-
+- Version alignment across packages is handled separately closer to release.
+- The root repo may intentionally diverge from generated project output when it improves Forgeon development workflows.
