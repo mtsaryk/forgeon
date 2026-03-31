@@ -2,103 +2,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const PRISMA_AUTH_STORE_CONTENT = `import {
-  AuthRefreshTokenStore,
-} from '@forgeon/auth-api';
-import { PrismaService } from '@forgeon/db-prisma';
-import { Injectable } from '@nestjs/common';
-
-@Injectable()
-export class PrismaAuthRefreshTokenStore implements AuthRefreshTokenStore {
-  readonly kind = 'prisma';
-
-  constructor(private readonly prisma: PrismaService) {}
-
-  async saveRefreshTokenHash(subject: string, hash: string): Promise<void> {
-    await this.prisma.user.upsert({
-      where: { email: subject },
-      create: { email: subject, refreshTokenHash: hash },
-      update: { refreshTokenHash: hash },
-      select: { id: true },
-    });
-  }
-
-  async getRefreshTokenHash(subject: string): Promise<string | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: subject },
-      select: { refreshTokenHash: true },
-    });
-    return user?.refreshTokenHash ?? null;
-  }
-
-  async removeRefreshTokenHash(subject: string): Promise<void> {
-    await this.prisma.user.updateMany({
-      where: { email: subject },
-      data: { refreshTokenHash: null },
-    });
-  }
-}
-`;
-
-const PRISMA_AUTH_MIGRATION_CONTENT = `-- AlterTable
-ALTER TABLE "User"
-ADD COLUMN "refreshTokenHash" TEXT;
-`;
-
-const AUTH_PERSISTENCE_STRATEGIES = [
-  {
-    id: 'db-prisma',
-    providerLabel: 'db-prisma',
-    isDetected: (detected) => detected.dbPrisma,
-    apply: syncJwtDbPrisma,
-  },
-];
-
-function detectModules(rootDir) {
-  const appModulePath = path.join(rootDir, 'apps', 'api', 'src', 'app.module.ts');
-  const appModuleText = fs.existsSync(appModulePath) ? fs.readFileSync(appModulePath, 'utf8') : '';
-
-  return {
-    jwtAuth:
-      fs.existsSync(path.join(rootDir, 'packages', 'auth-api', 'package.json')) ||
-      appModuleText.includes("from '@forgeon/auth-api'"),
-    rbac:
-      fs.existsSync(path.join(rootDir, 'packages', 'rbac', 'package.json')) ||
-      appModuleText.includes("from '@forgeon/rbac'"),
-    dbPrisma:
-      fs.existsSync(path.join(rootDir, 'packages', 'db-prisma', 'package.json')) ||
-      appModuleText.includes("from '@forgeon/db-prisma'"),
-  };
-}
-
-function ensureLineAfter(content, anchorLine, lineToInsert) {
-  if (content.includes(lineToInsert)) {
-    return content;
-  }
-  const index = content.indexOf(anchorLine);
-  if (index < 0) {
-    return `${content.trimEnd()}\n${lineToInsert}\n`;
-  }
-  const insertAt = index + anchorLine.length;
-  return `${content.slice(0, insertAt)}\n${lineToInsert}${content.slice(insertAt)}`;
-}
-
-const JWT_AUTH_PERSISTENCE_MARKERS = {
-  start: '<!-- forgeon:jwt-auth:persistence:start -->',
-  end: '<!-- forgeon:jwt-auth:persistence:end -->',
+const ACCOUNTS_RBAC_MARKERS = {
+  start: '<!-- forgeon:accounts:rbac:start -->',
+  end: '<!-- forgeon:accounts:rbac:end -->',
 };
 
-const JWT_AUTH_RBAC_MARKERS = {
-  start: '<!-- forgeon:jwt-auth:rbac:start -->',
-  end: '<!-- forgeon:jwt-auth:rbac:end -->',
-};
-
-const JWT_AUTH_DB_PRISMA_PERSISTENCE_BLOCK = [
-  '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
-  '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
-].join('\n');
-
-const JWT_AUTH_RBAC_ENABLED_BLOCK = '- RBAC integration: demo auth tokens include `health.rbac` permission';
+const ACCOUNTS_RBAC_ENABLED_BLOCK =
+  '- RBAC compatibility sync: contracts and JWT payload surfaces are prepared for optional RBAC claims, while the base accounts schema remains free of roles and permissions.';
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -111,236 +21,84 @@ function replaceReadmeManagedBlock(content, startMarker, endMarker, nextBody) {
   }
   return content.replace(pattern, `${startMarker}\n${nextBody}\n${endMarker}`);
 }
-function resolveAuthPersistenceStrategy(detected) {
-  const matched = AUTH_PERSISTENCE_STRATEGIES.filter((strategy) => strategy.isDetected(detected));
-  if (matched.length === 0) {
-    return { kind: 'none' };
-  }
-  if (matched.length > 1) {
-    return { kind: 'conflict', strategies: matched };
-  }
-  return { kind: 'single', strategy: matched[0] };
-}
 
-function syncJwtDbPrisma({ rootDir, changedFiles }) {
+function detectModules(rootDir) {
   const appModulePath = path.join(rootDir, 'apps', 'api', 'src', 'app.module.ts');
-  const schemaPath = path.join(rootDir, 'apps', 'api', 'prisma', 'schema.prisma');
-  const storePath = path.join(rootDir, 'apps', 'api', 'src', 'auth', 'prisma-auth-refresh-token.store.ts');
-  const migrationPath = path.join(
-    rootDir,
-    'apps',
-    'api',
-    'prisma',
-    'migrations',
-    '0002_auth_refresh_token_hash',
-    'migration.sql',
-  );
-  const readmePath = path.join(rootDir, 'README.md');
+  const appModuleText = fs.existsSync(appModulePath) ? fs.readFileSync(appModulePath, 'utf8') : '';
 
-  if (!fs.existsSync(appModulePath) || !fs.existsSync(schemaPath)) {
-    return { applied: false, reason: 'app module or prisma schema is missing' };
-  }
-
-  let touched = false;
-
-  if (!fs.existsSync(storePath)) {
-    fs.mkdirSync(path.dirname(storePath), { recursive: true });
-    fs.writeFileSync(storePath, PRISMA_AUTH_STORE_CONTENT, 'utf8');
-    changedFiles.add(storePath);
-    touched = true;
-  }
-
-  let appModule = fs.readFileSync(appModulePath, 'utf8').replace(/\r\n/g, '\n');
-  const originalAppModule = appModule;
-
-  if (!appModule.includes("AUTH_REFRESH_TOKEN_STORE, authConfig")) {
-    appModule = appModule.replace(
-      /import\s*\{\s*authConfig,\s*authEnvSchema,\s*ForgeonAuthModule\s*\}\s*from '@forgeon\/auth-api';/m,
-      "import { AUTH_REFRESH_TOKEN_STORE, authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
-    );
-  }
-
-  const storeImportLine = "import { PrismaAuthRefreshTokenStore } from './auth/prisma-auth-refresh-token.store';";
-  if (!appModule.includes(storeImportLine)) {
-    appModule = ensureLineAfter(
-      appModule,
-      "import { HealthController } from './health/health.controller';",
-      storeImportLine,
-    );
-  }
-
-  if (!appModule.includes('refreshTokenStoreProvider')) {
-    appModule = appModule.replace(
-      /ForgeonAuthModule\.register\(\),/m,
-      `ForgeonAuthModule.register({
-      imports: [DbPrismaModule],
-      refreshTokenStoreProvider: {
-        provide: AUTH_REFRESH_TOKEN_STORE,
-        useClass: PrismaAuthRefreshTokenStore,
-      },
-    }),`,
-    );
-  }
-
-  if (appModule !== originalAppModule) {
-    fs.writeFileSync(appModulePath, `${appModule.trimEnd()}\n`, 'utf8');
-    changedFiles.add(appModulePath);
-    touched = true;
-  }
-
-  let schema = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
-  const originalSchema = schema;
-  if (!schema.includes('refreshTokenHash')) {
-    schema = schema.replace(/email\s+String\s+@unique/g, 'email            String   @unique\n  refreshTokenHash String?');
-  }
-  if (schema !== originalSchema) {
-    fs.writeFileSync(schemaPath, `${schema.trimEnd()}\n`, 'utf8');
-    changedFiles.add(schemaPath);
-    touched = true;
-  }
-
-  if (!fs.existsSync(migrationPath)) {
-    fs.mkdirSync(path.dirname(migrationPath), { recursive: true });
-    fs.writeFileSync(migrationPath, PRISMA_AUTH_MIGRATION_CONTENT, 'utf8');
-    changedFiles.add(migrationPath);
-    touched = true;
-  }
-
-  if (fs.existsSync(readmePath)) {
-    let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
-    const originalReadme = readme;
-    const managedReadme = replaceReadmeManagedBlock(
-      readme,
-      JWT_AUTH_PERSISTENCE_MARKERS.start,
-      JWT_AUTH_PERSISTENCE_MARKERS.end,
-      JWT_AUTH_DB_PRISMA_PERSISTENCE_BLOCK,
-    );
-    if (managedReadme !== readme) {
-      readme = managedReadme;
-    } else {
-      readme = readme.replace(
-        '- refresh token persistence: disabled by default (stateless mode; enable it later through a `db-adapter` provider + integration sync)',
-        '- refresh token persistence: enabled through the `db-adapter` capability (current provider: `db-prisma`)',
-      );
-      readme = readme.replace(
-        /- to enable persistence later:[\s\S]*?2\. run `pnpm forgeon:sync-integrations` to wire auth persistence to the active DB adapter implementation\./m,
-        '- migration: `apps/api/prisma/migrations/0002_auth_refresh_token_hash`',
-      );
-    }
-    if (readme !== originalReadme) {
-      fs.writeFileSync(readmePath, `${readme.trimEnd()}\n`, 'utf8');
-      changedFiles.add(readmePath);
-      touched = true;
-    }
-  }
-
-  if (!touched) {
-    return { applied: false, reason: 'already synced' };
-  }
-  return { applied: true };
+  return {
+    accounts:
+      fs.existsSync(path.join(rootDir, 'packages', 'accounts-api', 'package.json')) ||
+      appModuleText.includes("from '@forgeon/accounts-api'"),
+    rbac:
+      fs.existsSync(path.join(rootDir, 'packages', 'rbac', 'package.json')) ||
+      appModuleText.includes("from '@forgeon/rbac'"),
+  };
 }
 
-function syncJwtRbacClaims({ rootDir, changedFiles }) {
-  const authContractsPath = path.join(rootDir, 'packages', 'auth-contracts', 'src', 'index.ts');
-  const authServicePath = path.join(rootDir, 'packages', 'auth-api', 'src', 'auth.service.ts');
-  const authControllerPath = path.join(rootDir, 'packages', 'auth-api', 'src', 'auth.controller.ts');
+function syncAccountsRbac(rootDir, changedFiles) {
+  const contractsPath = path.join(rootDir, 'packages', 'accounts-contracts', 'src', 'index.ts');
+  const authTypesPath = path.join(rootDir, 'packages', 'accounts-api', 'src', 'auth.types.ts');
   const readmePath = path.join(rootDir, 'README.md');
 
-  if (!fs.existsSync(authContractsPath) || !fs.existsSync(authServicePath) || !fs.existsSync(authControllerPath)) {
-    return { applied: false, reason: 'auth package files are missing' };
+  if (!fs.existsSync(contractsPath) || !fs.existsSync(authTypesPath) || !fs.existsSync(readmePath)) {
+    return { applied: false, reason: 'accounts package files are missing' };
   }
 
   let touched = false;
 
-  let authContracts = fs.readFileSync(authContractsPath, 'utf8').replace(/\r\n/g, '\n');
-  const originalAuthContracts = authContracts;
-  if (!authContracts.includes('permissions?: string[];')) {
-    authContracts = authContracts.replace(
-      '  roles: string[];',
-      `  roles: string[];
-  permissions?: string[];`,
+  let contracts = fs.readFileSync(contractsPath, 'utf8').replace(/\r\n/g, '\n');
+  const originalContracts = contracts;
+  if (!contracts.includes('roles?: string[];')) {
+    contracts = contracts.replace(
+      "  type: 'access';",
+      "  type: 'access';\n  roles?: string[];\n  permissions?: string[];",
     );
   }
-  if (authContracts !== originalAuthContracts) {
-    fs.writeFileSync(authContractsPath, `${authContracts.trimEnd()}\n`, 'utf8');
-    changedFiles.add(authContractsPath);
+  if (!contracts.includes("jti: string;\n  type: 'refresh';\n  roles?: string[];")) {
+    contracts = contracts.replace(
+      "  jti: string;\n  type: 'refresh';",
+      "  jti: string;\n  type: 'refresh';\n  roles?: string[];\n  permissions?: string[];",
+    );
+  }
+  if (contracts !== originalContracts) {
+    fs.writeFileSync(contractsPath, `${contracts.trimEnd()}\n`, 'utf8');
+    changedFiles.add(contractsPath);
     touched = true;
   }
 
-  let authService = fs.readFileSync(authServicePath, 'utf8').replace(/\r\n/g, '\n');
-  const originalAuthService = authService;
-  authService = authService.replace(
-    /roles: \['user'\],/g,
-    `roles: ['admin'],
-      permissions: ['health.rbac'],`,
+  let authTypes = fs.readFileSync(authTypesPath, 'utf8').replace(/\r\n/g, '\n');
+  const originalAuthTypes = authTypes;
+  if (!authTypes.includes('roles?: string[];')) {
+    authTypes = authTypes.replace(
+      "  exp?: number;",
+      "  exp?: number;\n  roles?: string[];\n  permissions?: string[];",
+    );
+  }
+  if (authTypes.includes('export interface AuthRefreshTokenPayload extends AuthRefreshClaims {') && !authTypes.includes("AuthRefreshTokenPayload extends AuthRefreshClaims {\n  iat?: number;\n  exp?: number;\n  roles?: string[];")) {
+    authTypes = authTypes.replace(
+      "export interface AuthRefreshTokenPayload extends AuthRefreshClaims {\n  iat?: number;\n  exp?: number;\n}",
+      "export interface AuthRefreshTokenPayload extends AuthRefreshClaims {\n  iat?: number;\n  exp?: number;\n  roles?: string[];\n  permissions?: string[];\n}",
+    );
+  }
+  if (authTypes !== originalAuthTypes) {
+    fs.writeFileSync(authTypesPath, `${authTypes.trimEnd()}\n`, 'utf8');
+    changedFiles.add(authTypesPath);
+    touched = true;
+  }
+
+  let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
+  const originalReadme = readme;
+  readme = replaceReadmeManagedBlock(
+    readme,
+    ACCOUNTS_RBAC_MARKERS.start,
+    ACCOUNTS_RBAC_MARKERS.end,
+    ACCOUNTS_RBAC_ENABLED_BLOCK,
   );
-  if (!authService.includes('permissions: user.permissions,')) {
-    authService = authService.replace(
-      '      roles: user.roles,',
-      `      roles: user.roles,
-      permissions: user.permissions,`,
-    );
-  }
-  if (!authService.includes('permissions: Array.isArray(payload.permissions) ? payload.permissions : [],')) {
-    authService = authService.replace(
-      "      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],",
-      `      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],
-      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],`,
-    );
-  }
-  if (!authService.includes('demoPermissions: [')) {
-    authService = authService.replace(
-      "      demoEmail: this.configService.demoEmail,",
-      `      demoEmail: this.configService.demoEmail,
-      demoPermissions: ['health.rbac'],`,
-    );
-  }
-  if (authService !== originalAuthService) {
-    fs.writeFileSync(authServicePath, `${authService.trimEnd()}\n`, 'utf8');
-    changedFiles.add(authServicePath);
+  if (readme !== originalReadme) {
+    fs.writeFileSync(readmePath, `${readme.trimEnd()}\n`, 'utf8');
+    changedFiles.add(readmePath);
     touched = true;
-  }
-
-  let authController = fs.readFileSync(authControllerPath, 'utf8').replace(/\r\n/g, '\n');
-  const originalAuthController = authController;
-  if (!authController.includes('permissions: Array.isArray(payload.permissions) ? payload.permissions : [],')) {
-    authController = authController.replace(
-      "      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],",
-      `      roles: Array.isArray(payload.roles) ? payload.roles : ['user'],
-      permissions: Array.isArray(payload.permissions) ? payload.permissions : [],`,
-    );
-  }
-  if (authController !== originalAuthController) {
-    fs.writeFileSync(authControllerPath, `${authController.trimEnd()}\n`, 'utf8');
-    changedFiles.add(authControllerPath);
-    touched = true;
-  }
-
-  if (fs.existsSync(readmePath)) {
-    let readme = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');
-    const originalReadme = readme;
-    const managedReadme = replaceReadmeManagedBlock(
-      readme,
-      JWT_AUTH_RBAC_MARKERS.start,
-      JWT_AUTH_RBAC_MARKERS.end,
-      JWT_AUTH_RBAC_ENABLED_BLOCK,
-    );
-    if (managedReadme !== readme) {
-      readme = managedReadme;
-    } else if (!readme.includes('- RBAC integration: demo auth tokens include `health.rbac` permission')) {
-      const marker = 'Default demo credentials:';
-      if (readme.includes(marker)) {
-        readme = readme.replace(
-          marker,
-          '- RBAC integration: demo auth tokens include `health.rbac` permission\n\nDefault demo credentials:',
-        );
-      }
-    }
-    if (readme !== originalReadme) {
-      fs.writeFileSync(readmePath, `${readme.trimEnd()}\n`, 'utf8');
-      changedFiles.add(readmePath);
-      touched = true;
-    }
   }
 
   if (!touched) {
@@ -351,35 +109,18 @@ function syncJwtRbacClaims({ rootDir, changedFiles }) {
 
 function run() {
   const rootDir = process.cwd();
-  const changedFiles = new Set();
   const detected = detectModules(rootDir);
+  const changedFiles = new Set();
   const summary = [];
-  const authPersistence = resolveAuthPersistenceStrategy(detected);
 
-  if (detected.jwtAuth && authPersistence.kind === 'single') {
+  if (detected.accounts && detected.rbac) {
     summary.push({
-      feature: `jwt-auth + db-adapter (current provider: ${authPersistence.strategy.providerLabel})`,
-      result: authPersistence.strategy.apply({ rootDir, changedFiles }),
-    });
-  } else {
-    const reason =
-      authPersistence.kind === 'conflict'
-        ? 'multiple db-adapter providers detected'
-        : 'required components are not both available';
-    summary.push({
-      feature: 'jwt-auth + db-adapter (current provider: db-prisma)',
-      result: { applied: false, reason },
-    });
-  }
-
-  if (detected.jwtAuth && detected.rbac) {
-    summary.push({
-      feature: 'jwt-auth + rbac',
-      result: syncJwtRbacClaims({ rootDir, changedFiles }),
+      feature: 'accounts + rbac',
+      result: syncAccountsRbac(rootDir, changedFiles),
     });
   } else {
     summary.push({
-      feature: 'jwt-auth + rbac',
+      feature: 'accounts + rbac',
       result: { applied: false, reason: 'required components are not both available' },
     });
   }
@@ -396,8 +137,7 @@ function run() {
   if (changedFiles.size > 0) {
     console.log('- changed files:');
     for (const filePath of [...changedFiles].sort()) {
-      const relative = path.relative(rootDir, filePath);
-      console.log(`  - ${relative}`);
+      console.log(`  - ${path.relative(rootDir, filePath)}`);
     }
   }
 }

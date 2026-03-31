@@ -20,5 +20,6 @@ Manual forbidden-path check:
 
 Optional follow-up:
 
-1. install `jwt-auth` if you want RBAC claims in demo JWT payloads
+1. install `accounts` if you want RBAC claims in demo JWT payloads
 2. run `pnpm forgeon:sync-integrations`
+

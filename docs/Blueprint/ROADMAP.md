@@ -1,4 +1,4 @@
-# ROADMAP
+﻿# ROADMAP
 
 This is a living plan. Scope and priorities may change.
 
@@ -29,6 +29,10 @@ This is a living plan. Scope and priorities may change.
 - [x] non-TTY dependency install is opt-in only:
   - [x] `--with-required`
   - [x] `--provider <capability>=<module>`
+- [x] runtime collaboration follows an explicit split:
+  - [x] required runtime dependencies use port/provider boundaries
+  - [x] optional runtime reactions may use internal domain events
+  - [x] integration sync remains scaffold/install-time wiring only
 
 ## Updated Priority Backlog
 
@@ -42,10 +46,10 @@ This is a living plan. Scope and priorities may change.
 - [x] `openapi / swagger`
   - [x] env toggle: `SWAGGER_ENABLED`
   - [x] standard setup
-  - [ ] bearer integration hook for jwt-auth
+  - [ ] bearer integration hook for accounts
   - [x] `/docs` route
 
-- [x] `jwt-auth`
+- [x] `accounts`
   - [x] module split: contracts/api
   - [x] access + refresh baseline
   - [x] guards/strategy integration
@@ -59,7 +63,7 @@ This is a living plan. Scope and priorities may change.
   - [x] decorators: `@Roles()`, `@Permissions()`
   - [x] guard + policy helper
   - [x] backend-only runtime package (`@forgeon/rbac`)
-  - [x] integration with jwt-auth demo claims via pair sync
+  - [x] integration with accounts demo claims via pair sync
 
 - [~] `redis/queue foundation`
   - [x] base Redis config/service
@@ -111,11 +115,17 @@ This is a living plan. Scope and priorities may change.
   - [x] add non-TTY support for `--with-required` and `--provider`
   - [x] standardize optional integration warnings
 
-- [ ] `jwt-auth` persistence boundary refactor
+- [ ] `accounts` persistence boundary refactor
   - [x] move from `db-prisma` assumption to `db-adapter`
   - [x] keep Prisma as the first provider implementation
-  - [x] refactor auth-persistence sync to a provider-strategy dispatcher before `files`
+  - [x] replace the legacy auth persistence-sync plan with hard DB-backed `accounts` + `accounts-rbac` compatibility sync before `files`
   - [ ] add new DB provider strategies through the same conceptual boundary as new DB modules are implemented
+
+- [ ] runtime boundary cleanup before `internal-event-bus`
+  - [ ] `files`: extract the DB metadata/store boundary away from direct `PrismaService` usage
+  - [ ] continue concrete runtime import cleanup where capability seams already exist
+  - [ ] first target: `scheduler -> queue`
+  - [ ] first target: `files-quotas -> files`
 
 - [~] `testing baseline`
   - [ ] unit + e2e presets
@@ -143,6 +153,12 @@ This is a living plan. Scope and priorities may change.
   - [ ] at least one provider preset (SMTP/Resend/SendGrid)
   - [ ] templates: verify email, reset password
   - [ ] optional outbox with queue
+
+- [ ] `internal-event-bus`
+  - [ ] ship as optional add-module: `create-forgeon add internal-event-bus`
+  - [ ] initial provider: backend-only, internal-only, in-process delivery
+  - [ ] future extensions: queue/outbox bridge, realtime/notifications consumers
+  - [ ] use for optional runtime reactions only; required dependencies stay on port/provider boundaries
 
 - [ ] `realtime adapter`
   - [ ] capability: `realtime-adapter`
@@ -181,7 +197,7 @@ This is a living plan. Scope and priorities may change.
 Scope:
 - `logger`
 - `openapi/swagger`
-- `jwt-auth`
+- `accounts`
 - `testing baseline`
 - `CI quality gates`
 
@@ -210,6 +226,7 @@ Definition of Done:
 
 Scope:
 - `scheduler`
+- `internal-event-bus`
 - `realtime adapter`
 - `notifications`
 - `mail`
@@ -217,6 +234,8 @@ Scope:
 - frontend `http-client`
 
 Definition of Done:
+- runtime boundary cleanup needed for `internal-event-bus` is complete
+- `internal-event-bus` installs through `create-forgeon add internal-event-bus` and validates at least one optional reaction flow
 - queue/scheduler/realtime/mail basic scenarios work in local + docker
 - notifications delivery flow is validated through at least one concrete channel
 - frontend http-client consumes api contracts with typed errors
@@ -225,12 +244,13 @@ Definition of Done:
 
 ## Explicit Dependencies and Order Constraints
 
-- `rbac` installs independently and integrates optionally with `jwt-auth`
+- `rbac` installs independently and integrates optionally with `accounts`
 - `rate-limit` should follow Redis/queue foundation for scalable mode
 - `mail` should reuse queue foundation where possible
+- `internal-event-bus` should land after runtime boundary cleanup and before broader realtime/notifications fan-out work
 - `realtime adapter` should stay capability-driven and land before transport-specific add-ons
 - `notifications` should compose delivery channels (realtime/mail) instead of embedding transport logic directly
-- `openapi` is most useful before/with `jwt-auth` and `http-client`
+- `openapi` is most useful before/with `accounts` and `http-client`
 - `webhooks` stay post-MVP unless a concrete use-case appears
 
 ## i18n Policy For Add-Modules
@@ -238,3 +258,6 @@ Definition of Done:
 - [ ] each add-module that introduces user-facing text defines its own namespace templates
 - [ ] if i18n is already enabled, namespace files are added during module installation
 - [ ] if module is installed first and i18n later, namespaces are merged during i18n installation
+
+
+

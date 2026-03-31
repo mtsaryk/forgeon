@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -50,11 +50,11 @@ function patchAppModule(targetRoot) {
         "import { ForgeonRateLimitModule, rateLimitConfig, rateLimitEnvSchema } from '@forgeon/rate-limit';",
       );
     } else if (
-      content.includes("import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';")
+      content.includes("import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';")
     ) {
       content = ensureLineAfter(
         content,
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
         "import { ForgeonRateLimitModule, rateLimitConfig, rateLimitEnvSchema } from '@forgeon/rate-limit';",
       );
     } else if (
@@ -96,10 +96,10 @@ function patchAppModule(targetRoot) {
   if (!content.includes('    ForgeonRateLimitModule,')) {
     if (content.includes('    ForgeonI18nModule.register({')) {
       content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonRateLimitModule,');
-    } else if (content.includes('    ForgeonAuthModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonRateLimitModule,');
-    } else if (content.includes('    ForgeonAuthModule.register(),')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonRateLimitModule,');
+    } else if (content.includes('    ForgeonAccountsModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonAccountsModule.register({', '    ForgeonRateLimitModule,');
+    } else if (content.includes('    ForgeonAccountsModule.register(),')) {
+      content = ensureLineBefore(content, '    ForgeonAccountsModule.register(),', '    ForgeonRateLimitModule,');
     } else if (content.includes('    DbPrismaModule,')) {
       content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonRateLimitModule,');
     } else if (content.includes('    ForgeonLoggerModule,')) {
@@ -166,7 +166,7 @@ function patchApiDockerfile(targetRoot) {
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
   const packageAnchors = [
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
     'COPY packages/swagger/package.json packages/swagger/package.json',
     'COPY packages/i18n/package.json packages/i18n/package.json',
@@ -181,7 +181,7 @@ function patchApiDockerfile(targetRoot) {
   );
 
   const sourceAnchors = [
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/logger packages/logger',
     'COPY packages/swagger packages/swagger',
     'COPY packages/i18n packages/i18n',
@@ -209,7 +209,7 @@ function patchCompose(targetRoot) {
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes('THROTTLE_ENABLED: ${THROTTLE_ENABLED}')) {
     const anchors = [
-      /^(\s+AUTH_DEMO_PASSWORD:.*)$/m,
+      /^(\s+AUTH_ARGON2_PARALLELISM:.*)$/m,
       /^(\s+JWT_ACCESS_SECRET:.*)$/m,
       /^(\s+LOGGER_LEVEL:.*)$/m,
       /^(\s+SWAGGER_ENABLED:.*)$/m,
@@ -303,3 +303,7 @@ export function applyRateLimitModule({ packageRoot, targetRoot }) {
     'THROTTLE_TRUST_PROXY=false',
   ]);
 }
+
+
+
+

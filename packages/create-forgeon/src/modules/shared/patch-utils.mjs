@@ -113,6 +113,34 @@ export function ensureImportLine(content, importLine) {
   return `${content.slice(0, insertAt)}\n${importLine}${content.slice(insertAt)}`;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function ensureNamedImportSpecifier(content, moduleSpecifier, importName) {
+  const pattern = new RegExp(
+    `import\\s*\\{([^}]*)\\}\\s*from ['"]${escapeRegExp(moduleSpecifier)}['"];`,
+    'm',
+  );
+  const match = content.match(pattern);
+  if (!match) {
+    return ensureImportLine(content, `import { ${importName} } from '${moduleSpecifier}';`);
+  }
+
+  const names = match[1]
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (names.includes(importName)) {
+    return content;
+  }
+
+  names.push(importName);
+  const replacement = `import { ${names.join(', ')} } from '${moduleSpecifier}';`;
+  return content.replace(pattern, replacement);
+}
+
 function findClassRange(content, className) {
   const classPattern = new RegExp(`export\\s+class\\s+${className}\\b`);
   const classMatch = classPattern.exec(content);

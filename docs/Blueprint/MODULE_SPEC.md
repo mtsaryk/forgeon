@@ -74,6 +74,81 @@ Must contain:
 - API client helpers using contracts route constants/types
 - token/header/cookie wiring where relevant
 
+## Architecture Pattern Matrix
+
+Choose patterns by boundary type, not by fashion.
+
+### Replaceable Technology Boundaries
+
+Use for:
+
+- auth persistence
+- DB-backed feature stores
+- storage providers
+- other boundaries where the underlying technology may change
+
+Preferred model:
+
+- hexagonal-style ports/adapters
+- Nest custom providers and dynamic modules for runtime wiring
+- strategy-style selection when multiple providers satisfy one capability
+
+Rule:
+
+- required technology dependencies must not be modeled as events
+
+### Optional Runtime Reactions
+
+Use for:
+
+- notifications
+- audit trails
+- analytics hooks
+- other fan-out reactions that are not required for the core transaction to be valid
+
+Preferred model:
+
+- internal domain events for in-process optional reactions
+
+Rule:
+
+- if the core business action is invalid without the reaction, it is not an optional event reaction
+
+### Reliable Async Cross-Module Reactions
+
+Use for:
+
+- reactions that must survive retries, crashes, or process boundaries
+
+Preferred model:
+
+- integration events + outbox
+
+Rule:
+
+- do not introduce outbox complexity before reliability needs are real
+
+### Complex Workflow Coordination
+
+Preferred model:
+
+- saga/process manager
+
+Current Forgeon status:
+
+- explicitly out of scope until a real workflow requires it
+
+### File And Media Processing
+
+Preferred model:
+
+- explicit pipeline stages for transform flow
+- optional async jobs layered later if needed
+
+Rule:
+
+- file/media transforms should not default to domain events when a deterministic pipeline is the clearer model
+
 ## Acceptance Criteria
 
 - No duplicate route strings across api/web.
@@ -98,3 +173,9 @@ Must contain:
   - TTY: interactive provider resolution + explicit plan
   - non-TTY: fail by default unless `--with-required` is provided
 - Optional integrations must not block installation and should be surfaced as explicit post-install warnings with follow-up commands.
+- New module work should follow the architecture pattern matrix:
+  - replaceable technology -> port + adapter
+  - optional reaction -> domain event
+  - reliable async reaction -> integration event + outbox
+  - complex workflow -> saga/process manager
+  - files/media -> pipeline

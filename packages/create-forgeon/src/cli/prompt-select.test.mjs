@@ -146,3 +146,4 @@ describe('promptSelect', () => {
     assert.equal(inputStream.isPaused(), true);
   });
 });
+

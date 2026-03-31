@@ -231,14 +231,21 @@ function assertRbacWiring(projectRoot) {
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## RBAC \/ Permissions Module/);
   assert.match(readme, /installs independently/i);
-  assert.match(readme, /jwt-auth.*optional/i);
+  assert.match(readme, /accounts.*optional/i);
 }
 
 function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /filesConfig/);
   assert.match(appModule, /filesEnvSchema/);
-  assert.match(appModule, /ForgeonFilesModule/);
+  assert.match(appModule, /ForgeonFilesModule\.register\(\{/);
+  assert.match(appModule, /ForgeonFilesDbPrismaModule/);
+  if (expectedStorageDriver === 's3') {
+    assert.match(appModule, /ForgeonFilesS3StorageModule/);
+    assert.doesNotMatch(appModule, /imports: \[ForgeonFilesDbPrismaModule, ForgeonFilesLocalStorageModule\]/);
+  } else {
+    assert.match(appModule, /ForgeonFilesLocalStorageModule/);
+  }
 
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files/);
@@ -251,7 +258,7 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_ENABLED=true/);
-  assert.match(apiEnv, new RegExp(`FILES_STORAGE_DRIVER=${expectedStorageDriver}`));
+  assert.match(apiEnv, new RegExp('FILES_STORAGE_DRIVER=' + expectedStorageDriver));
   assert.match(apiEnv, /FILES_PUBLIC_BASE_PATH=\/files/);
   assert.match(apiEnv, /FILES_MAX_FILE_SIZE_BYTES=10485760/);
   assert.match(apiEnv, /FILES_ALLOWED_MIME_PREFIXES=image\/,application\/pdf,text\//);
@@ -278,12 +285,53 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
     path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
     'utf8',
   );
+  assert.match(filesService, /FILES_PERSISTENCE_PORT/);
+  assert.match(filesService, /FILES_STORAGE_ADAPTER/);
   assert.match(filesService, /getOrCreateBlob/);
   assert.match(filesService, /cleanupReferencedBlobs/);
   assert.match(filesService, /isUniqueConstraintError/);
-  assert.match(filesService, /fileBlob\.deleteMany/);
-  assert.match(filesService, /variants:\s*\{[\s\S]*?none:\s*\{[\s\S]*?\}/);
-  assert.match(filesService, /prisma\.fileBlob/);
+  assert.match(filesService, /storageAdapter\.put/);
+  assert.match(filesService, /persistence\.createBlob/);
+  assert.match(filesService, /persistence\.deleteBlobIfUnreferenced/);
+  assert.doesNotMatch(filesService, /PrismaService/);
+  assert.doesNotMatch(filesService, /@aws-sdk\/client-s3/);
+
+  const filesPorts = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.ports.ts'),
+    'utf8',
+  );
+  assert.match(filesPorts, /FILES_PERSISTENCE_PORT/);
+  assert.match(filesPorts, /FILES_STORAGE_ADAPTER/);
+  assert.match(filesPorts, /interface FilesPersistencePort/);
+  assert.match(filesPorts, /interface FilesStorageAdapter/);
+
+  const filesModule = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'forgeon-files.module.ts'),
+    'utf8',
+  );
+  assert.match(filesModule, /ForgeonFilesModuleOptions/);
+  assert.match(filesModule, /static register\(options: ForgeonFilesModuleOptions = \{\}\)/);
+  assert.match(filesModule, /FILES_PERSISTENCE_PORT/);
+  assert.match(filesModule, /FILES_STORAGE_ADAPTER/);
+
+  const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
+  assert.doesNotMatch(filesPackage, /@forgeon\/db-prisma/);
+
+  const prismaFilesStore = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'files', 'prisma-files-persistence.store.ts'),
+    'utf8',
+  );
+  assert.match(prismaFilesStore, /PrismaService/);
+  assert.match(prismaFilesStore, /FILES_PERSISTENCE_PORT/);
+  assert.match(prismaFilesStore, /fileBlob\.deleteMany/);
+
+  const prismaFilesModule = fs.readFileSync(
+    path.join(projectRoot, 'apps', 'api', 'src', 'files', 'forgeon-files-db-prisma.module.ts'),
+    'utf8',
+  );
+  assert.match(prismaFilesModule, /ForgeonFilesDbPrismaModule/);
+  assert.match(prismaFilesModule, /DbPrismaModule/);
+  assert.match(prismaFilesModule, /FILES_PERSISTENCE_PORT/);
 
   assertWebProbeShell(projectRoot);
   const probesTs = readWebProbes(projectRoot);
@@ -333,6 +381,7 @@ function assertFilesLocalWiring(projectRoot) {
   assert.match(appModule, /filesLocalConfig/);
   assert.match(appModule, /filesLocalEnvSchemaZod/);
   assert.match(appModule, /FilesLocalConfigModule/);
+  assert.match(appModule, /ForgeonFilesLocalStorageModule/);
 
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-local/);
@@ -345,6 +394,21 @@ function assertFilesLocalWiring(projectRoot) {
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /FILES_LOCAL_ROOT=storage\/uploads/);
+
+  const localModule = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-local', 'src', 'forgeon-files-local-storage.module.ts'),
+    'utf8',
+  );
+  assert.match(localModule, /ForgeonFilesLocalStorageModule/);
+  assert.match(localModule, /FORGEON_FILES_STORAGE_ADAPTER/);
+
+  const localAdapter = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-local', 'src', 'local-files-storage.adapter.ts'),
+    'utf8',
+  );
+  assert.match(localAdapter, /readonly driver = 'local'/);
+  assert.match(localAdapter, /createReadStream/);
+  assert.match(localAdapter, /writeFile/);
 
   const gitignore = fs.readFileSync(path.join(projectRoot, '.gitignore'), 'utf8');
   assert.match(gitignore, /storage\//);
@@ -359,6 +423,7 @@ function assertFilesS3Wiring(projectRoot) {
   assert.match(appModule, /filesS3Config/);
   assert.match(appModule, /filesS3EnvSchemaZod/);
   assert.match(appModule, /FilesS3ConfigModule/);
+  assert.match(appModule, /ForgeonFilesS3StorageModule/);
 
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
   assert.match(apiPackage, /@forgeon\/files-s3/);
@@ -387,6 +452,21 @@ function assertFilesS3Wiring(projectRoot) {
     'utf8',
   );
   assert.match(filesS3Package, /@aws-sdk\/client-s3/);
+
+  const s3Module = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-s3', 'src', 'forgeon-files-s3-storage.module.ts'),
+    'utf8',
+  );
+  assert.match(s3Module, /ForgeonFilesS3StorageModule/);
+  assert.match(s3Module, /FORGEON_FILES_STORAGE_ADAPTER/);
+
+  const s3Adapter = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-s3', 'src', 's3-files-storage.adapter.ts'),
+    'utf8',
+  );
+  assert.match(s3Adapter, /readonly driver = 's3'/);
+  assert.match(s3Adapter, /@aws-sdk\/client-s3/);
+  assert.match(s3Adapter, /loadS3Module/);
 }
 
 function assertFilesAccessWiring(projectRoot) {
@@ -626,23 +706,20 @@ function assertFilesImageWiring(projectRoot) {
   assert.match(readme, /metadata is stripped before storage/i);
 }
 
-function assertJwtAuthWiring(projectRoot, withPrismaStore) {
+function assertAccountsWiring(projectRoot) {
   const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
-  assert.match(apiPackage, /@forgeon\/auth-api/);
-  assert.match(apiPackage, /@forgeon\/auth-contracts/);
-  assert.match(apiPackage, /pnpm --filter @forgeon\/auth-contracts build/);
-  assert.match(apiPackage, /pnpm --filter @forgeon\/auth-api build/);
+  assert.match(apiPackage, /@forgeon\/accounts-api/);
+  assert.match(apiPackage, /@forgeon\/accounts-contracts/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/accounts-contracts build/);
+  assert.match(apiPackage, /pnpm --filter @forgeon\/accounts-api build/);
 
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /authConfig/);
   assert.match(appModule, /authEnvSchema/);
-  assert.match(appModule, /ForgeonAuthModule\.register\(/);
-  if (withPrismaStore) {
-    assert.match(appModule, /AUTH_REFRESH_TOKEN_STORE/);
-    assert.match(appModule, /PrismaAuthRefreshTokenStore/);
-  } else {
-    assert.doesNotMatch(appModule, /PrismaAuthRefreshTokenStore/);
-  }
+  assert.match(appModule, /ForgeonAccountsDbPrismaModule/);
+  assert.match(appModule, /ForgeonAccountsModule\.register\(\{/);
+  assert.match(appModule, /UsersModule\.register\(\{\}\)/);
+  assert.doesNotMatch(appModule, /AUTH_REFRESH_TOKEN_STORE/);
 
   const healthController = fs.readFileSync(
     path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
@@ -655,41 +732,52 @@ function assertJwtAuthWiring(projectRoot, withPrismaStore) {
   assertWebProbeShell(projectRoot);
   const probesTs = readWebProbes(projectRoot);
   assert.match(probesTs, /"id": "auth"/);
-  assert.match(probesTs, /"buttonLabel": "Check JWT auth probe"/);
-  assert.match(probesTs, /"resultTitle": "Auth probe response"/);
+  assert.match(probesTs, /"buttonLabel": "Check accounts probe"/);
+  assert.match(probesTs, /"resultTitle": "Accounts probe response"/);
 
   const apiDockerfile = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'Dockerfile'), 'utf8');
   assert.match(
     apiDockerfile,
-    /COPY packages\/auth-contracts\/package\.json packages\/auth-contracts\/package\.json/,
+    /COPY packages\/accounts-contracts\/package\.json packages\/accounts-contracts\/package\.json/,
   );
-  assert.match(apiDockerfile, /COPY packages\/auth-api\/package\.json packages\/auth-api\/package\.json/);
-  assert.match(apiDockerfile, /COPY packages\/auth-contracts packages\/auth-contracts/);
-  assert.match(apiDockerfile, /COPY packages\/auth-api packages\/auth-api/);
-  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/auth-contracts build/);
-  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/auth-api build/);
+  assert.match(apiDockerfile, /COPY packages\/accounts-api\/package\.json packages\/accounts-api\/package\.json/);
+  assert.match(apiDockerfile, /COPY packages\/accounts-contracts packages\/accounts-contracts/);
+  assert.match(apiDockerfile, /COPY packages\/accounts-api packages\/accounts-api/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/accounts-contracts build/);
+  assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/accounts-api build/);
 
   const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
   assert.match(apiEnv, /JWT_ACCESS_SECRET=/);
   assert.match(apiEnv, /JWT_REFRESH_SECRET=/);
-  assert.match(apiEnv, /AUTH_DEMO_EMAIL=/);
-  assert.match(apiEnv, /AUTH_DEMO_PASSWORD=/);
+  assert.match(apiEnv, /AUTH_ARGON2_MEMORY_COST=/);
+  assert.match(apiEnv, /AUTH_ARGON2_PARALLELISM=/);
 
   const compose = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', 'compose.yml'), 'utf8');
   assert.match(compose, /JWT_ACCESS_SECRET: \$\{JWT_ACCESS_SECRET\}/);
   assert.match(compose, /JWT_REFRESH_SECRET: \$\{JWT_REFRESH_SECRET\}/);
+  assert.match(compose, /AUTH_ARGON2_MEMORY_COST: \$\{AUTH_ARGON2_MEMORY_COST\}/);
 
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
-  assert.match(readme, /## JWT Auth Module/);
+  assert.match(readme, /## Accounts Module/);
+  assert.match(readme, /owner-scoped user routes/);
+  assert.match(readme, /AccountsEmailPort/);
 
   const authServiceSource = fs.readFileSync(
-    path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.service.ts'),
+    path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.service.ts'),
     'utf8',
   );
-  assert.match(authServiceSource, /import type \{/);
-  assert.doesNotMatch(authServiceSource, /import\s*\{\s*AUTH_ERROR_CODES/);
-}
+  assert.match(authServiceSource, /import type \{ RegisterRequest \} from '@forgeon\/accounts-contracts';/);
 
+  const prismaStorePath = path.join(
+    projectRoot,
+    'apps',
+    'api',
+    'src',
+    'accounts',
+    'prisma-accounts-persistence.store.ts',
+  );
+  assert.equal(fs.existsSync(prismaStorePath), true);
+}
 function stripDbPrismaArtifacts(projectRoot) {
   const dbPackageDir = path.join(projectRoot, 'packages', 'db-prisma');
   if (fs.existsSync(dbPackageDir)) {
@@ -1455,14 +1543,18 @@ describe('addModule', () => {
       const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
       assert.match(apiEnv, /FILES_STORAGE_DRIVER=s3/);
 
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /ForgeonFilesS3StorageModule/);
+      assert.doesNotMatch(appModule, /imports: \[ForgeonFilesDbPrismaModule, ForgeonFilesLocalStorageModule\]/);
+
       const filesService = fs.readFileSync(
         path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
         'utf8',
       );
-      assert.match(filesService, /storeS3/);
-      assert.match(filesService, /openS3/);
-      assert.match(filesService, /deleteS3/);
-      assert.match(filesService, /@aws-sdk\/client-s3/);
+      assert.doesNotMatch(filesService, /storeS3/);
+      assert.doesNotMatch(filesService, /openS3/);
+      assert.doesNotMatch(filesService, /deleteS3/);
+      assert.doesNotMatch(filesService, /@aws-sdk\/client-s3/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -2072,9 +2164,9 @@ describe('addModule', () => {
     }
   });
 
-  it('applies jwt-auth with db-prisma as stateless first, then wires persistence via explicit sync', () => {
-    const targetRoot = mkTmp('forgeon-module-jwt-db-');
-    const projectRoot = path.join(targetRoot, 'demo-jwt-db');
+  it('applies accounts with db-prisma and wires the DB-backed runtime immediately', () => {
+    const targetRoot = mkTmp('forgeon-module-accounts-db-');
+    const projectRoot = path.join(targetRoot, 'demo-accounts-db');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
 
     try {
@@ -2082,7 +2174,7 @@ describe('addModule', () => {
         templateRoot,
         packageRoot,
         targetRoot: projectRoot,
-        projectName: 'demo-jwt-db',
+        projectName: 'demo-accounts-db',
         frontend: 'react',
         db: 'prisma',
         dbPrismaEnabled: true,
@@ -2091,34 +2183,22 @@ describe('addModule', () => {
       });
 
       const result = addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot: projectRoot,
         packageRoot,
       });
 
       assert.equal(result.applied, true);
-      assertJwtAuthWiring(projectRoot, false);
-
-      const syncResult = syncIntegrations({ targetRoot: projectRoot, packageRoot });
-      const dbPair = syncResult.summary.find((item) => item.id === 'auth-persistence');
-      assert.ok(dbPair);
-      assert.equal(dbPair.result.applied, true);
-      assert.equal(syncResult.changedFiles.length > 0, true);
-
-      assertJwtAuthWiring(projectRoot, true);
-
-      const storeFile = path.join(
-        projectRoot,
-        'apps',
-        'api',
-        'src',
-        'auth',
-        'prisma-auth-refresh-token.store.ts',
-      );
-      assert.equal(fs.existsSync(storeFile), true);
+      assertAccountsWiring(projectRoot);
 
       const schema = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'prisma', 'schema.prisma'), 'utf8');
-      assert.match(schema, /refreshTokenHash/);
+      assert.match(schema, /model UserProfile/);
+      assert.match(schema, /model UserSettings/);
+      assert.match(schema, /model AuthIdentity/);
+      assert.match(schema, /model AuthCredential/);
+      assert.match(schema, /model AuthRefreshToken/);
+      assert.doesNotMatch(schema, /roles\s+/i);
+      assert.doesNotMatch(schema, /permissions\s+/i);
 
       const migrationPath = path.join(
         projectRoot,
@@ -2126,28 +2206,28 @@ describe('addModule', () => {
         'api',
         'prisma',
         'migrations',
-        '0002_auth_refresh_token_hash',
+        '0002_accounts_core',
         'migration.sql',
       );
       assert.equal(fs.existsSync(migrationPath), true);
 
       const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
-      assert.match(readme, /refresh token persistence: enabled/);
-      assert.match(readme, /db-adapter/);
-      assert.match(readme, /current provider: `db-prisma`/);
-      assert.match(readme, /0002_auth_refresh_token_hash/);
+      assert.match(readme, /POST \/api\/auth\/register/);
+      assert.match(readme, /POST \/api\/auth\/password-reset\/request/);
+      assert.match(readme, /\/api\/users\/:id\/settings/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
       assert.match(moduleDoc, /Status: implemented/);
       assert.match(moduleDoc, /db-adapter/);
+      assert.match(moduleDoc, /owner-scoped/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
 
-  it('applies jwt-auth without db and keeps stateless fallback until pair sync is available', () => {
-    const targetRoot = mkTmp('forgeon-module-jwt-nodb-');
-    const projectRoot = path.join(targetRoot, 'demo-jwt-nodb');
+  it('detects and applies accounts-rbac compatibility sync explicitly', () => {
+    const targetRoot = mkTmp('forgeon-module-accounts-rbac-');
+    const projectRoot = path.join(targetRoot, 'demo-accounts-rbac');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
 
     try {
@@ -2155,53 +2235,10 @@ describe('addModule', () => {
         templateRoot,
         packageRoot,
         targetRoot: projectRoot,
-        projectName: 'demo-jwt-nodb',
+        projectName: 'demo-accounts-rbac',
         frontend: 'react',
         db: 'prisma',
         dbPrismaEnabled: true,
-        i18nEnabled: false,
-        proxy: 'caddy',
-      });
-
-      stripDbPrismaArtifacts(projectRoot);
-
-      const result = addModule({
-        moduleId: 'jwt-auth',
-        targetRoot: projectRoot,
-        packageRoot,
-      });
-
-      assert.equal(result.applied, true);
-      assertJwtAuthWiring(projectRoot, false);
-      assert.equal(
-        fs.existsSync(path.join(projectRoot, 'apps', 'api', 'src', 'auth', 'prisma-auth-refresh-token.store.ts')),
-        false,
-      );
-
-      const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
-      assert.match(readme, /refresh token persistence: disabled/);
-      assert.match(readme, /db-adapter/);
-      assert.match(readme, /create-forgeon add db-prisma/);
-
-    } finally {
-      fs.rmSync(targetRoot, { recursive: true, force: true });
-    }
-  });
-
-  it('detects and applies jwt-auth + rbac claims integration explicitly', () => {
-    const targetRoot = mkTmp('forgeon-module-jwt-rbac-');
-    const projectRoot = path.join(targetRoot, 'demo-jwt-rbac');
-    const templateRoot = path.join(packageRoot, 'templates', 'base');
-
-    try {
-      scaffoldProject({
-        templateRoot,
-        packageRoot,
-        targetRoot: projectRoot,
-        projectName: 'demo-jwt-rbac',
-        frontend: 'react',
-        db: 'prisma',
-        dbPrismaEnabled: false,
         i18nEnabled: false,
         proxy: 'caddy',
       });
@@ -2212,59 +2249,51 @@ describe('addModule', () => {
         packageRoot,
       });
       addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot: projectRoot,
         packageRoot,
       });
 
       const scan = scanIntegrations({
         targetRoot: projectRoot,
-        relatedModuleId: 'jwt-auth',
+        relatedModuleId: 'accounts',
       });
-      assert.equal(scan.groups.some((group) => group.id === 'auth-rbac-claims'), true);
+      assert.equal(scan.groups.some((group) => group.id === 'accounts-rbac'), true);
 
       const syncResult = syncIntegrations({
         targetRoot: projectRoot,
         packageRoot,
-        groupIds: ['auth-rbac-claims'],
+        groupIds: ['accounts-rbac'],
       });
-      const claimsPair = syncResult.summary.find((item) => item.id === 'auth-rbac-claims');
+      const claimsPair = syncResult.summary.find((item) => item.id === 'accounts-rbac');
       assert.ok(claimsPair);
       assert.equal(claimsPair.result.applied, true);
 
-      const authContracts = fs.readFileSync(
-        path.join(projectRoot, 'packages', 'auth-contracts', 'src', 'index.ts'),
+      const contracts = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'accounts-contracts', 'src', 'index.ts'),
         'utf8',
       );
-      assert.match(authContracts, /permissions\?: string\[\];/);
+      assert.match(contracts, /roles\?: string\[\];/);
+      assert.match(contracts, /permissions\?: string\[\];/);
 
-      const authService = fs.readFileSync(
-        path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.service.ts'),
+      const authTypes = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.types.ts'),
         'utf8',
       );
-      assert.match(authService, /permissions: \['health\.rbac'\]/);
-      assert.match(authService, /permissions: user\.permissions,/);
-      assert.match(
-        authService,
-        /permissions: Array\.isArray\(payload\.permissions\) \? payload\.permissions : \[\],/,
-      );
+      assert.match(authTypes, /roles\?: string\[\];/);
+      assert.match(authTypes, /permissions\?: string\[\];/);
 
-      const authController = fs.readFileSync(
-        path.join(projectRoot, 'packages', 'auth-api', 'src', 'auth.controller.ts'),
-        'utf8',
-      );
-      assert.match(
-        authController,
-        /permissions: Array\.isArray\(payload\.permissions\) \? payload\.permissions : \[\],/,
-      );
+      const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(readme, /forgeon:accounts:rbac:start/);
+      assert.match(readme, /base accounts schema remains free of roles and permissions/);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
 
-  it('scans auth persistence as db-adapter participant while remaining triggerable from db-prisma install order', () => {
-    const targetRoot = mkTmp('forgeon-module-jwt-db-scan-');
-    const projectRoot = path.join(targetRoot, 'demo-jwt-db-scan');
+  it('scans accounts-rbac compatibility when accounts and rbac are both installed', () => {
+    const targetRoot = mkTmp('forgeon-module-accounts-rbac-scan-');
+    const projectRoot = path.join(targetRoot, 'demo-accounts-rbac-scan');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
 
     try {
@@ -2272,39 +2301,38 @@ describe('addModule', () => {
         templateRoot,
         packageRoot,
         targetRoot: projectRoot,
-        projectName: 'demo-jwt-db-scan',
+        projectName: 'demo-accounts-rbac-scan',
         frontend: 'react',
         db: 'prisma',
-        dbPrismaEnabled: false,
+        dbPrismaEnabled: true,
         i18nEnabled: false,
         proxy: 'caddy',
       });
 
       addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot: projectRoot,
         packageRoot,
       });
       addModule({
-        moduleId: 'db-prisma',
+        moduleId: 'rbac',
         targetRoot: projectRoot,
         packageRoot,
       });
 
       const scan = scanIntegrations({
         targetRoot: projectRoot,
-        relatedModuleId: 'db-prisma',
+        relatedModuleId: 'rbac',
       });
-      const persistenceGroup = scan.groups.find((group) => group.id === 'auth-persistence');
+      const compatibilityGroup = scan.groups.find((group) => group.id === 'accounts-rbac');
 
-      assert.ok(persistenceGroup);
-      assert.deepEqual(persistenceGroup.modules, ['jwt-auth', 'db-adapter']);
+      assert.ok(compatibilityGroup);
+      assert.deepEqual(compatibilityGroup.modules, ['accounts', 'rbac']);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
-
-  it('applies logger then jwt-auth on db/i18n-disabled scaffold without breaking health controller syntax', () => {
+  it('applies logger then accounts on db/i18n-disabled scaffold without breaking health controller syntax', () => {
     const targetRoot = mkTmp('forgeon-module-jwt-nodb-noi18n-');
     const projectRoot = path.join(targetRoot, 'demo-jwt-nodb-noi18n');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
@@ -2328,7 +2356,7 @@ describe('addModule', () => {
         packageRoot,
       });
       addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot: projectRoot,
         packageRoot,
       });
@@ -2352,7 +2380,7 @@ describe('addModule', () => {
     }
   });
 
-  it('keeps health controller valid for add sequence jwt-auth -> logger -> swagger -> i18n -> db-prisma on db/i18n-disabled scaffold', () => {
+  it('keeps health controller valid for add sequence accounts -> logger -> swagger -> i18n -> db-prisma on db/i18n-disabled scaffold', () => {
     const targetRoot = mkTmp('forgeon-module-seq-health-valid-');
     const projectRoot = path.join(targetRoot, 'demo-seq-health-valid');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
@@ -2370,7 +2398,7 @@ describe('addModule', () => {
         proxy: 'caddy',
       });
 
-      for (const moduleId of ['jwt-auth', 'logger', 'swagger', 'i18n', 'db-prisma']) {
+      for (const moduleId of ['accounts', 'logger', 'swagger', 'i18n', 'db-prisma']) {
         addModule({ moduleId, targetRoot: projectRoot, packageRoot });
       }
 
@@ -2405,9 +2433,9 @@ describe('addModule', () => {
     }
   });
 
-  it('applies swagger then jwt-auth without forcing swagger dependency in auth-api', () => {
-    const targetRoot = mkTmp('forgeon-module-jwt-swagger-');
-    const projectRoot = path.join(targetRoot, 'demo-jwt-swagger');
+  it('applies swagger then accounts without forcing swagger dependency in accounts-api', () => {
+    const targetRoot = mkTmp('forgeon-module-accounts-swagger-');
+    const projectRoot = path.join(targetRoot, 'demo-accounts-swagger');
     const templateRoot = path.join(packageRoot, 'templates', 'base');
 
     try {
@@ -2415,7 +2443,7 @@ describe('addModule', () => {
         templateRoot,
         packageRoot,
         targetRoot: projectRoot,
-        projectName: 'demo-jwt-swagger',
+        projectName: 'demo-accounts-swagger',
         frontend: 'react',
         db: 'prisma',
         dbPrismaEnabled: false,
@@ -2429,15 +2457,15 @@ describe('addModule', () => {
         packageRoot,
       });
       addModule({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot: projectRoot,
         packageRoot,
       });
 
-      const authApiPackage = JSON.parse(
-        fs.readFileSync(path.join(projectRoot, 'packages', 'auth-api', 'package.json'), 'utf8'),
+      const accountsApiPackage = JSON.parse(
+        fs.readFileSync(path.join(projectRoot, 'packages', 'accounts-api', 'package.json'), 'utf8'),
       );
-      assert.equal(Object.hasOwn(authApiPackage.dependencies ?? {}, '@nestjs/swagger'), false);
+      assert.equal(Object.hasOwn(accountsApiPackage.dependencies ?? {}, '@nestjs/swagger'), false);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -2461,7 +2489,7 @@ describe('addModule', () => {
         proxy: 'caddy',
       });
 
-      for (const moduleId of ['jwt-auth', 'logger', 'swagger', 'rate-limit', 'i18n', 'db-prisma']) {
+      for (const moduleId of ['accounts', 'logger', 'swagger', 'rate-limit', 'i18n', 'db-prisma']) {
         addModule({ moduleId, targetRoot: projectRoot, packageRoot });
       }
 
@@ -2498,7 +2526,7 @@ describe('addModule', () => {
         proxy: 'caddy',
       });
 
-      for (const moduleId of ['jwt-auth', 'logger', 'rate-limit', 'rbac', 'swagger', 'i18n', 'db-prisma']) {
+      for (const moduleId of ['accounts', 'logger', 'rate-limit', 'rbac', 'swagger', 'i18n', 'db-prisma']) {
         addModule({ moduleId, targetRoot: projectRoot, packageRoot });
       }
 
@@ -2594,6 +2622,13 @@ describe('addModule', () => {
     }
   });
 });
+
+
+
+
+
+
+
 
 
 

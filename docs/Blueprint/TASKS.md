@@ -122,28 +122,26 @@ Requirements:
 - update internal docs when doctrine changes
 ```
 
-## Continue JWT Auth Persistence Provider Boundary
+## Continue Accounts Persistence Provider Boundary
 
 ```text
-Continue extending the jwt-auth persistence integration after the move to a provider-strategy dispatcher at the `db-adapter` boundary.
+Continue extending the accounts persistence integration after the move to a provider-strategy dispatcher at the `db-adapter` boundary.
 Requirements:
 - keep the `db-adapter` capability as the public conceptual boundary
 - keep current Prisma behavior working as the first provider implementation
-- add new provider strategies so future DB providers can plug in without redefining jwt-auth semantics
+- add new provider strategies so future DB providers can plug in without redefining accounts semantics
 - preserve current explicit integration flow (`pnpm forgeon:sync-integrations`)
 ```
 
-## Refactor Auth Persistence Sync To Provider Strategy Model
+## Retire Legacy Auth Persistence Sync (Historical)
 
 ```text
-Completed: the auth-persistence integration now uses provider-specific strategies behind one capability-level integration group.
+Completed: the legacy auth persistence-sync plan was superseded by the accounts umbrella refactor.
 Requirements:
-- keep `auth-persistence` as one logical integration at the `db-adapter` boundary
-- provider-specific strategy handlers exist (starting with `db-prisma`)
-- a dispatcher selects the active DB adapter implementation
-- keep current Prisma-backed behavior unchanged for users
-- make future DB providers pluggable without changing jwt-auth semantics or user-facing docs
-- preserve the explicit integration flow (`pnpm forgeon:sync-integrations`)
+- keep `accounts` hard-required on `db-adapter`
+- keep `accounts-rbac` as the only current compatibility sync in this area
+- add new compatibility syncs only for real cross-module seams
+- do not reintroduce provider-strategy auth persistence into base accounts
 ```
 
 ## Implement Files Runtime V1 On Adapter Foundations
@@ -170,7 +168,7 @@ Prepare the first integration-sync design for files persistence against future D
 Requirements:
 - keep `db-adapter` as capability boundary
 - avoid hard-coding persistence logic to `db-prisma` in files runtime semantics
-- define strategy-dispatch model similar to auth-persistence:
+- define strategy-dispatch model similar to the current compatibility-sync pattern:
   - provider-specific sync handlers
   - one conceptual files-persistence integration group
 - keep current Prisma behavior as the first strategy implementation
@@ -197,6 +195,9 @@ Requirements:
   - add optional `VITE_I18N_FALLBACK_LANG` for web;
   - validate it against `I18N_LOCALES`;
   - behavior: throw in `dev`, warn+fallback in `build/prod`.
+
+
+
 
 
 

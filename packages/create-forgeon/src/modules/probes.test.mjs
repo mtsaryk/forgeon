@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -188,7 +188,7 @@ describe('probe wiring', () => {
       addModule({ moduleId: 'queue', targetRoot: projectRoot, packageRoot });
       addModule({ moduleId: 'scheduler', targetRoot: projectRoot, packageRoot });
       addModule({ moduleId: 'db-prisma', targetRoot: projectRoot, packageRoot });
-      addModule({ moduleId: 'jwt-auth', targetRoot: projectRoot, packageRoot });
+      addModule({ moduleId: 'accounts', targetRoot: projectRoot, packageRoot });
       addModule({ moduleId: 'rate-limit', targetRoot: projectRoot, packageRoot });
 
       assert.deepEqual(readManagedProbeIds(projectRoot), ['db', 'auth', 'rate-limit', 'queue', 'scheduler']);
@@ -197,6 +197,8 @@ describe('probe wiring', () => {
     }
   });
 });
+
+
 
 
 

@@ -1,40 +1,27 @@
-import fs from 'node:fs';
-import { promises as fsPromises } from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { Readable } from 'node:stream';
 import {
   BadRequestException,
-  InternalServerErrorException,
+  Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '@forgeon/db-prisma';
 import { FilesConfigService } from './files-config.service';
+import {
+  FILES_PERSISTENCE_PORT,
+  FILES_STORAGE_ADAPTER,
+} from './files.ports';
+import type {
+  FilesBlobRecord,
+  FilesBlobRef,
+  FilesPersistencePort,
+  FilesRecordAggregate,
+  FilesStorageAdapter,
+} from './files.ports';
 import type { FileRecordDto, FileVariantKey, StoredFileInput } from './files.types';
-
-type S3ModuleLike = {
-  S3Client: new (config: Record<string, unknown>) => {
-    send: (command: unknown) => Promise<{
-      Body?: unknown;
-    }>;
-  };
-  PutObjectCommand: new (input: Record<string, unknown>) => unknown;
-  GetObjectCommand: new (input: Record<string, unknown>) => unknown;
-  DeleteObjectCommand: new (input: Record<string, unknown>) => unknown;
-};
-
-type BlobRef = {
-  id: string;
-  hash: string;
-  size: number;
-  mimeType: string;
-  storageDriver: string;
-  storageKey: string;
-  created: boolean;
-};
 
 type PrismaLikeError = {
   code?: unknown;
@@ -56,17 +43,11 @@ type PersistedVariant = {
 
 @Injectable()
 export class FilesService {
-  private s3Client:
-    | {
-        send: (command: unknown) => Promise<{
-          Body?: unknown;
-        }>;
-      }
-    | null = null;
-
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    @Inject(FILES_PERSISTENCE_PORT)
+    private readonly persistence: FilesPersistencePort,
+    @Inject(FILES_STORAGE_ADAPTER)
+    private readonly storageAdapter: FilesStorageAdapter,
     private readonly filesConfigService: FilesConfigService,
   ) {}
 
@@ -88,19 +69,17 @@ export class FilesService {
         createdBlobIds.push(originalBlob.id);
       }
 
-      const record = await this.prisma.fileRecord.create({
-        data: {
-          publicId: this.generatePublicId(),
-          storageKey: originalBlob.storageKey,
-          originalName: input.originalName,
-          mimeType: preparedOriginal.mimeType,
-          size: preparedOriginal.size,
-          storageDriver: originalBlob.storageDriver,
-          ownerType: input.ownerType ?? 'system',
-          ownerId: input.ownerId ?? null,
-          visibility: input.visibility ?? 'private',
-          createdById: input.createdById ?? null,
-        },
+      const record = await this.persistence.createFileRecord({
+        publicId: this.generatePublicId(),
+        storageKey: originalBlob.storageKey,
+        originalName: input.originalName,
+        mimeType: preparedOriginal.mimeType,
+        size: preparedOriginal.size,
+        storageDriver: originalBlob.storageDriver,
+        ownerType: input.ownerType ?? 'system',
+        ownerId: input.ownerId ?? null,
+        visibility: input.visibility ?? 'private',
+        createdById: input.createdById ?? null,
       });
       recordId = record.id;
 
@@ -131,8 +110,8 @@ export class FilesService {
         persistedVariantBlobIds.push(previewBlob.id);
       }
 
-      await this.prisma.fileVariant.createMany({
-        data: persistedVariants.map((item, index) => ({
+      await this.persistence.createVariants(
+        persistedVariants.map((item, index) => ({
           fileId: record.id,
           variantKey: item.variantKey,
           blobId: persistedVariantBlobIds[index],
@@ -140,12 +119,12 @@ export class FilesService {
           size: item.size,
           status: item.status,
         })),
-      });
+      );
 
       return this.getByPublicId(record.publicId);
     } catch (error) {
       if (recordId) {
-        await this.prisma.fileRecord.delete({ where: { id: recordId } }).catch(() => undefined);
+        await this.persistence.deleteFileRecordById(recordId).catch(() => undefined);
       }
       await this.cleanupCreatedBlobs(createdBlobIds);
       throw error;
@@ -165,33 +144,16 @@ export class FilesService {
   }
 
   async deleteByPublicId(publicId: string): Promise<{ deleted: boolean }> {
-    const record = await this.prisma.fileRecord.findUnique({
-      where: { publicId },
-      include: {
-        variants: {
-          select: {
-            blobId: true,
-            blob: {
-              select: {
-                storageDriver: true,
-                storageKey: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const record = await this.persistence.findFileRecordForDelete(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
 
-    const blobIds = record.variants.map((variant) => variant.blobId);
-    await this.prisma.fileRecord.delete({
-      where: { publicId },
-    });
+    const blobIds = (record.variants ?? []).map((variant) => variant.blobId);
+    await this.persistence.deleteFileRecordByPublicId(publicId);
     await this.cleanupReferencedBlobs(blobIds);
 
-    if (record.variants.length === 0) {
+    if ((record.variants ?? []).length === 0) {
       await this.deleteStoredContent(record.storageDriver, record.storageKey).catch(() => undefined);
     }
 
@@ -199,16 +161,7 @@ export class FilesService {
   }
 
   async getByPublicId(publicId: string): Promise<FileRecordDto> {
-    const record = await this.prisma.fileRecord.findUnique({
-      where: { publicId },
-      include: {
-        variants: {
-          select: {
-            variantKey: true,
-          },
-        },
-      },
-    });
+    const record = await this.persistence.findFileRecordWithVariantKeys(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
@@ -216,23 +169,7 @@ export class FilesService {
   }
 
   async getOwnerUsage(ownerType: string, ownerId: string): Promise<{ filesCount: number; totalBytes: number }> {
-    const aggregate = await this.prisma.fileRecord.aggregate({
-      where: {
-        ownerType,
-        ownerId,
-      },
-      _count: {
-        _all: true,
-      },
-      _sum: {
-        size: true,
-      },
-    });
-
-    return {
-      filesCount: aggregate._count._all ?? 0,
-      totalBytes: aggregate._sum.size ?? 0,
-    };
+    return this.persistence.countOwnerUsage(ownerType, ownerId);
   }
 
   async openDownload(publicId: string, variant: FileVariantKey = 'original'): Promise<{
@@ -240,69 +177,36 @@ export class FilesService {
     mimeType: string;
     fileName: string;
   }> {
-    const record = await this.prisma.fileRecord.findUnique({
-      where: { publicId },
-      include: {
-        variants: {
-          select: {
-            variantKey: true,
-            blob: {
-              select: {
-                storageDriver: true,
-                storageKey: true,
-              },
-            },
-            mimeType: true,
-            size: true,
-          },
-        },
-      },
-    });
+    const record = await this.persistence.findFileRecordForDownload(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
 
     const selectedVariant =
-      record.variants.find((item) => item.variantKey === variant) ??
+      record.variants?.find((item) => item.variantKey === variant) ??
       (variant === 'original'
         ? {
             variantKey: 'original',
+            blobId: 'original',
             blob: {
               storageDriver: record.storageDriver,
               storageKey: record.storageKey,
             },
             mimeType: record.mimeType,
             size: record.size,
+            status: 'ready',
           }
         : null);
 
-    if (!selectedVariant) {
+    if (!selectedVariant?.blob) {
       throw new NotFoundException('File variant not found');
     }
 
-    switch (selectedVariant.blob.storageDriver) {
-      case 'local': {
-        const absolutePath = path.resolve(process.cwd(), this.resolveLocalRootDir(), selectedVariant.blob.storageKey);
-        if (!fs.existsSync(absolutePath)) {
-          throw new NotFoundException('File content not found');
-        }
-        return {
-          stream: fs.createReadStream(absolutePath),
-          mimeType: selectedVariant.mimeType,
-          fileName: this.buildVariantFileName(record.originalName, variant, selectedVariant.mimeType),
-        };
-      }
-      case 's3': {
-        const stream = await this.openS3(selectedVariant.blob.storageKey);
-        return {
-          stream,
-          mimeType: selectedVariant.mimeType,
-          fileName: this.buildVariantFileName(record.originalName, variant, selectedVariant.mimeType),
-        };
-      }
-      default:
-        throw new ServiceUnavailableException('Unknown files storage driver');
-    }
+    return {
+      stream: await this.openStoredContent(selectedVariant.blob.storageDriver, selectedVariant.blob.storageKey),
+      mimeType: selectedVariant.mimeType,
+      fileName: this.buildVariantFileName(record.originalName, variant, selectedVariant.mimeType),
+    };
   }
 
   async getVariantsProbeStatus(): Promise<{
@@ -349,18 +253,11 @@ export class FilesService {
   private async store(buffer: Buffer, originalName: string): Promise<{ storageKey: string }> {
     const extension = path.extname(originalName).toLowerCase();
     const fileName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
-    switch (this.filesConfigService.storageDriver) {
-      case 'local':
-        return this.storeLocal(buffer, fileName);
-      case 's3':
-        return this.storeS3(buffer, fileName);
-      default:
-        throw new ServiceUnavailableException('Unknown files storage driver');
-    }
+    return this.storageAdapter.put(buffer, fileName);
   }
 
-  private async getOrCreateBlob(input: PreparedStoredFile, dedupe: boolean): Promise<BlobRef> {
-    const storageDriver = this.filesConfigService.storageDriver;
+  private async getOrCreateBlob(input: PreparedStoredFile, dedupe: boolean): Promise<FilesBlobRef> {
+    const storageDriver = this.storageAdapter.driver;
     const hash = this.computeContentHash(input.buffer);
 
     if (dedupe) {
@@ -372,14 +269,12 @@ export class FilesService {
 
     const stored = await this.store(input.buffer, input.fileName);
     try {
-      const created = await this.prisma.fileBlob.create({
-        data: {
-          hash,
-          size: input.size,
-          mimeType: input.mimeType,
-          storageDriver,
-          storageKey: stored.storageKey,
-        },
+      const created = await this.persistence.createBlob({
+        hash,
+        size: input.size,
+        mimeType: input.mimeType,
+        storageDriver,
+        storageKey: stored.storageKey,
       });
 
       return {
@@ -425,197 +320,22 @@ export class FilesService {
     return false;
   }
 
+  private async openStoredContent(storageDriver: string, storageKey: string): Promise<Readable> {
+    if (storageDriver !== this.storageAdapter.driver) {
+      throw new ServiceUnavailableException(
+        `File was stored with driver "${storageDriver}", but current adapter is "${this.storageAdapter.driver}".`,
+      );
+    }
+    return this.storageAdapter.open(storageKey);
+  }
+
   private async deleteStoredContent(storageDriver: string, storageKey: string): Promise<void> {
-    switch (storageDriver) {
-      case 'local':
-        await this.deleteLocal(storageKey);
-        return;
-      case 's3':
-        await this.deleteS3(storageKey);
-        return;
-      default:
-        throw new ServiceUnavailableException('Unknown files storage driver');
-    }
-  }
-
-  private async storeLocal(buffer: Buffer, storageKey: string): Promise<{ storageKey: string }> {
-    const rootDir = this.resolveLocalRootDir();
-    const absoluteRoot = path.resolve(process.cwd(), rootDir);
-    const absolutePath = path.join(absoluteRoot, storageKey);
-
-    await fsPromises.mkdir(absoluteRoot, { recursive: true });
-    await fsPromises.writeFile(absolutePath, buffer);
-
-    return { storageKey };
-  }
-
-  private async storeS3(buffer: Buffer, storageKey: string): Promise<{ storageKey: string }> {
-    const { PutObjectCommand } = await this.loadS3Module();
-    const client = await this.getS3Client();
-    const config = this.resolveS3Config();
-
-    await client.send(
-      new PutObjectCommand({
-        Bucket: config.bucket,
-        Key: storageKey,
-        Body: buffer,
-      }),
-    );
-
-    return { storageKey };
-  }
-
-  private async openS3(storageKey: string): Promise<Readable> {
-    const { GetObjectCommand } = await this.loadS3Module();
-    const client = await this.getS3Client();
-    const config = this.resolveS3Config();
-
-    const response = await client.send(
-      new GetObjectCommand({
-        Bucket: config.bucket,
-        Key: storageKey,
-      }),
-    );
-    if (!response.Body) {
-      throw new NotFoundException('File content not found');
-    }
-
-    return this.toNodeReadable(response.Body);
-  }
-
-  private async deleteS3(storageKey: string): Promise<void> {
-    const { DeleteObjectCommand } = await this.loadS3Module();
-    const client = await this.getS3Client();
-    const config = this.resolveS3Config();
-    await client.send(
-      new DeleteObjectCommand({
-        Bucket: config.bucket,
-        Key: storageKey,
-      }),
-    );
-  }
-
-  private async deleteLocal(storageKey: string): Promise<void> {
-    const rootDir = this.resolveLocalRootDir();
-    const absoluteRoot = path.resolve(process.cwd(), rootDir);
-    const absolutePath = path.join(absoluteRoot, storageKey);
-
-    if (!fs.existsSync(absolutePath)) {
-      return;
-    }
-    try {
-      await fsPromises.unlink(absolutePath);
-    } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to delete file content',
-        details: {
-          storageKey,
-          reason: error instanceof Error ? error.message : 'unknown',
-        },
-      });
-    }
-  }
-
-  private resolveLocalRootDir(): string {
-    const value = this.configService.get<string>('filesLocal.rootDir');
-    if (!value) {
+    if (storageDriver !== this.storageAdapter.driver) {
       throw new ServiceUnavailableException(
-        'files-local adapter is not configured. Install/add files-local and ensure FILES_LOCAL_ROOT is set.',
+        `File was stored with driver "${storageDriver}", but current adapter is "${this.storageAdapter.driver}".`,
       );
     }
-    return value;
-  }
-
-  private resolveS3Config(): {
-    providerPreset: 'minio' | 'r2' | 'aws' | 'custom';
-    bucket: string;
-    region: string;
-    endpoint?: string;
-    accessKeyId: string;
-    secretAccessKey: string;
-    forcePathStyle: boolean;
-    maxAttempts: number;
-  } {
-    const providerPreset =
-      this.configService.get<'minio' | 'r2' | 'aws' | 'custom'>('filesS3.providerPreset') ?? 'minio';
-    const bucket = this.configService.get<string>('filesS3.bucket');
-    const region = this.configService.get<string>('filesS3.region');
-    const endpoint = this.configService.get<string>('filesS3.endpoint');
-    const accessKeyId = this.configService.get<string>('filesS3.accessKeyId');
-    const secretAccessKey = this.configService.get<string>('filesS3.secretAccessKey');
-    const forcePathStyle = this.configService.get<boolean>('filesS3.forcePathStyle');
-    const maxAttempts = this.configService.get<number>('filesS3.maxAttempts') ?? 3;
-
-    if (!bucket || !region || !accessKeyId || !secretAccessKey) {
-      throw new ServiceUnavailableException(
-        'files-s3 adapter is not configured. Install/add files-s3 and ensure FILES_S3_* env keys are set.',
-      );
-    }
-    if (providerPreset !== 'aws' && !endpoint) {
-      throw new ServiceUnavailableException(
-        `files-s3 adapter endpoint is required for provider preset "${providerPreset}".`,
-      );
-    }
-
-    return {
-      providerPreset,
-      bucket,
-      region,
-      endpoint,
-      accessKeyId,
-      secretAccessKey,
-      forcePathStyle: forcePathStyle !== false,
-      maxAttempts,
-    };
-  }
-
-  private async getS3Client(): Promise<{
-    send: (command: unknown) => Promise<{
-      Body?: unknown;
-    }>;
-  }> {
-    if (this.s3Client) {
-      return this.s3Client;
-    }
-    const { S3Client } = await this.loadS3Module();
-    const config = this.resolveS3Config();
-    this.s3Client = new S3Client({
-      region: config.region,
-      ...(config.endpoint ? { endpoint: config.endpoint } : {}),
-      forcePathStyle: config.forcePathStyle,
-      maxAttempts: config.maxAttempts,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
-    });
-    return this.s3Client;
-  }
-
-  private toNodeReadable(body: unknown): Readable {
-    if (body instanceof Readable) {
-      return body;
-    }
-    if (typeof body === 'string' || Buffer.isBuffer(body) || body instanceof Uint8Array) {
-      return Readable.from(body);
-    }
-    if (
-      typeof body === 'object' &&
-      body !== null &&
-      typeof (body as { transformToWebStream?: unknown }).transformToWebStream === 'function'
-    ) {
-      return Readable.fromWeb(
-        (body as { transformToWebStream: () => unknown }).transformToWebStream() as never,
-      );
-    }
-    throw new InternalServerErrorException('Unsupported S3 response body type');
-  }
-
-  private async loadS3Module(): Promise<S3ModuleLike> {
-    const importModule = new Function('specifier', 'return import(specifier)') as (
-      specifier: string,
-    ) => Promise<S3ModuleLike>;
-    return importModule('@aws-sdk/client-s3');
+    await this.storageAdapter.delete(storageKey);
   }
 
   private generatePublicId(): string {
@@ -633,22 +353,13 @@ export class FilesService {
   private async cleanupReferencedBlobs(blobIds: string[]): Promise<void> {
     const uniqueIds = [...new Set(blobIds.filter(Boolean))];
     for (const blobId of uniqueIds) {
-      const blob = await this.prisma.fileBlob.findUnique({
-        where: { id: blobId },
-      });
+      const blob = await this.persistence.findBlobById(blobId);
       if (!blob) {
         continue;
       }
 
-      const deleted = await this.prisma.fileBlob.deleteMany({
-        where: {
-          id: blob.id,
-          variants: {
-            none: {},
-          },
-        },
-      });
-      if (deleted.count === 0) {
+      const deleted = await this.persistence.deleteBlobIfUnreferenced(blob.id);
+      if (!deleted) {
         continue;
       }
       await this.deleteStoredContent(blob.storageDriver, blob.storageKey).catch(() => undefined);
@@ -660,27 +371,12 @@ export class FilesService {
     size: number,
     mimeType: string,
     storageDriver: string,
-  ): Promise<BlobRef | null> {
-    const existing = await this.prisma.fileBlob.findFirst({
-      where: {
-        hash,
-        size,
-        mimeType,
-        storageDriver,
-      },
-    });
+  ): Promise<FilesBlobRef | null> {
+    const existing = await this.persistence.findBlobRef(hash, size, mimeType, storageDriver);
     if (!existing) {
       return null;
     }
-    return {
-      id: existing.id,
-      hash: existing.hash,
-      size: existing.size,
-      mimeType: existing.mimeType,
-      storageDriver: existing.storageDriver,
-      storageKey: existing.storageKey,
-      created: false,
-    };
+    return existing;
   }
 
   private isUniqueConstraintError(error: unknown): boolean {
@@ -688,6 +384,13 @@ export class FilesService {
       return false;
     }
     return (error as PrismaLikeError).code === 'P2002';
+  }
+
+  protected normalizeFileName(originalName: string, extension: string, suffix?: string): string {
+    const parsed = path.parse(originalName);
+    const safeExtension = extension.startsWith('.') ? extension : `.${extension}`;
+    const base = suffix ? `${parsed.name}-${suffix}` : parsed.name;
+    return `${base}${safeExtension}`;
   }
 
   private buildVariantFileName(originalName: string, variant: FileVariantKey, mimeType: string): string {
@@ -709,24 +412,7 @@ export class FilesService {
     return null;
   }
 
-  private toDto(record: {
-    id: string;
-    publicId: string;
-    storageKey: string;
-    originalName: string;
-    mimeType: string;
-    size: number;
-    storageDriver: string;
-    ownerType: string;
-    ownerId: string | null;
-    visibility: string;
-    createdById: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-    variants?: Array<{
-      variantKey: string;
-    }>;
-  }): FileRecordDto {
+  private toDto(record: FilesRecordAggregate): FileRecordDto {
     const availableVariants = new Set<FileVariantKey>(['original']);
     for (const variant of record.variants ?? []) {
       if (variant.variantKey === 'original' || variant.variantKey === 'preview') {

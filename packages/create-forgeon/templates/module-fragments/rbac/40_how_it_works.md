@@ -21,5 +21,6 @@ Failure path:
 
 Integration note:
 
-- if `jwt-auth` is also installed, the optional `auth-rbac-claims` integration can expose demo permissions inside JWT payloads
+- if `accounts` is also installed, the optional `accounts-rbac` integration can expose demo permissions inside JWT payloads
 - that integration is explicit and is applied through `pnpm forgeon:sync-integrations`
+

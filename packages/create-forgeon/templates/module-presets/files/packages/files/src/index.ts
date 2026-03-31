@@ -5,5 +5,6 @@ export * from './files-config.loader';
 export * from './files-config.module';
 export * from './files-config.service';
 export * from './files-env.schema';
+export * from './files.ports';
 export * from './files.service';
 export * from './files.types';

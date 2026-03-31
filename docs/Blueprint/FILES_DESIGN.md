@@ -57,7 +57,7 @@ The intended long-term split is:
 2. `files-access`
 - resource-level authorization for file operations
 - ownership / visibility / group / tenant rules
-- integration with `jwt-auth` + `rbac`
+- integration with `accounts` + `rbac`
 
 3. `files-quotas`
 - file count and byte usage limits
@@ -369,3 +369,4 @@ Proceed with:
   - `files-quotas`
   - `files-s3`
   - `files-image`
+

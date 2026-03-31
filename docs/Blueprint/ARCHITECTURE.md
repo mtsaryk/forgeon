@@ -84,8 +84,8 @@ Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
   - each add-module patches only itself;
   - cross-module changes are allowed only in integration sync rules.
 - Current integrations:
-  - `jwt-auth + db-adapter` (current provider: `db-prisma`; persistent refresh-token store wiring + schema/migration sync)
-  - `jwt-auth + rbac` (demo RBAC claims wiring in auth contracts and payloads)
+  - `accounts + db-adapter` (current provider: `db-prisma`; persistent refresh-token store wiring + schema/migration sync)
+  - `accounts + rbac` (demo RBAC claims wiring in auth contracts and payloads)
 - `create-forgeon add <module>` scans only the relevant pending integration groups and offers them interactively.
 - Integrations are never applied silently; users can apply them from the prompt or later with `pnpm forgeon:sync-integrations`.
 - Swagger auth decorators are intentionally not auto-patched.
@@ -124,6 +124,63 @@ Optional integrations:
 - are announced as explicit follow-up opportunities
 - should include a short human-readable benefit summary and exact follow-up commands
 
+## Runtime Interaction Strategy
+
+Forgeon uses different mechanisms for install-time composition and runtime collaboration.
+
+Canonical rules:
+
+- hard prerequisites remain capability/provider driven
+- required runtime dependencies use explicit port/provider boundaries
+- optional runtime reactions may use internal domain events
+- integration sync remains scaffold/install-time wiring only
+
+Planned eventing direction:
+
+- internal eventing will ship as an optional backend-only add-module:
+  - `create-forgeon add internal-event-bus`
+- it is not planned as a global scaffold flag or alternate project mode
+- the initial provider is expected to be in-process and internal-only
+- future extensions may bridge the same boundary toward queue/outbox/realtime consumers
+
+Non-goals for this boundary:
+
+- do not replace required persistence or security guarantees with best-effort subscribers
+- do not treat runtime events as a substitute for template wiring or integration sync
+
+## Pattern Selection Matrix
+
+Use the lightest pattern that matches the boundary.
+
+- replaceable technology boundary (`auth`, `db`, `storage`, similar):
+  - use hexagonal-style ports/adapters as the base model
+  - use Nest custom providers + dynamic modules as the primary wiring mechanism
+  - use strategy-style selection when multiple providers may satisfy the same capability
+- optional runtime reactions (`notifications`, `audit`, `analytics`, optional delivery fan-out):
+  - use internal domain events for in-process reactions
+- reliable async cross-module reactions:
+  - use integration events + outbox
+  - do not pay this complexity cost before reliability or process-boundary needs are real
+- complex long-running workflow coordination:
+  - reserved for saga/process manager patterns
+  - currently out of scope
+- file/media processing:
+  - use explicit pipeline stages for transform flow
+  - optional async jobs may be added later on top of the pipeline
+
+Short form:
+
+- replaceable technology -> port + adapter
+- optional reaction -> domain event
+- reliable async reaction -> integration event + outbox
+- complex workflow -> saga/process manager
+- files/media -> pipeline
+
+Cleanup before `internal-event-bus` lands:
+
+- must-have: extract the `files` DB metadata/store boundary away from direct `PrismaService` coupling
+- targeted review only where it meaningfully improves a module seam: `files-quotas -> files`, `scheduler -> queue`, and similar direct runtime imports
+
 ## TypeScript Module Format Policy
 
 - `apps/api`, `packages/core`, and backend runtime packages use Node-oriented config:
@@ -144,5 +201,6 @@ Optional integrations:
   - `error.details` (optional)
   - `error.requestId` (optional)
   - `error.timestamp`
+
 
 

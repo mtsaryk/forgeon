@@ -9,8 +9,10 @@ import {
   ensureLineBefore,
   ensureLoadItem,
   ensureValidatorSchema,
+    ensureNamedImportSpecifier,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { resolveFilesStorageRuntimeModule, upsertFilesModuleRegistration } from './shared/files-runtime-wiring.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files-local', relativePath);
@@ -40,16 +42,18 @@ function patchAppModule(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(
-    content,
-    "import { filesLocalConfig, filesLocalEnvSchemaZod, FilesLocalConfigModule } from '@forgeon/files-local';",
-  );
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-local', 'filesLocalConfig');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-local', 'filesLocalEnvSchemaZod');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-local', 'FilesLocalConfigModule');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-local', 'ForgeonFilesLocalStorageModule');
   content = ensureLoadItem(content, 'filesLocalConfig');
   content = ensureValidatorSchema(content, 'filesLocalEnvSchemaZod');
 
   if (!content.includes('    FilesLocalConfigModule,')) {
     if (content.includes('    ForgeonFilesModule,')) {
       content = ensureLineAfter(content, '    ForgeonFilesModule,', '    FilesLocalConfigModule,');
+    } else if (content.includes('    ForgeonFilesModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonFilesModule.register({', '    FilesLocalConfigModule,');
     } else if (content.includes('    ForgeonI18nModule.register({')) {
       content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    FilesLocalConfigModule,');
     } else if (content.includes('    DbPrismaModule,')) {
@@ -59,6 +63,10 @@ function patchAppModule(targetRoot) {
     } else {
       content = ensureLineAfter(content, '    CoreErrorsModule,', '    FilesLocalConfigModule,');
     }
+  }
+
+  if (content.includes('ForgeonFilesModule')) {
+    content = upsertFilesModuleRegistration(content, resolveFilesStorageRuntimeModule(targetRoot));
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
@@ -74,7 +82,7 @@ function patchApiDockerfile(targetRoot) {
 
   const packageAnchors = [
     'COPY packages/files/package.json packages/files/package.json',
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/rbac/package.json packages/rbac/package.json',
     'COPY packages/rate-limit/package.json packages/rate-limit/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
@@ -92,7 +100,7 @@ function patchApiDockerfile(targetRoot) {
 
   const sourceAnchors = [
     'COPY packages/files packages/files',
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/rbac packages/rbac',
     'COPY packages/rate-limit packages/rate-limit',
     'COPY packages/logger packages/logger',
@@ -219,3 +227,4 @@ export function applyFilesLocalModule({ packageRoot, targetRoot }) {
     'FILES_LOCAL_ROOT=storage/uploads',
   ]);
 }
+

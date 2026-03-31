@@ -139,40 +139,25 @@ const MODULE_PRESETS = {
     optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
-  'jwt-auth': {
-    id: 'jwt-auth',
-    label: 'JWT Auth',
+  accounts: {
+    id: 'accounts',
+    label: 'Accounts',
     category: 'auth-security',
     implemented: true,
     description:
-      'JWT auth preset with contracts/api module split, guard+strategy, and optional db-adapter-backed refresh token persistence via integration sync.',
-    detectionPaths: ['packages/auth-api/package.json'],
-    provides: ['auth-runtime'],
-    requires: [],
+      'Accounts umbrella module with DB-backed users/auth runtime, argon2 passwords, JWT access+refresh rotation, and owner-scoped self-service routes.',
+    detectionPaths: ['packages/accounts-api/package.json'],
+    provides: ['accounts-runtime'],
+    requires: [{ type: 'capability', id: 'db-adapter' }],
     optionalIntegrations: [
       {
-        id: 'auth-persistence',
-        title: 'Auth Persistence Integration',
-        modules: ['jwt-auth', 'db-adapter'],
-        requires: [{ type: 'capability', id: 'db-adapter' }],
-        description: [
-          'Persist refresh-token state through the db-adapter capability boundary',
-          'Use the current DB adapter implementation (today: db-prisma) for refresh-token storage',
-          'Enable stronger refresh-token invalidation flows after logout and rotation',
-        ],
-        followUpCommands: [
-          'npx create-forgeon@latest add db-prisma',
-          'pnpm forgeon:sync-integrations',
-        ],
-      },
-      {
-        id: 'auth-rbac-claims',
-        title: 'Auth Claims Integration',
-        modules: ['jwt-auth', 'rbac'],
+        id: 'accounts-rbac',
+        title: 'Accounts RBAC Compatibility Sync',
+        modules: ['accounts', 'rbac'],
         requires: [{ type: 'module', id: 'rbac' }],
         description: [
-          'Expose demo RBAC permissions inside JWT payloads',
-          'Return permissions through refresh and /me responses',
+          'Prepare accounts contracts and auth payload surfaces for optional RBAC compatibility',
+          'Keep the base accounts schema free of roles and permissions while preserving a clean sync seam',
         ],
         followUpCommands: [
           'npx create-forgeon@latest add rbac',
@@ -211,22 +196,22 @@ const MODULE_PRESETS = {
     category: 'auth-security',
     implemented: true,
     description:
-      'Role and permission decorators with a Nest guard and a protected probe endpoint; installs independently and optionally integrates with jwt-auth.',
+      'Role and permission decorators with a Nest guard and a protected probe endpoint; installs independently and optionally integrates with accounts.',
     detectionPaths: ['packages/rbac/package.json'],
     provides: ['rbac-runtime'],
     requires: [],
     optionalIntegrations: [
       {
-        id: 'auth-rbac-claims',
-        title: 'Auth Claims Integration',
-        modules: ['jwt-auth', 'rbac'],
-        requires: [{ type: 'module', id: 'jwt-auth' }],
+        id: 'accounts-rbac',
+        title: 'Accounts RBAC Compatibility Sync',
+        modules: ['accounts', 'rbac'],
+        requires: [{ type: 'module', id: 'accounts' }],
         description: [
-          'Expose demo RBAC permissions inside JWT payloads',
-          'Return permissions through refresh and /me responses',
+          'Prepare accounts auth surfaces for optional RBAC compatibility',
+          'Keep claims wiring ready without changing the base accounts schema',
         ],
         followUpCommands: [
-          'npx create-forgeon@latest add jwt-auth',
+          'npx create-forgeon@latest add accounts',
           'pnpm forgeon:sync-integrations',
         ],
       },
@@ -298,5 +283,7 @@ export function ensureModuleExists(moduleId) {
   }
   return preset;
 }
+
+
 
 

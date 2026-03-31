@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -40,8 +40,8 @@ function patchAppModule(targetRoot) {
     moduleLine: '    ForgeonQueueModule,',
     beforeAnchors: [
       '    ForgeonI18nModule.register({',
-      '    ForgeonAuthModule.register({',
-      '    ForgeonAuthModule.register(),',
+      '    ForgeonAccountsModule.register({',
+      '    ForgeonAccountsModule.register(),',
     ],
     afterAnchors: [
       '    DbPrismaModule,',
@@ -89,7 +89,7 @@ function patchApiDockerfile(targetRoot) {
     'COPY packages/files-s3/package.json packages/files-s3/package.json',
     'COPY packages/files-local/package.json packages/files-local/package.json',
     'COPY packages/files/package.json packages/files/package.json',
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/rbac/package.json packages/rbac/package.json',
     'COPY packages/rate-limit/package.json packages/rate-limit/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
@@ -108,7 +108,7 @@ function patchApiDockerfile(targetRoot) {
     'COPY packages/files-s3 packages/files-s3',
     'COPY packages/files-local packages/files-local',
     'COPY packages/files packages/files',
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/rbac packages/rbac',
     'COPY packages/rate-limit packages/rate-limit',
     'COPY packages/logger packages/logger',
@@ -224,7 +224,7 @@ function patchCompose(targetRoot) {
       /^(\s+FILES_S3_MAX_ATTEMPTS:.*)$/m,
       /^(\s+FILES_LOCAL_ROOT:.*)$/m,
       /^(\s+FILES_PUBLIC_BASE_PATH:.*)$/m,
-      /^(\s+AUTH_DEMO_PASSWORD:.*)$/m,
+      /^(\s+AUTH_ARGON2_PARALLELISM:.*)$/m,
       /^(\s+THROTTLE_TRUST_PROXY:.*)$/m,
       /^(\s+LOGGER_REQUEST_ID_HEADER:.*)$/m,
       /^(\s+SWAGGER_DOCS_PATH:.*)$/m,
@@ -323,3 +323,6 @@ export function applyQueueModule({ packageRoot, targetRoot }) {
     'QUEUE_DEFAULT_BACKOFF_MS=1000',
   ]);
 }
+
+
+

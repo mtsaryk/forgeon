@@ -48,11 +48,11 @@ function patchAppModule(targetRoot) {
         "import { ForgeonRbacModule } from '@forgeon/rbac';",
       );
     } else if (
-      content.includes("import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';")
+      content.includes("import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';")
     ) {
       content = ensureLineAfter(
         content,
-        "import { authConfig, authEnvSchema, ForgeonAuthModule } from '@forgeon/auth-api';",
+        "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
         "import { ForgeonRbacModule } from '@forgeon/rbac';",
       );
     } else if (
@@ -99,10 +99,8 @@ function patchAppModule(targetRoot) {
   if (!content.includes('    ForgeonRbacModule,')) {
     if (content.includes('    ForgeonI18nModule.register({')) {
       content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonRbacModule,');
-    } else if (content.includes('    ForgeonAuthModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonRbacModule,');
-    } else if (content.includes('    ForgeonAuthModule.register(),')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonRbacModule,');
+    } else if (content.includes('    ForgeonAccountsModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonAccountsModule.register({', '    ForgeonRbacModule,');
     } else if (content.includes('    ForgeonRateLimitModule,')) {
       content = ensureLineAfter(content, '    ForgeonRateLimitModule,', '    ForgeonRbacModule,');
     } else if (content.includes('    DbPrismaModule,')) {
@@ -192,7 +190,7 @@ function patchApiDockerfile(targetRoot) {
 
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
   const packageAnchors = [
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/rate-limit/package.json packages/rate-limit/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
     'COPY packages/swagger/package.json packages/swagger/package.json',
@@ -204,7 +202,7 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, packageAnchor, 'COPY packages/rbac/package.json packages/rbac/package.json');
 
   const sourceAnchors = [
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/rate-limit packages/rate-limit',
     'COPY packages/logger packages/logger',
     'COPY packages/swagger packages/swagger',
@@ -240,7 +238,7 @@ function patchReadme(targetRoot) {
 
 The rbac add-module provides a minimal authorization layer for role and permission checks.
 
-It installs independently. \`jwt-auth\` is optional and only extends demo JWT claims through integration sync.
+It installs independently. \`accounts\` is optional and only prepares auth claims compatibility through integration sync.
 
 What it adds:
 - \`@Roles(...)\` and \`@Permissions(...)\` decorators
@@ -260,8 +258,8 @@ How to verify:
 - the same route without that header should return \`403\`
 
 Optional integration:
-- if \`jwt-auth\` is installed too, run \`pnpm forgeon:sync-integrations\`
-- that enables demo JWT permissions for the same RBAC probe flow
+- if \`accounts\` is installed too, run \`pnpm forgeon:sync-integrations\`
+- that prepares accounts auth claims types for optional RBAC compatibility without changing the base accounts schema
 
 Current scope:
 - no policy engine
@@ -288,3 +286,6 @@ export function applyRbacModule({ packageRoot, targetRoot }) {
   patchApiDockerfile(targetRoot);
   patchReadme(targetRoot);
 }
+
+
+

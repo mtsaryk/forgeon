@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -81,19 +81,25 @@ describe('addModule idempotency', () => {
       },
     },
     {
-      name: 'jwt-auth',
-      moduleId: 'jwt-auth',
-      dbPrismaEnabled: false,
+      name: 'accounts',
+      moduleId: 'accounts',
+      dbPrismaEnabled: true,
       setup: [],
       verify(projectRoot) {
-        assert.equal(fs.existsSync(path.join(projectRoot, 'packages', 'auth-api', 'package.json')), true);
+        assert.equal(fs.existsSync(path.join(projectRoot, 'packages', 'accounts-api', 'package.json')), true);
+        assert.equal(
+          fs.existsSync(
+            path.join(projectRoot, 'apps', 'api', 'src', 'accounts', 'prisma-accounts-persistence.store.ts'),
+          ),
+          true,
+        );
         assert.match(
           readFile(path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts')),
           /@Get\('auth'\)/,
         );
-        assert.doesNotMatch(
+        assert.match(
           readFile(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts')),
-          /PrismaAuthRefreshTokenStore/,
+          /ForgeonAccountsModule\.register\(/,
         );
       },
     },

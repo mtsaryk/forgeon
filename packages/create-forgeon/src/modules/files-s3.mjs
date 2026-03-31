@@ -9,8 +9,10 @@ import {
   ensureLineBefore,
   ensureLoadItem,
   ensureValidatorSchema,
+    ensureNamedImportSpecifier,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
+import { resolveFilesStorageRuntimeModule, upsertFilesModuleRegistration } from './shared/files-runtime-wiring.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files-s3', relativePath);
@@ -40,16 +42,18 @@ function patchAppModule(targetRoot) {
   }
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
-  content = ensureImportLine(
-    content,
-    "import { filesS3Config, filesS3EnvSchemaZod, FilesS3ConfigModule } from '@forgeon/files-s3';",
-  );
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-s3', 'filesS3Config');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-s3', 'filesS3EnvSchemaZod');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-s3', 'FilesS3ConfigModule');
+  content = ensureNamedImportSpecifier(content, '@forgeon/files-s3', 'ForgeonFilesS3StorageModule');
   content = ensureLoadItem(content, 'filesS3Config');
   content = ensureValidatorSchema(content, 'filesS3EnvSchemaZod');
 
   if (!content.includes('    FilesS3ConfigModule,')) {
     if (content.includes('    ForgeonFilesModule,')) {
       content = ensureLineAfter(content, '    ForgeonFilesModule,', '    FilesS3ConfigModule,');
+    } else if (content.includes('    ForgeonFilesModule.register({')) {
+      content = ensureLineBefore(content, '    ForgeonFilesModule.register({', '    FilesS3ConfigModule,');
     } else if (content.includes('    ForgeonI18nModule.register({')) {
       content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    FilesS3ConfigModule,');
     } else if (content.includes('    DbPrismaModule,')) {
@@ -59,6 +63,10 @@ function patchAppModule(targetRoot) {
     } else {
       content = ensureLineAfter(content, '    CoreErrorsModule,', '    FilesS3ConfigModule,');
     }
+  }
+
+  if (content.includes('ForgeonFilesModule')) {
+    content = upsertFilesModuleRegistration(content, resolveFilesStorageRuntimeModule(targetRoot));
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
@@ -75,7 +83,7 @@ function patchApiDockerfile(targetRoot) {
   const packageAnchors = [
     'COPY packages/files/package.json packages/files/package.json',
     'COPY packages/files-local/package.json packages/files-local/package.json',
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/rbac/package.json packages/rbac/package.json',
     'COPY packages/rate-limit/package.json packages/rate-limit/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
@@ -94,7 +102,7 @@ function patchApiDockerfile(targetRoot) {
   const sourceAnchors = [
     'COPY packages/files packages/files',
     'COPY packages/files-local packages/files-local',
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/rbac packages/rbac',
     'COPY packages/rate-limit packages/rate-limit',
     'COPY packages/logger packages/logger',
@@ -263,4 +271,7 @@ export function applyFilesS3Module({ packageRoot, targetRoot }) {
 
   setEnvValue(path.join(targetRoot, 'apps', 'api', '.env.example'), 'FILES_STORAGE_DRIVER', 's3');
   setEnvValue(path.join(targetRoot, 'infra', 'docker', '.env.example'), 'FILES_STORAGE_DRIVER', 's3');
+
+  patchAppModule(targetRoot);
 }
+

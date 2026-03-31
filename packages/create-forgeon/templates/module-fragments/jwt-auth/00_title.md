@@ -1,1 +1,0 @@
-# MODULE: {{MODULE_LABEL}}

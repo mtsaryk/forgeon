@@ -14,4 +14,5 @@
 Not included:
 
 - no auto-patching of Swagger decorators into feature modules
-- no implicit integration with `jwt-auth` or other add-modules
+- no implicit integration with `accounts` or other add-modules
+

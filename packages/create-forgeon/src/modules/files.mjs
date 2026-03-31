@@ -11,9 +11,11 @@ import {
   ensureLoadItem,
   ensureNestCommonImport,
   ensureValidatorSchema,
+    ensureNamedImportSpecifier,
   upsertEnvLines,
 } from './shared/patch-utils.mjs';
 import { ensureWebProbeDefinition, resolveProbeTargets } from './shared/probes.mjs';
+import { resolveFilesStorageRuntimeModule, upsertFilesModuleRegistration } from './shared/files-runtime-wiring.mjs';
 
 function copyFromPreset(packageRoot, targetRoot, relativePath) {
   const source = path.join(packageRoot, 'templates', 'module-presets', 'files', relativePath);
@@ -168,26 +170,21 @@ function patchAppModule(targetRoot) {
     content,
     "import { filesConfig, filesEnvSchema, ForgeonFilesModule } from '@forgeon/files';",
   );
+  content = ensureImportLine(
+    content,
+    "import { ForgeonFilesDbPrismaModule } from './files/forgeon-files-db-prisma.module';",
+  );
+
+  if (fs.existsSync(path.join(targetRoot, 'packages', 'files-local', 'package.json'))) {
+    content = ensureNamedImportSpecifier(content, '@forgeon/files-local', 'ForgeonFilesLocalStorageModule');
+  }
+  if (fs.existsSync(path.join(targetRoot, 'packages', 'files-s3', 'package.json'))) {
+    content = ensureNamedImportSpecifier(content, '@forgeon/files-s3', 'ForgeonFilesS3StorageModule');
+  }
+
   content = ensureLoadItem(content, 'filesConfig');
   content = ensureValidatorSchema(content, 'filesEnvSchema');
-
-  if (!content.includes('    ForgeonFilesModule,')) {
-    if (content.includes('    ForgeonI18nModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', '    ForgeonFilesModule,');
-    } else if (content.includes('    ForgeonAuthModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register({', '    ForgeonFilesModule,');
-    } else if (content.includes('    ForgeonAuthModule.register(),')) {
-      content = ensureLineBefore(content, '    ForgeonAuthModule.register(),', '    ForgeonFilesModule,');
-    } else if (content.includes('    DbPrismaModule,')) {
-      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonFilesModule,');
-    } else if (content.includes('    ForgeonLoggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonLoggerModule,', '    ForgeonFilesModule,');
-    } else if (content.includes('    ForgeonSwaggerModule,')) {
-      content = ensureLineAfter(content, '    ForgeonSwaggerModule,', '    ForgeonFilesModule,');
-    } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonFilesModule,');
-    }
-  }
+  content = upsertFilesModuleRegistration(content, resolveFilesStorageRuntimeModule(targetRoot));
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
@@ -201,7 +198,7 @@ function patchApiDockerfile(targetRoot) {
   let content = fs.readFileSync(dockerfilePath, 'utf8').replace(/\r\n/g, '\n');
 
   const packageAnchors = [
-    'COPY packages/auth-api/package.json packages/auth-api/package.json',
+    'COPY packages/accounts-api/package.json packages/accounts-api/package.json',
     'COPY packages/rbac/package.json packages/rbac/package.json',
     'COPY packages/rate-limit/package.json packages/rate-limit/package.json',
     'COPY packages/logger/package.json packages/logger/package.json',
@@ -214,7 +211,7 @@ function patchApiDockerfile(targetRoot) {
   content = ensureLineAfter(content, packageAnchor, 'COPY packages/files/package.json packages/files/package.json');
 
   const sourceAnchors = [
-    'COPY packages/auth-api packages/auth-api',
+    'COPY packages/accounts-api packages/accounts-api',
     'COPY packages/rbac packages/rbac',
     'COPY packages/rate-limit packages/rate-limit',
     'COPY packages/logger packages/logger',
@@ -344,7 +341,7 @@ function patchCompose(targetRoot) {
   let content = fs.readFileSync(composePath, 'utf8').replace(/\r\n/g, '\n');
   if (!content.includes('FILES_ENABLED: ${FILES_ENABLED}')) {
     const anchors = [
-      /^(\s+AUTH_DEMO_PASSWORD:.*)$/m,
+      /^(\s+AUTH_ARGON2_PARALLELISM:.*)$/m,
       /^(\s+THROTTLE_TRUST_PROXY:.*)$/m,
       /^(\s+LOGGER_LEVEL:.*)$/m,
       /^(\s+SWAGGER_ENABLED:.*)$/m,
@@ -428,6 +425,7 @@ Key env:
 
 export function applyFilesModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files'));
+  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'files'));
   const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'files' });
 
 
@@ -456,3 +454,5 @@ export function applyFilesModule({ packageRoot, targetRoot }) {
     'FILES_ALLOWED_MIME_PREFIXES=image/,application/pdf,text/',
   ]);
 }
+
+

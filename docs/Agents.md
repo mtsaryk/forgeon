@@ -1,4 +1,4 @@
-# Agents
+﻿# Agents
 
 This file is the primary context entrypoint for work in the Forgeon repository.
 
@@ -174,7 +174,7 @@ Core routes:
 Module probes currently in use:
 
 - `POST /api/health/db` (`db-prisma`)
-- `GET /api/health/auth` (`jwt-auth`)
+- `GET /api/health/auth` (`accounts`)
 - `GET /api/health/rate-limit` (`rate-limit`)
 - `GET /api/health/rbac` (`rbac`)
 - `POST /api/health/files` (`files`)
@@ -232,6 +232,38 @@ Accepted rules:
   - `--provider <capability>=<module>`
 - silent auto-install is forbidden
 - optional integrations never block installation and must be presented as explicit follow-up opportunities
+
+## Runtime Interaction Model
+
+Accepted runtime interaction rules:
+
+- required runtime dependencies use explicit port/provider boundaries
+- optional runtime reactions may use internal domain events
+- integration sync remains scaffold/install-time wiring only and must not become a runtime business-flow substitute
+- internal domain events are planned as an optional add-module, not as a global scaffold flag
+- required security or persistence guarantees must not be moved behind best-effort event subscribers
+
+Current planned shape:
+
+- add-module id: `internal-event-bus`
+- install surface: `create-forgeon add internal-event-bus`
+- initial scope: backend-only, internal-only, in-process event delivery
+- future extensions may bridge the same conceptual boundary toward queue/outbox/realtime consumers
+
+Pattern selection summary:
+
+- base model for replaceable technology boundaries: hexagonal-style ports/adapters
+- default Nest wiring mechanism: custom providers + dynamic modules
+- provider selection for auth/storage/db boundaries may use strategy-style resolution
+- optional in-process runtime reactions may use domain events
+- reliable async cross-module reactions may use integration events + outbox
+- saga/process manager is reserved for genuinely complex multi-step workflows and is currently out of scope
+- file/media transformation should prefer explicit pipeline stages; optional async jobs may be layered later
+
+Preparatory refactors before `internal-event-bus`:
+
+- must-have: extract the `files` DB metadata/store boundary away from direct `PrismaService` usage
+- targeted review only where it buys a cleaner seam: narrow direct runtime imports such as `files-quotas -> files` or `scheduler -> queue`
 
 ## Agent Workflow
 
@@ -300,31 +332,14 @@ Current workflow:
 
 Current integration groups:
 
-1. `auth-persistence`
-- conceptual boundary: `jwt-auth` + `db-adapter`
-- current concrete provider: `db-prisma`
-- integration descriptors now separate:
-  - semantic participants: `jwt-auth`, `db-adapter`
-  - concrete trigger modules: `jwt-auth`, `db-prisma`
-- sync implementation now uses a provider-strategy dispatcher at the `db-adapter` boundary
-- new DB providers should extend the strategy list instead of changing jwt-auth semantics
+1. ccounts-rbac
+- modules: ccounts, bac
 - current effect:
-  - patch `AppModule` to wire `AUTH_REFRESH_TOKEN_STORE` to `PrismaAuthRefreshTokenStore`
-  - add `apps/api/src/auth/prisma-auth-refresh-token.store.ts`
-  - extend Prisma `User` with `refreshTokenHash`
-  - add migration `0002_auth_refresh_token_hash`
-  - update JWT auth README note
-
-2. `auth-rbac-claims`
-- modules: `jwt-auth`, `rbac`
-- current effect:
-  - extend `AuthUser` with optional `permissions`
-  - add demo RBAC claims to JWT auth demo user and token payloads
-  - expose `permissions` in refresh and `/me` responses
-  - update JWT auth README note
+  - extend accounts auth claim types with optional oles and permissions
+  - keep JWT payload typing ready for future RBAC claims providers
+  - update the managed accounts README note without mutating the base accounts schema
 
 Important rules:
-
 - do not auto-patch Swagger decorators into other modules
 - do not rely on hidden cross-module mutations inside `add <module>`
 - if a new module needs cross-module behavior, add a sync rule instead
@@ -388,10 +403,10 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
   - feature-level Swagger decorators are intentionally manual
   - bearer integration hooks are still pending
 
-- `jwt-auth`
+- `accounts`
   - packages:
-    - `@forgeon/auth-contracts`
-    - `@forgeon/auth-api`
+    - `@forgeon/accounts-contracts`
+    - `@forgeon/accounts-api`
   - baseline routes:
     - `POST /api/auth/login`
     - `POST /api/auth/refresh`
@@ -567,7 +582,7 @@ Known deferred idea:
 3. `files-access`
 - resource-level authorization for file operations
 - ownership / visibility / group / tenant logic
-- integrates with `jwt-auth` and `rbac`, but remains a separate policy layer
+- integrates with `accounts` and `rbac`, but remains a separate policy layer
 
 4. `files-quotas`
 - file count and byte usage limits
@@ -727,7 +742,7 @@ Documentation follow-up:
 
 5. keep generated-project documentation README-driven (`README.md` + `modules/<module-id>/README.md`)
 6. add the future project-scoped agent context file once its format is defined
-7. add new auth-persistence provider strategies only when new DB adapters actually appear
+7. add new cross-module compatibility syncs only when new seams actually appear
 8. continue capability-doctrine cleanup only where module logic still has meaningful provider-specific debt
 
 ## Staged Refactor Plan (Historical)
@@ -753,3 +768,8 @@ Use these only when the task needs more detail than this file:
 - `docs/Blueprint/IDEAS.md`
 - `docs/Blueprint/SKILLS.md`
 - `docs/Blueprint/TASKS.md`
+
+
+
+
+

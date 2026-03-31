@@ -26,6 +26,48 @@ const TEST_PRESETS = [
     optionalIntegrations: [],
   },
   {
+    id: 'accounts',
+    label: 'Accounts',
+    implemented: true,
+    detectionPaths: ['packages/accounts-api/package.json'],
+    provides: ['accounts-runtime'],
+    requires: [{ type: 'capability', id: 'db-adapter' }],
+    optionalIntegrations: [
+      {
+        id: 'accounts-rbac',
+        title: 'Accounts RBAC Compatibility Sync',
+        modules: ['accounts', 'rbac'],
+        requires: [{ type: 'module', id: 'rbac' }],
+        description: ['Prepare accounts auth claims compatibility'],
+        followUpCommands: [
+          'npx create-forgeon@latest add rbac',
+          'pnpm forgeon:sync-integrations',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'rbac',
+    label: 'RBAC',
+    implemented: true,
+    detectionPaths: ['packages/rbac/package.json'],
+    provides: ['rbac-runtime'],
+    requires: [],
+    optionalIntegrations: [
+      {
+        id: 'accounts-rbac',
+        title: 'Accounts RBAC Compatibility Sync',
+        modules: ['accounts', 'rbac'],
+        requires: [{ type: 'module', id: 'accounts' }],
+        description: ['Prepare accounts auth claims compatibility'],
+        followUpCommands: [
+          'npx create-forgeon@latest add accounts',
+          'pnpm forgeon:sync-integrations',
+        ],
+      },
+    ],
+  },
+  {
     id: 'files',
     label: 'Files',
     implemented: true,
@@ -89,27 +131,6 @@ const TEST_PRESETS = [
     optionalIntegrations: [],
   },
   {
-    id: 'jwt-auth',
-    label: 'JWT Auth',
-    implemented: true,
-    detectionPaths: ['packages/auth-api/package.json'],
-    provides: ['auth-runtime'],
-    requires: [],
-    optionalIntegrations: [
-      {
-        id: 'auth-persistence',
-        title: 'Auth Persistence Integration',
-        modules: ['jwt-auth', 'db-adapter'],
-        requires: [{ type: 'capability', id: 'db-adapter' }],
-        description: ['Persist refresh-token state'],
-        followUpCommands: [
-          'npx create-forgeon@latest add db-prisma',
-          'pnpm forgeon:sync-integrations',
-        ],
-      },
-    ],
-  },
-  {
     id: 'queue',
     label: 'Queue',
     implemented: true,
@@ -164,6 +185,28 @@ describe('module dependency helpers', () => {
           }),
         /required capability "db-adapter" is missing/,
       );
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('builds a concrete install plan for accounts with required db-adapter', async () => {
+    const targetRoot = mkTmp('forgeon-deps-accounts-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'accounts',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'accounts']);
+      assert.deepEqual(result.selectedProviders, {
+        'db-adapter': 'db-prisma',
+      });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -318,21 +361,21 @@ describe('module dependency helpers', () => {
     }
   });
 
-  it('reports missing optional integrations for the installed module', () => {
+  it('reports pending optional integrations for accounts when rbac is missing', () => {
     const targetRoot = mkTmp('forgeon-deps-optional-');
     try {
-      fs.mkdirSync(path.join(targetRoot, 'packages', 'auth-api'), { recursive: true });
-      fs.writeFileSync(path.join(targetRoot, 'packages', 'auth-api', 'package.json'), '{}\n', 'utf8');
+      fs.mkdirSync(path.join(targetRoot, 'packages', 'accounts-api'), { recursive: true });
+      fs.writeFileSync(path.join(targetRoot, 'packages', 'accounts-api', 'package.json'), '{}\n', 'utf8');
 
       const pending = getPendingOptionalIntegrations({
-        moduleId: 'jwt-auth',
+        moduleId: 'accounts',
         targetRoot,
         presets: TEST_PRESETS,
       });
 
       assert.equal(pending.length, 1);
-      assert.equal(pending[0].id, 'auth-persistence');
-      assert.equal(pending[0].missing[0].id, 'db-adapter');
+      assert.equal(pending[0].id, 'accounts-rbac');
+      assert.equal(pending[0].missing[0].id, 'rbac');
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
@@ -398,4 +441,3 @@ describe('module dependency helpers', () => {
     }
   });
 });
-

@@ -4,8 +4,8 @@ import { parseAddCliArgs } from './add-options.mjs';
 
 describe('parseAddCliArgs', () => {
   it('parses module id and explicit project', () => {
-    const options = parseAddCliArgs(['jwt-auth', '--project', './demo']);
-    assert.equal(options.moduleId, 'jwt-auth');
+    const options = parseAddCliArgs(['accounts', '--project', './demo']);
+    assert.equal(options.moduleId, 'accounts');
     assert.equal(options.project, './demo');
     assert.equal(options.list, false);
   });
@@ -40,3 +40,6 @@ describe('parseAddCliArgs', () => {
     });
   });
 });
+
+
+

@@ -64,8 +64,8 @@ Definition:
 
 Examples:
 
-- `jwt-auth` + `db-adapter`
-- `jwt-auth` + `rbac`
+- `accounts` + `db-adapter`
+- `accounts` + `rbac`
 
 Rules:
 
@@ -222,7 +222,7 @@ Example shape:
 Warning: optional integration available
 
 Modules / capabilities:
-- jwt-auth
+- accounts
 - rbac
 
 This enables:
@@ -271,11 +271,11 @@ Priority refactors:
 
 ## Immediate Known Refactor Targets
 
-### `jwt-auth`
+### `accounts`
 
 Current state:
 
-- current conceptual optional integration is modeled as `jwt-auth + db-adapter`
+- current conceptual optional integration is modeled as `accounts + db-adapter`
 - the first concrete provider implementation remains `db-prisma`
 
 Target state:
@@ -284,7 +284,7 @@ Target state:
 
 Implication:
 
-- `jwt-auth` should be conceptually compatible with any future DB adapter
+- `accounts` should be conceptually compatible with any future DB adapter
 - provider-specific persistence wiring should be delegated to capability-aware integration logic
 
 ### `files` family
@@ -299,3 +299,4 @@ The `files` family must be built on this doctrine from the start:
 - `files-image` requires `files`
 
 Any future extra behavior beyond hard prerequisites should be modeled as optional integration, not hidden dependency installation.
+
