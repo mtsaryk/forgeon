@@ -1,4 +1,4 @@
-# MODULE CHECKS
+﻿# MODULE CHECKS
 
 ## Purpose
 
@@ -14,7 +14,7 @@ If a module can be validated through a safe API call, it should provide:
 
 - `core-errors`: `GET /api/health/error` (returns error envelope, expected `409`)
 - `core-validation`: `GET /api/health/validation` without `value` (expected `400`)
-- `db-prisma` (when installed): `POST /api/health/db` (creates probe user and returns it, expected `201`)
+- `db-prisma` (when installed): `POST /api/health/db` (runs a deterministic DB query and returns the result, expected `200`)
 - `accounts`: `GET /api/health/auth` (returns token store mode and demo auth probe metadata)
 
 ## Rules For Future Modules
@@ -27,4 +27,5 @@ If a module can be validated through a safe API call, it should provide:
 - Web probe wiring should go through the shared probe registry in `apps/web/src/probes.ts`, not by patching JSX fragments in `App.tsx`.
 - Web probe wiring should be skipped with a warning when `App.tsx` is missing or the `#probes` container was intentionally removed.
 - Probe definitions must be inserted in canonical order through the shared generator helper, not by module install order.
+
 

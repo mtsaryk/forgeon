@@ -727,6 +727,8 @@ function assertAccountsWiring(projectRoot) {
   );
   assert.match(healthController, /@Get\('auth'\)/);
   assert.match(healthController, /authService\.getProbeStatus/);
+  assert.match(healthController, /\$queryRaw/);
+  assert.doesNotMatch(healthController, /data:\s*\{\s*email\s*\}/);
   assert.doesNotMatch(healthController, /,\s*,/);
 
   assertWebProbeShell(projectRoot);
@@ -2211,6 +2213,10 @@ describe('addModule', () => {
       );
       assert.equal(fs.existsSync(migrationPath), true);
 
+      const seedSource = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'prisma', 'seed.ts'), 'utf8');
+      assert.match(seedSource, /Prisma\.dmmf/);
+      assert.match(seedSource, /userFields\.has\('email'\)/);
+
       const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(readme, /POST \/api\/auth\/register/);
       assert.match(readme, /POST \/api\/auth\/password-reset\/request/);
@@ -2622,6 +2628,9 @@ describe('addModule', () => {
     }
   });
 });
+
+
+
 
 
 

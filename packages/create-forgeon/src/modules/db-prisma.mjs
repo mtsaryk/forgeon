@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -156,17 +156,12 @@ function patchHealthController(targetRoot, probeTargets) {
     const dbMethod = `
   @Post('db')
   async getDbProbe() {
-    const token = \`\${Date.now()}-\${Math.floor(Math.random() * 1_000_000)}\`;
-    const email = \`health-probe-\${token}@example.local\`;
-    const user = await this.prisma.user.create({
-      data: { email },
-      select: { id: true, email: true, createdAt: true },
-    });
+    const queryResult = await this.prisma.$queryRaw\`SELECT 1 AS ok\`;
 
     return {
       status: 'ok',
       feature: 'db-prisma',
-      user,
+      queryResult,
     };
   }
 `;
@@ -183,7 +178,7 @@ function registerWebProbe(targetRoot, probeTargets) {
     definition: {
       id: 'db',
       title: 'Database',
-      buttonLabel: 'Check database (create user)',
+      buttonLabel: 'Check database query',
       resultTitle: 'DB probe response',
       path: '/health/db',
       request: { method: 'POST' },
@@ -336,3 +331,4 @@ export function applyDbPrismaModule({ packageRoot, targetRoot }) {
     'DATABASE_URL=postgresql://postgres:postgres@db:5432/app?schema=public',
   ]);
 }
+
