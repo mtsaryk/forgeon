@@ -172,38 +172,51 @@ function patchAppModule(targetRoot) {
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = content.replace(
     "import { authConfig, authEnvSchema, ForgeonAccountsModule } from '@forgeon/accounts-api';",
+    "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
+  );
+  content = content.replace(
     "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
+    "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
   );
   content = ensureImportLine(
     content,
-    "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
+    "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
   );
   content = ensureImportLine(
     content,
-    "import { ForgeonAccountsDbPrismaModule } from './accounts/forgeon-accounts-db-prisma.module';",
+    "import { PrismaAccountsPersistenceStore } from './accounts/prisma-accounts-persistence.store';",
+  );
+  content = content.replace(
+    /^import \{ ForgeonAccountsDbPrismaModule \} from '\.\/accounts\/forgeon-accounts-db-prisma\.module';\r?\n/m,
+    '',
   );
   content = ensureLoadItem(content, 'authConfig');
   content = ensureValidatorSchema(content, 'authEnvSchema');
-
-  if (!content.includes('    ForgeonAccountsDbPrismaModule,')) {
-    if (content.includes('    DbPrismaModule,')) {
-      content = ensureLineAfter(content, '    DbPrismaModule,', '    ForgeonAccountsDbPrismaModule,');
-    } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', '    ForgeonAccountsDbPrismaModule,');
-    }
-  }
+  content = content.replace(/^\s*ForgeonAccountsDbPrismaModule,\r?\n/gm, '');
 
   const accountsModuleLine = `    ForgeonAccountsModule.register({
+      imports: [DbPrismaModule],
+      providers: [
+        PrismaAccountsPersistenceStore,
+        {
+          provide: ACCOUNTS_PERSISTENCE_PORT,
+          useExisting: PrismaAccountsPersistenceStore,
+        },
+      ],
       users: UsersModule.register({}),
     }),`;
-  if (!content.includes('ForgeonAccountsModule.register({')) {
-    if (content.includes('    ForgeonI18nModule.register({')) {
-      content = ensureLineBefore(content, '    ForgeonI18nModule.register({', accountsModuleLine);
-    } else if (content.includes('    ForgeonAccountsDbPrismaModule,')) {
-      content = ensureLineAfter(content, '    ForgeonAccountsDbPrismaModule,', accountsModuleLine);
-    } else {
-      content = ensureLineAfter(content, '    CoreErrorsModule,', accountsModuleLine);
-    }
+
+  if (content.includes('    ForgeonAccountsModule.register({')) {
+    content = content.replace(
+      / {4}ForgeonAccountsModule\.register\(\{[\s\S]*? {4}\}\),/m,
+      accountsModuleLine,
+    );
+  } else if (content.includes('    ForgeonI18nModule.register({')) {
+    content = ensureLineBefore(content, '    ForgeonI18nModule.register({', accountsModuleLine);
+  } else if (content.includes('    DbPrismaModule,')) {
+    content = ensureLineAfter(content, '    DbPrismaModule,', accountsModuleLine);
+  } else {
+    content = ensureLineAfter(content, '    CoreErrorsModule,', accountsModuleLine);
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
@@ -412,5 +425,7 @@ export function applyAccountsModule({ packageRoot, targetRoot }) {
     'AUTH_ARGON2_PARALLELISM=1',
   ]);
 }
+
+
 
 

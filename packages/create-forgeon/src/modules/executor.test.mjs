@@ -716,8 +716,11 @@ function assertAccountsWiring(projectRoot) {
   const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
   assert.match(appModule, /authConfig/);
   assert.match(appModule, /authEnvSchema/);
-  assert.match(appModule, /ForgeonAccountsDbPrismaModule/);
   assert.match(appModule, /ForgeonAccountsModule\.register\(\{/);
+  assert.match(appModule, /imports: \[DbPrismaModule\]/);
+  assert.match(appModule, /PrismaAccountsPersistenceStore/);
+  assert.match(appModule, /provide: ACCOUNTS_PERSISTENCE_PORT/);
+  assert.match(appModule, /useExisting: PrismaAccountsPersistenceStore/);
   assert.match(appModule, /UsersModule\.register\(\{\}\)/);
   assert.doesNotMatch(appModule, /AUTH_REFRESH_TOKEN_STORE/);
 
@@ -2628,6 +2631,10 @@ describe('addModule', () => {
     }
   });
 });
+
+
+
+
 
 
 
