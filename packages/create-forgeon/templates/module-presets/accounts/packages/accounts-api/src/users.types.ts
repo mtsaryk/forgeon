@@ -34,6 +34,54 @@ export function mergeObjects(baseValue: unknown, patchValue: unknown): JsonObjec
   return Object.keys(merged).length > 0 ? merged : null;
 }
 
+export function toPrismaJsonInput(value: JsonObject | null) {
+  return (value ?? undefined) as never;
+}
+
+export function mapUserRecord(source: {
+  id: string;
+  status: string;
+  data: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  profile?: {
+    name: string | null;
+    avatar: string | null;
+    data: unknown;
+  } | null;
+  settings?: {
+    theme: string | null;
+    locale: string | null;
+    data: unknown;
+  } | null;
+  authIdentities?: Array<{ providerId: string }>;
+}): UserRecord {
+  return {
+    id: source.id,
+    email: source.authIdentities?.[0]?.providerId ?? null,
+    status: source.status,
+    data: normalizeObject(source.data),
+    createdAt: source.createdAt,
+    updatedAt: source.updatedAt,
+    deletedAt: source.deletedAt,
+    profile: source.profile
+      ? {
+          name: source.profile.name,
+          avatar: source.profile.avatar,
+          data: normalizeObject(source.profile.data),
+        }
+      : null,
+    settings: source.settings
+      ? {
+          theme: source.settings.theme,
+          locale: source.settings.locale,
+          data: normalizeObject(source.settings.data),
+        }
+      : null,
+  };
+}
+
 export function toProfileDto(record: UserRecord['profile']): UserProfileDto {
   return {
     name: record?.name ?? null,

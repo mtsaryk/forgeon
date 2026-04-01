@@ -69,6 +69,7 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
     packageJson.scripts = {};
   }
   packageJson.scripts['forgeon:sync-integrations'] = 'node scripts/forgeon-sync-integrations.mjs';
+  packageJson.scripts['add-all'] = 'npx create-forgeon@latest add all --project .';
   writeJson(packagePath, packageJson);
 }
 

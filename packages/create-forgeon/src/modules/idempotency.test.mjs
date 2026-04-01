@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -91,7 +91,7 @@ describe('addModule idempotency', () => {
           fs.existsSync(
             path.join(projectRoot, 'apps', 'api', 'src', 'accounts', 'prisma-accounts-persistence.store.ts'),
           ),
-          true,
+          false,
         );
         assert.match(
           readFile(path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts')),
@@ -178,3 +178,4 @@ describe('addModule idempotency', () => {
     }
   });
 });
+

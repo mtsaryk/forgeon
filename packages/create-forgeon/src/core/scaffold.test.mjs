@@ -26,6 +26,7 @@ function assertProxyPreset(targetRoot, proxy) {
   assert.equal(fs.existsSync(path.join(dockerDir, 'compose.nginx.yml')), false);
   assert.equal(fs.existsSync(path.join(dockerDir, 'compose.none.yml')), false);
   assert.match(packageJson, /"forgeon:sync-integrations"/);
+  assert.match(packageJson, /"add-all": "npx create-forgeon@latest add all --project \."?/);
   assert.doesNotMatch(packageJson, /"create:forgeon"/);
   assert.match(compose, /^services:\s*$/m);
   assert.match(compose, /^\s{2}api:\s*$/m);

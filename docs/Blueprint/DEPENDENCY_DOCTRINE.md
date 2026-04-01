@@ -64,8 +64,8 @@ Definition:
 
 Examples:
 
-- `accounts` + `db-adapter`
 - `accounts` + `rbac`
+- `files` + `files-image`
 
 Rules:
 
@@ -249,6 +249,21 @@ Optional integrations never block install.
 - no capability should resolve to a default provider automatically when multiple providers exist
 - provider choice is explicit in TTY and explicit via flags in non-TTY
 
+## Runtime DB Doctrine
+
+This document governs install-time dependency resolution.
+
+It does not require runtime DB ports/adapters inside generated modules.
+
+Accepted runtime rules:
+
+- install-time dependencies stay capability-driven (`db-adapter`)
+- runtime DB code is Prisma-first while `db-prisma` is the only supported DB runtime
+- DB-backed modules may inject `PrismaService` directly
+- repeated queries or transactions may move into small local `store` classes
+- `mapper` files are optional and added only when shaping logic is non-trivial
+- DB persistence ports/adapters are deferred until a second DB runtime actually exists
+
 ## Required Future Refactor Direction
 
 Existing module metadata and sync rules must be refactored toward this model.
@@ -273,19 +288,17 @@ Priority refactors:
 
 ### `accounts`
 
-Current state:
+Accepted state:
 
-- current conceptual optional integration is modeled as `accounts + db-adapter`
-- the first concrete provider implementation remains `db-prisma`
-
-Target state:
-
-- dependency and integration logic should move to `db-adapter`
+- install-time dependency remains `db-adapter`
+- runtime implementation is Prisma-first through `@forgeon/db-prisma`
+- accounts owns its DB-backed schema and runtime wiring directly
+- optional integration remains only `accounts + rbac`
 
 Implication:
 
-- `accounts` should be conceptually compatible with any future DB adapter
-- provider-specific persistence wiring should be delegated to capability-aware integration logic
+- no runtime DB port/adapter layer is required in v0.x/1.x
+- a second DB runtime would trigger a later architectural refactor, not a premature abstraction now
 
 ### `files` family
 
@@ -299,4 +312,10 @@ The `files` family must be built on this doctrine from the start:
 - `files-image` requires `files`
 
 Any future extra behavior beyond hard prerequisites should be modeled as optional integration, not hidden dependency installation.
+
+Runtime note:
+
+- `files` still depends on `db-adapter` at install time
+- the runtime implementation is Prisma-first
+- storage remains a real provider boundary and continues to use a storage adapter port
 

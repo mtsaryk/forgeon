@@ -1,4 +1,4 @@
-﻿import {
+import {
   DynamicModule,
   Module,
   ModuleMetadata,
@@ -6,6 +6,7 @@
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { DbPrismaModule } from '@forgeon/db-prisma';
 import {
   ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
   NoopAccountsAuthzClaimsResolver,
@@ -17,12 +18,14 @@ import { AuthCoreService } from './auth-core.service';
 import { AuthJwtService } from './auth-jwt.service';
 import { AuthPasswordService } from './auth-password.service';
 import { AuthService } from './auth.service';
+import { AuthStore } from './auth.store';
 import { JwtAuthGuard } from './access-token.guard';
 import { JwtStrategy } from './jwt.strategy';
 import { OwnerAccessGuard } from './owner-access.guard';
 import { UsersController } from './users.controller';
 import { UsersModule, USERS_MODULE_OPTIONS, type UsersModuleOptions } from './users-config';
 import { UsersService } from './users.service';
+import { UsersStore } from './users.store';
 
 export interface ForgeonAccountsModuleOptions {
   imports?: ModuleMetadata['imports'];
@@ -37,6 +40,7 @@ export class ForgeonAccountsModule {
       module: ForgeonAccountsModule,
       imports: [
         AuthConfigModule,
+        DbPrismaModule,
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.register({}),
         ...(options.imports ?? []),
@@ -55,6 +59,8 @@ export class ForgeonAccountsModule {
           provide: ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
           useClass: NoopAccountsAuthzClaimsResolver,
         },
+        AuthStore,
+        UsersStore,
         AuthCoreService,
         AuthJwtService,
         AuthPasswordService,

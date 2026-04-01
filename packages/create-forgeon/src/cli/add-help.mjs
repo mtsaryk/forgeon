@@ -2,7 +2,7 @@ export function printAddHelp() {
   console.log(`create-forgeon add
 
 Usage:
-  npx create-forgeon@latest add <module-id> [options]
+  npx create-forgeon@latest add <module-id|all> [options]
 
 Options:
   --project <path>   Target project path (default: current directory)
@@ -14,6 +14,7 @@ Options:
   -h, --help         Show this help
 
 Note:
+  Use "add all" to install every implemented module and choose one provider per provider-choice capability.
   Hard prerequisites are resolved explicitly.
   Pair integrations remain explicit follow-up actions.
   Run "pnpm forgeon:sync-integrations" in the target project after add-module steps.

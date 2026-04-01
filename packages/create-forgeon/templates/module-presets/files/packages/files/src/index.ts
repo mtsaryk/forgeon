@@ -7,4 +7,5 @@ export * from './files-config.service';
 export * from './files-env.schema';
 export * from './files.ports';
 export * from './files.service';
+export * from './files.store';
 export * from './files.types';

@@ -122,15 +122,16 @@ Requirements:
 - update internal docs when doctrine changes
 ```
 
-## Continue Accounts Persistence Provider Boundary
+## Adopt Prisma-First Runtime For DB-Backed Modules
 
 ```text
-Continue extending the accounts persistence integration after the move to a provider-strategy dispatcher at the `db-adapter` boundary.
+Keep DB-backed modules on the accepted Prisma-first runtime doctrine.
 Requirements:
 - keep the `db-adapter` capability as the public conceptual boundary
-- keep current Prisma behavior working as the first provider implementation
-- add new provider strategies so future DB providers can plug in without redefining accounts semantics
-- preserve current explicit integration flow (`pnpm forgeon:sync-integrations`)
+- use direct `PrismaService` access or small local `store` classes in runtime code
+- add `mapper` files only when shape conversion is non-trivial
+- do not introduce DB persistence ports/adapters before a second DB runtime is real
+- keep storage/email/external-provider ports only where the boundary is real now
 ```
 
 ## Retire Legacy Auth Persistence Sync (Historical)
@@ -161,18 +162,16 @@ Requirements:
 - keep access control and quotas out of v1 core (separate modules later)
 ```
 
-## Design Files Persistence Sync At DB-Adapter Boundary
+## Keep Files On Prisma-First Runtime
 
 ```text
-Prepare the first integration-sync design for files persistence against future DB providers.
+Maintain the accepted files runtime doctrine without reintroducing speculative DB abstraction.
 Requirements:
 - keep `db-adapter` as capability boundary
-- avoid hard-coding persistence logic to `db-prisma` in files runtime semantics
-- define strategy-dispatch model similar to the current compatibility-sync pattern:
-  - provider-specific sync handlers
-  - one conceptual files-persistence integration group
-- keep current Prisma behavior as the first strategy implementation
-- document extension path for future adapters (e.g. db-mongo)
+- keep runtime persistence inside `packages/files/src/files.store.ts`
+- keep storage as the real adapter boundary (`files-local`, `files-s3`)
+- avoid DB persistence sync or provider-dispatch work until a second DB runtime becomes real
+- document the future major-version trigger for revisiting DB abstraction
 ```
 
 ## Implement Files V2 Variants

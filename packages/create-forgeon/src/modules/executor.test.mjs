@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -239,10 +239,10 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
   assert.match(appModule, /filesConfig/);
   assert.match(appModule, /filesEnvSchema/);
   assert.match(appModule, /ForgeonFilesModule\.register\(\{/);
-  assert.match(appModule, /ForgeonFilesDbPrismaModule/);
+  assert.doesNotMatch(appModule, /ForgeonFilesDbPrismaModule/);
   if (expectedStorageDriver === 's3') {
     assert.match(appModule, /ForgeonFilesS3StorageModule/);
-    assert.doesNotMatch(appModule, /imports: \[ForgeonFilesDbPrismaModule, ForgeonFilesLocalStorageModule\]/);
+    assert.doesNotMatch(appModule, /ForgeonFilesLocalStorageModule/);
   } else {
     assert.match(appModule, /ForgeonFilesLocalStorageModule/);
   }
@@ -285,14 +285,16 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
     path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
     'utf8',
   );
-  assert.match(filesService, /FILES_PERSISTENCE_PORT/);
+  assert.match(filesService, /FilesStore/);
   assert.match(filesService, /FILES_STORAGE_ADAPTER/);
+  assert.match(filesService, /requireStorageAdapter/);
   assert.match(filesService, /getOrCreateBlob/);
   assert.match(filesService, /cleanupReferencedBlobs/);
   assert.match(filesService, /isUniqueConstraintError/);
   assert.match(filesService, /storageAdapter\.put/);
-  assert.match(filesService, /persistence\.createBlob/);
-  assert.match(filesService, /persistence\.deleteBlobIfUnreferenced/);
+  assert.match(filesService, /filesStore\.createBlob/);
+  assert.match(filesService, /filesStore\.deleteBlobIfUnreferenced/);
+  assert.doesNotMatch(filesService, /FILES_PERSISTENCE_PORT/);
   assert.doesNotMatch(filesService, /PrismaService/);
   assert.doesNotMatch(filesService, /@aws-sdk\/client-s3/);
 
@@ -300,10 +302,17 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
     path.join(projectRoot, 'packages', 'files', 'src', 'files.ports.ts'),
     'utf8',
   );
-  assert.match(filesPorts, /FILES_PERSISTENCE_PORT/);
+  assert.doesNotMatch(filesPorts, /FILES_PERSISTENCE_PORT/);
+  assert.doesNotMatch(filesPorts, /interface FilesPersistencePort/);
   assert.match(filesPorts, /FILES_STORAGE_ADAPTER/);
-  assert.match(filesPorts, /interface FilesPersistencePort/);
   assert.match(filesPorts, /interface FilesStorageAdapter/);
+
+  const filesStore = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'files.store.ts'),
+    'utf8',
+  );
+  assert.match(filesStore, /PrismaService/);
+  assert.match(filesStore, /fileBlob\.deleteMany/);
 
   const filesModule = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files', 'src', 'forgeon-files.module.ts'),
@@ -311,27 +320,16 @@ function assertFilesWiring(projectRoot, expectedStorageDriver = 'local') {
   );
   assert.match(filesModule, /ForgeonFilesModuleOptions/);
   assert.match(filesModule, /static register\(options: ForgeonFilesModuleOptions = \{\}\)/);
-  assert.match(filesModule, /FILES_PERSISTENCE_PORT/);
-  assert.match(filesModule, /FILES_STORAGE_ADAPTER/);
+  assert.match(filesModule, /DbPrismaModule/);
+  assert.match(filesModule, /FilesStore/);
+  assert.doesNotMatch(filesModule, /FILES_PERSISTENCE_PORT/);
 
   const filesPackage = fs.readFileSync(path.join(projectRoot, 'packages', 'files', 'package.json'), 'utf8');
-  assert.doesNotMatch(filesPackage, /@forgeon\/db-prisma/);
+  assert.match(filesPackage, /@forgeon\/db-prisma/);
 
-  const prismaFilesStore = fs.readFileSync(
-    path.join(projectRoot, 'apps', 'api', 'src', 'files', 'prisma-files-persistence.store.ts'),
-    'utf8',
-  );
-  assert.match(prismaFilesStore, /PrismaService/);
-  assert.match(prismaFilesStore, /FILES_PERSISTENCE_PORT/);
-  assert.match(prismaFilesStore, /fileBlob\.deleteMany/);
-
-  const prismaFilesModule = fs.readFileSync(
-    path.join(projectRoot, 'apps', 'api', 'src', 'files', 'forgeon-files-db-prisma.module.ts'),
-    'utf8',
-  );
-  assert.match(prismaFilesModule, /ForgeonFilesDbPrismaModule/);
-  assert.match(prismaFilesModule, /DbPrismaModule/);
-  assert.match(prismaFilesModule, /FILES_PERSISTENCE_PORT/);
+  const prismaFilesDir = path.join(projectRoot, 'apps', 'api', 'src', 'files');
+  assert.equal(fs.existsSync(path.join(prismaFilesDir, 'prisma-files-persistence.store.ts')), false);
+  assert.equal(fs.existsSync(path.join(prismaFilesDir, 'forgeon-files-db-prisma.module.ts')), false);
 
   assertWebProbeShell(projectRoot);
   const probesTs = readWebProbes(projectRoot);
@@ -627,6 +625,11 @@ function assertFilesImageWiring(projectRoot) {
   assert.match(filesService, /filesImageService\.sanitizeForStorage/);
   assert.match(filesService, /sanitizeForStorage\({/);
   assert.match(filesService, /auditContext: input\.auditContext/);
+  assert.equal(
+    (filesService.match(/protected normalizeFileName\(originalName: string, extension: string, suffix\?: string\): string \{/g) ?? [])
+      .length,
+    1,
+  );
 
   const filesController = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files', 'src', 'files.controller.ts'),
@@ -717,11 +720,9 @@ function assertAccountsWiring(projectRoot) {
   assert.match(appModule, /authConfig/);
   assert.match(appModule, /authEnvSchema/);
   assert.match(appModule, /ForgeonAccountsModule\.register\(\{/);
-  assert.match(appModule, /imports: \[DbPrismaModule\]/);
-  assert.match(appModule, /PrismaAccountsPersistenceStore/);
-  assert.match(appModule, /provide: ACCOUNTS_PERSISTENCE_PORT/);
-  assert.match(appModule, /useExisting: PrismaAccountsPersistenceStore/);
   assert.match(appModule, /UsersModule\.register\(\{\}\)/);
+  assert.doesNotMatch(appModule, /ACCOUNTS_PERSISTENCE_PORT/);
+  assert.doesNotMatch(appModule, /PrismaAccountsPersistenceStore/);
   assert.doesNotMatch(appModule, /AUTH_REFRESH_TOKEN_STORE/);
 
   const healthController = fs.readFileSync(
@@ -773,6 +774,33 @@ function assertAccountsWiring(projectRoot) {
   );
   assert.match(authServiceSource, /import type \{ RegisterRequest \} from '@forgeon\/accounts-contracts';/);
 
+  const authCoreSource = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth-core.service.ts'),
+    'utf8',
+  );
+  assert.match(authCoreSource, /AuthStore/);
+  assert.doesNotMatch(authCoreSource, /ACCOUNTS_PERSISTENCE_PORT/);
+
+  const accountsApiPackage = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'accounts-api', 'package.json'),
+    'utf8',
+  );
+  assert.match(accountsApiPackage, /@forgeon\/db-prisma/);
+
+  const authStoreSource = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.store.ts'),
+    'utf8',
+  );
+  assert.match(authStoreSource, /PrismaService/);
+  assert.match(authStoreSource, /authRefreshToken\.updateMany/);
+
+  const usersStoreSource = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'accounts-api', 'src', 'users.store.ts'),
+    'utf8',
+  );
+  assert.match(usersStoreSource, /PrismaService/);
+  assert.match(usersStoreSource, /userProfile\.upsert/);
+
   const prismaStorePath = path.join(
     projectRoot,
     'apps',
@@ -781,7 +809,7 @@ function assertAccountsWiring(projectRoot) {
     'accounts',
     'prisma-accounts-persistence.store.ts',
   );
-  assert.equal(fs.existsSync(prismaStorePath), true);
+  assert.equal(fs.existsSync(prismaStorePath), false);
 }
 function stripDbPrismaArtifacts(projectRoot) {
   const dbPackageDir = path.join(projectRoot, 'packages', 'db-prisma');
@@ -1550,7 +1578,7 @@ describe('addModule', () => {
 
       const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
       assert.match(appModule, /ForgeonFilesS3StorageModule/);
-      assert.doesNotMatch(appModule, /imports: \[ForgeonFilesDbPrismaModule, ForgeonFilesLocalStorageModule\]/);
+      assert.doesNotMatch(appModule, /ForgeonFilesLocalStorageModule/);
 
       const filesService = fs.readFileSync(
         path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),
@@ -2631,6 +2659,7 @@ describe('addModule', () => {
     }
   });
 });
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -171,20 +171,20 @@ function patchAppModule(targetRoot) {
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = content.replace(
-    "import { authConfig, authEnvSchema, ForgeonAccountsModule } from '@forgeon/accounts-api';",
     "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
+    "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
   );
   content = content.replace(
+    "import { authConfig, authEnvSchema, ForgeonAccountsModule } from '@forgeon/accounts-api';",
     "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
-    "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
   );
   content = ensureImportLine(
     content,
-    "import { ACCOUNTS_PERSISTENCE_PORT, authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
+    "import { authConfig, authEnvSchema, ForgeonAccountsModule, UsersModule } from '@forgeon/accounts-api';",
   );
-  content = ensureImportLine(
-    content,
-    "import { PrismaAccountsPersistenceStore } from './accounts/prisma-accounts-persistence.store';",
+  content = content.replace(
+    /^import \{ PrismaAccountsPersistenceStore \} from '\.\/accounts\/prisma-accounts-persistence\.store';\r?\n/m,
+    '',
   );
   content = content.replace(
     /^import \{ ForgeonAccountsDbPrismaModule \} from '\.\/accounts\/forgeon-accounts-db-prisma\.module';\r?\n/m,
@@ -195,20 +195,12 @@ function patchAppModule(targetRoot) {
   content = content.replace(/^\s*ForgeonAccountsDbPrismaModule,\r?\n/gm, '');
 
   const accountsModuleLine = `    ForgeonAccountsModule.register({
-      imports: [DbPrismaModule],
-      providers: [
-        PrismaAccountsPersistenceStore,
-        {
-          provide: ACCOUNTS_PERSISTENCE_PORT,
-          useExisting: PrismaAccountsPersistenceStore,
-        },
-      ],
       users: UsersModule.register({}),
     }),`;
 
   if (content.includes('    ForgeonAccountsModule.register({')) {
     content = content.replace(
-      / {4}ForgeonAccountsModule\.register\(\{[\s\S]*? {4}\}\),/m,
+      / {4}ForgeonAccountsModule\.register\([\s\S]*? {4}\}\),/m,
       accountsModuleLine,
     );
   } else if (content.includes('    ForgeonI18nModule.register({')) {
@@ -221,7 +213,6 @@ function patchAppModule(targetRoot) {
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
-
 function patchHealthController(targetRoot, probeTargets) {
   patchHealthControllerServiceProbe(targetRoot, probeTargets, {
     importLine: "import { AuthService } from '@forgeon/accounts-api';",
@@ -386,7 +377,6 @@ function patchReadme(targetRoot) {
 export function applyAccountsModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'accounts-contracts'));
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'accounts-api'));
-  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'accounts'));
   copyFromPreset(
     packageRoot,
     targetRoot,
@@ -425,6 +415,7 @@ export function applyAccountsModule({ packageRoot, targetRoot }) {
     'AUTH_ARGON2_PARALLELISM=1',
   ]);
 }
+
 
 
 

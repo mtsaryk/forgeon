@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { promptSelect } from '../cli/prompt-select.mjs';
-import { getCapabilityProviders, listModulePresets } from './registry.mjs';
+import {
+  getCapabilityProviders,
+  getRecommendedCapabilityProvider,
+  listModulePresets,
+} from './registry.mjs';
 
 function getPresetMap(presets) {
   return new Map(presets.map((preset) => [preset.id, preset]));
@@ -94,15 +98,16 @@ async function selectProviderForCapability({
     );
   }
 
-  const choices = providers.map((provider, index) => ({
-    label: index === 0 ? `${provider.id} (Recommended)` : provider.id,
+  const recommendedProvider = getRecommendedCapabilityProvider(capabilityId, providers) ?? providers[0];
+  const choices = providers.map((provider) => ({
+    label: provider.id === recommendedProvider.id ? `${provider.id} (Recommended)` : provider.id,
     value: provider.id,
   }));
   choices.push({ label: 'Cancel', value: '__cancel' });
 
   const picked = await promptSelectImpl({
     message: `Module "${moduleId}" requires capability: ${capabilityId}`,
-    defaultValue: providers[0].id,
+    defaultValue: recommendedProvider.id,
     choices,
   });
 
@@ -111,6 +116,53 @@ async function selectProviderForCapability({
   }
 
   return picked;
+}
+
+function getAmbiguousCapabilityProviders(presets = listModulePresets()) {
+  const providersByCapability = new Map();
+
+  for (const preset of presets) {
+    if (preset.implemented === false || !Array.isArray(preset.provides)) {
+      continue;
+    }
+
+    for (const capabilityId of preset.provides) {
+      const providers = providersByCapability.get(capabilityId) ?? [];
+      providers.push(preset);
+      providersByCapability.set(capabilityId, providers);
+    }
+  }
+
+  return new Map(
+    [...providersByCapability.entries()].filter(([, providers]) => providers.length > 1),
+  );
+}
+
+function getAllModulesInstallTargets({ presets = listModulePresets(), selectedProviders = {} }) {
+  const ambiguousCapabilityProviders = getAmbiguousCapabilityProviders(presets);
+
+  return presets
+    .filter((preset) => preset.implemented !== false)
+    .filter((preset) => {
+      const providedCapabilities = Array.isArray(preset.provides) ? preset.provides : [];
+      const ambiguousCapabilities = providedCapabilities.filter((capabilityId) =>
+        ambiguousCapabilityProviders.has(capabilityId),
+      );
+
+      if (ambiguousCapabilities.length === 0) {
+        return true;
+      }
+
+      const hasNonAmbiguousCapability = providedCapabilities.some(
+        (capabilityId) => !ambiguousCapabilityProviders.has(capabilityId),
+      );
+      if (hasNonAmbiguousCapability) {
+        return true;
+      }
+
+      return ambiguousCapabilities.some((capabilityId) => selectedProviders[capabilityId] === preset.id);
+    })
+    .map((preset) => preset.id);
 }
 
 export async function resolveModuleInstallPlan({
@@ -226,6 +278,103 @@ export async function resolveModuleInstallPlan({
     cancelled: result?.cancelled === true,
     moduleSequence: planned,
     selectedProviders: Object.fromEntries(selectedProviders),
+  };
+}
+
+export async function resolveAllModulesInstallPlan({
+  targetRoot,
+  presets = listModulePresets(),
+  providerSelections = {},
+  promptSelectImpl = promptSelect,
+  isInteractive = process.stdin.isTTY && process.stdout.isTTY,
+}) {
+  const ambiguousCapabilityProviders = getAmbiguousCapabilityProviders(presets);
+  const selectedProviders = { ...providerSelections };
+
+  for (const [capabilityId, providers] of ambiguousCapabilityProviders.entries()) {
+    const explicitProvider = selectedProviders[capabilityId];
+    if (explicitProvider) {
+      const matchedProvider = providers.find((provider) => provider.id === explicitProvider);
+      if (!matchedProvider) {
+        throw createResolutionError('all', { type: 'capability', id: capabilityId }, providers, explicitProvider);
+      }
+      continue;
+    }
+
+    if (isInteractive) {
+      const pickedProvider = await selectProviderForCapability({
+        moduleId: 'all',
+        capabilityId,
+        providers,
+        promptSelectImpl,
+      });
+      if (!pickedProvider) {
+        return {
+          cancelled: true,
+          moduleSequence: [],
+          selectedProviders: {},
+          rootModuleIds: [],
+        };
+      }
+      selectedProviders[capabilityId] = pickedProvider;
+      continue;
+    }
+
+    const recommendedProvider = getRecommendedCapabilityProvider(capabilityId, providers);
+    if (!recommendedProvider) {
+      throw createResolutionError('all', { type: 'capability', id: capabilityId }, providers);
+    }
+    selectedProviders[capabilityId] = recommendedProvider.id;
+  }
+
+  const rootModuleIds = getAllModulesInstallTargets({
+    presets,
+    selectedProviders,
+  });
+
+  const moduleSequence = [];
+  const plannedSet = new Set();
+  let accumulatedProviderSelections = { ...selectedProviders };
+
+  for (const moduleId of rootModuleIds) {
+    const plan = await resolveModuleInstallPlan({
+      moduleId,
+      targetRoot,
+      presets,
+      withRequired: true,
+      providerSelections: accumulatedProviderSelections,
+      promptSelectImpl,
+      isInteractive: false,
+    });
+
+    if (plan.cancelled) {
+      return {
+        cancelled: true,
+        moduleSequence,
+        selectedProviders: accumulatedProviderSelections,
+        rootModuleIds,
+      };
+    }
+
+    accumulatedProviderSelections = {
+      ...accumulatedProviderSelections,
+      ...plan.selectedProviders,
+    };
+
+    for (const plannedModuleId of plan.moduleSequence) {
+      if (plannedSet.has(plannedModuleId)) {
+        continue;
+      }
+      plannedSet.add(plannedModuleId);
+      moduleSequence.push(plannedModuleId);
+    }
+  }
+
+  return {
+    cancelled: false,
+    moduleSequence,
+    selectedProviders: accumulatedProviderSelections,
+    rootModuleIds,
   };
 }
 

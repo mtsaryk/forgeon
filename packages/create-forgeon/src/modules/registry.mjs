@@ -256,6 +256,10 @@ const MODULE_PRESETS = {
   },
 };
 
+const RECOMMENDED_CAPABILITY_PROVIDERS = {
+  'files-storage-adapter': 'files-local',
+};
+
 export function listModulePresets() {
   return Object.values(MODULE_PRESETS);
 }
@@ -271,6 +275,22 @@ export function getCapabilityProviders(capabilityId, { implementedOnly = true } 
     }
     return Array.isArray(preset.provides) && preset.provides.includes(capabilityId);
   });
+}
+
+export function getRecommendedCapabilityProvider(capabilityId, providers = null) {
+  const availableProviders = Array.isArray(providers)
+    ? providers
+    : getCapabilityProviders(capabilityId, { implementedOnly: true });
+
+  const recommendedProviderId = RECOMMENDED_CAPABILITY_PROVIDERS[capabilityId];
+  if (recommendedProviderId) {
+    const matchedProvider = availableProviders.find((provider) => provider.id === recommendedProviderId);
+    if (matchedProvider) {
+      return matchedProvider;
+    }
+  }
+
+  return availableProviders[0] ?? null;
 }
 
 export function ensureModuleExists(moduleId) {

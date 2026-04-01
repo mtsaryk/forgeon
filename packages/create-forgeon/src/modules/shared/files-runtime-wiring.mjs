@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { ensureLineAfter, ensureLineBefore } from './patch-utils.mjs';
 
@@ -38,20 +38,23 @@ export function resolveFilesStorageRuntimeModule(targetRoot) {
 }
 
 export function upsertFilesModuleRegistration(content, storageRuntimeModuleName = null) {
-  const runtimeImports = ['ForgeonFilesDbPrismaModule'];
-  if (storageRuntimeModuleName) {
-    runtimeImports.push(storageRuntimeModuleName);
-  }
-
-  const moduleBlock = `    ForgeonFilesModule.register({
-      imports: [${runtimeImports.join(', ')}],
-    }),`;
+  const moduleBlock = storageRuntimeModuleName
+    ? `    ForgeonFilesModule.register({
+      imports: [${storageRuntimeModuleName}],
+    }),`
+    : '    ForgeonFilesModule.register(),';
 
   if (content.includes('ForgeonFilesModule.register({')) {
     return content.replace(
-      / {4}ForgeonFilesModule\.register\(\{[\s\S]*? {4}\}\),/m,
+      / {4}ForgeonFilesModule\.register\([\s\S]*? {4}\}\),/m,
       moduleBlock,
     );
+  }
+
+  if (content.includes('    ForgeonFilesModule.register(),')) {
+    return storageRuntimeModuleName
+      ? content.replace('    ForgeonFilesModule.register(),', moduleBlock)
+      : content;
   }
 
   if (content.includes('    ForgeonFilesModule,')) {

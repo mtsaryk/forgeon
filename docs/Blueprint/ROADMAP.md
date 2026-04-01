@@ -30,7 +30,8 @@ This is a living plan. Scope and priorities may change.
   - [x] `--with-required`
   - [x] `--provider <capability>=<module>`
 - [x] runtime collaboration follows an explicit split:
-  - [x] required runtime dependencies use port/provider boundaries
+  - [x] runtime DB code is Prisma-first while `db-prisma` is the only DB runtime
+  - [x] explicit runtime ports/providers are reserved for real replaceable boundaries
   - [x] optional runtime reactions may use internal domain events
   - [x] integration sync remains scaffold/install-time wiring only
 
@@ -53,10 +54,10 @@ This is a living plan. Scope and priorities may change.
   - [x] module split: contracts/api
   - [x] access + refresh baseline
   - [x] guards/strategy integration
-  - [x] DB-aware install behavior:
-    - [x] stateless baseline install without a DB adapter
-    - [x] optional auth persistence integration at the `db-adapter` boundary
-    - [x] current provider implementation for that integration: `db-prisma`
+  - [x] DB-backed baseline:
+    - [x] hard prerequisite on `db-adapter`
+    - [x] Prisma-first runtime through `@forgeon/db-prisma`
+    - [x] `accounts-rbac` remains the only compatibility sync in this area
   - [ ] web package split (`auth-web`) on next iteration
 
 - [x] `rbac / permissions`
@@ -115,14 +116,14 @@ This is a living plan. Scope and priorities may change.
   - [x] add non-TTY support for `--with-required` and `--provider`
   - [x] standardize optional integration warnings
 
-- [ ] `accounts` persistence boundary refactor
-  - [x] move from `db-prisma` assumption to `db-adapter`
-  - [x] keep Prisma as the first provider implementation
-  - [x] replace the legacy auth persistence-sync plan with hard DB-backed `accounts` + `accounts-rbac` compatibility sync before `files`
-  - [ ] add new DB provider strategies through the same conceptual boundary as new DB modules are implemented
+- [ ] DB doctrine follow-up
+  - [x] keep `db-adapter` as the install-time capability boundary
+  - [x] adopt Prisma-first runtime for `accounts` and `files`
+  - [x] remove runtime DB persistence ports/adapters from current generated modules
+  - [ ] revisit runtime DB abstraction only if a second DB runtime becomes real in a later major wave
 
 - [ ] runtime boundary cleanup before `internal-event-bus`
-  - [ ] `files`: extract the DB metadata/store boundary away from direct `PrismaService` usage
+  - [x] `files`: keep DB metadata/store logic Prisma-first inside the module package
   - [ ] continue concrete runtime import cleanup where capability seams already exist
   - [ ] first target: `scheduler -> queue`
   - [ ] first target: `files-quotas -> files`

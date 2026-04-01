@@ -37,6 +37,7 @@ Current default DB module is Prisma + Postgres (`db-prisma`).
 
 - Prisma schema and migrations live in `apps/api/prisma`
 - DB access is encapsulated via `DbPrismaModule` in `@forgeon/db-prisma`
+- DB-backed modules may inject `PrismaService` directly or hide repeated queries behind local `store` classes
 - `db-prisma` is default-applied during scaffold generation (`db-prisma=true`) and can be skipped (`db-prisma=false`).
 - Projects generated without DB can add it later: `create-forgeon add db-prisma --project .`
 - Additional DB presets are out of scope for the current milestone.
@@ -84,8 +85,7 @@ Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
   - each add-module patches only itself;
   - cross-module changes are allowed only in integration sync rules.
 - Current integrations:
-  - `accounts + db-adapter` (current provider: `db-prisma`; persistent refresh-token store wiring + schema/migration sync)
-  - `accounts + rbac` (demo RBAC claims wiring in auth contracts and payloads)
+  - `accounts + rbac` (claims compatibility sync without changing the base accounts schema)
 - `create-forgeon add <module>` scans only the relevant pending integration groups and offers them interactively.
 - Integrations are never applied silently; users can apply them from the prompt or later with `pnpm forgeon:sync-integrations`.
 - Swagger auth decorators are intentionally not auto-patched.
@@ -131,7 +131,8 @@ Forgeon uses different mechanisms for install-time composition and runtime colla
 Canonical rules:
 
 - hard prerequisites remain capability/provider driven
-- required runtime dependencies use explicit port/provider boundaries
+- runtime DB usage is Prisma-first while `db-prisma` is the only supported DB runtime
+- explicit runtime ports/providers are reserved for real replaceable boundaries that already have multiple implementations or a near-term second implementation
 - optional runtime reactions may use internal domain events
 - integration sync remains scaffold/install-time wiring only
 
@@ -152,10 +153,14 @@ Non-goals for this boundary:
 
 Use the lightest pattern that matches the boundary.
 
-- replaceable technology boundary (`auth`, `db`, `storage`, similar):
+- replaceable technology boundary with active or near-term multiple providers (`storage`, `email`, external auth provider, similar):
   - use hexagonal-style ports/adapters as the base model
   - use Nest custom providers + dynamic modules as the primary wiring mechanism
   - use strategy-style selection when multiple providers may satisfy the same capability
+- DB-backed feature/runtime with one canonical provider (`db-prisma` in v0.x/1.x):
+  - inject `PrismaService` directly or isolate Prisma queries in small `store` classes
+  - add `mapper` files only when response/domain shaping is non-trivial
+  - do not introduce DB persistence ports before a second DB runtime is real
 - optional runtime reactions (`notifications`, `audit`, `analytics`, optional delivery fan-out):
   - use internal domain events for in-process reactions
 - reliable async cross-module reactions:
@@ -170,7 +175,8 @@ Use the lightest pattern that matches the boundary.
 
 Short form:
 
-- replaceable technology -> port + adapter
+- replaceable technology with real provider choice -> port + adapter
+- canonical DB runtime -> Prisma-first service/store
 - optional reaction -> domain event
 - reliable async reaction -> integration event + outbox
 - complex workflow -> saga/process manager
@@ -178,8 +184,8 @@ Short form:
 
 Cleanup before `internal-event-bus` lands:
 
-- must-have: extract the `files` DB metadata/store boundary away from direct `PrismaService` coupling
-- targeted review only where it meaningfully improves a module seam: `files-quotas -> files`, `scheduler -> queue`, and similar direct runtime imports
+- no DB port-extraction work is planned while Forgeon ships only one canonical DB runtime
+- targeted review only where it meaningfully improves a real module seam: `files-quotas -> files`, `scheduler -> queue`, and similar direct runtime imports
 
 ## TypeScript Module Format Policy
 

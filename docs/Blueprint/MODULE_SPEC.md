@@ -82,10 +82,10 @@ Choose patterns by boundary type, not by fashion.
 
 Use for:
 
-- auth persistence
-- DB-backed feature stores
 - storage providers
-- other boundaries where the underlying technology may change
+- email delivery providers
+- external auth providers
+- other boundaries where the underlying technology may change and provider choice is real now
 
 Preferred model:
 
@@ -96,6 +96,23 @@ Preferred model:
 Rule:
 
 - required technology dependencies must not be modeled as events
+
+### Canonical DB Runtime
+
+Use for:
+
+- DB-backed backend modules while Forgeon ships one canonical DB implementation
+- feature persistence where Prisma is the accepted runtime
+
+Preferred model:
+
+- direct `PrismaService` injection in simple services
+- small `store` classes for repeated queries, transactions, or query-heavy logic
+- `mapper` files only when the shape transformation is non-trivial
+
+Rule:
+
+- do not create DB persistence ports/adapters before a second DB runtime exists in the same release line
 
 ### Optional Runtime Reactions
 
@@ -167,14 +184,16 @@ Rule:
 - In generated projects, `create-forgeon add <module-id>` may scan and offer relevant pending pair integrations, but it must not apply them silently.
 - In generated projects, pair integrations can be applied from the post-add prompt or later via `pnpm forgeon:sync-integrations`.
 - Module prerequisites must be expressed as capabilities where possible, not concrete providers.
-- Modules must not assume `db-prisma` is present unless the provider itself is intentionally hard-coded for a temporary stage.
-- New module work should prefer `db-adapter` over `db-prisma` as the dependency boundary.
+- Install-time prerequisites should prefer the `db-adapter` capability over a concrete provider.
+- Runtime DB-backed modules may directly depend on `@forgeon/db-prisma` while it remains the only supported DB runtime.
+- New module work should not create DB persistence ports/adapters before a second DB runtime is real.
 - Hard prerequisites must follow the accepted dependency doctrine:
   - TTY: interactive provider resolution + explicit plan
   - non-TTY: fail by default unless `--with-required` is provided
 - Optional integrations must not block installation and should be surfaced as explicit post-install warnings with follow-up commands.
 - New module work should follow the architecture pattern matrix:
-  - replaceable technology -> port + adapter
+  - replaceable technology with real provider choice -> port + adapter
+  - canonical DB runtime -> Prisma-first service/store
   - optional reaction -> domain event
   - reliable async reaction -> integration event + outbox
   - complex workflow -> saga/process manager

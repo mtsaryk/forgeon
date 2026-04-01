@@ -8,6 +8,7 @@ import { addModule } from './modules/executor.mjs';
 import {
   getPendingOptionalIntegrations,
   getPendingRecommendedCompanions,
+  resolveAllModulesInstallPlan,
   resolveModuleInstallPlan,
 } from './modules/dependencies.mjs';
 import { listModulePresets } from './modules/registry.mjs';
@@ -19,11 +20,10 @@ import {
 import { readJson, writeJson } from './utils/fs.mjs';
 
 function printModuleList() {
-  const modules = listModulePresets();
+  const modules = listModulePresets().filter((moduleItem) => moduleItem.implemented !== false);
   console.log('Available modules:');
   for (const moduleItem of modules) {
-    const status = moduleItem.implemented ? 'implemented' : 'planned';
-    console.log(`- ${moduleItem.id} (${status}) - ${moduleItem.description}`);
+    console.log(`- ${moduleItem.id} - ${moduleItem.description}`);
   }
 }
 
@@ -120,6 +120,7 @@ function ensureSyncTooling({ packageRoot, targetRoot }) {
   }
 
   packageJson.scripts['forgeon:sync-integrations'] = 'node scripts/forgeon-sync-integrations.mjs';
+  packageJson.scripts['add-all'] = 'npx create-forgeon@latest add all --project .';
 
   writeJson(packagePath, packageJson);
 }
@@ -230,12 +231,18 @@ export async function runAddModule(argv = process.argv.slice(2)) {
   const packageRoot = path.resolve(srcDir, '..');
   const targetRoot = path.resolve(process.cwd(), options.project);
   const dependencyManifestStateBefore = collectDependencyManifestState(targetRoot);
-  const plan = await resolveModuleInstallPlan({
-    moduleId: options.moduleId,
-    targetRoot,
-    withRequired: options.withRequired,
-    providerSelections: options.providers,
-  });
+  const isAllModulesInstall = options.moduleId === 'all';
+  const plan = isAllModulesInstall
+    ? await resolveAllModulesInstallPlan({
+        targetRoot,
+        providerSelections: options.providers,
+      })
+    : await resolveModuleInstallPlan({
+        moduleId: options.moduleId,
+        targetRoot,
+        withRequired: options.withRequired,
+        providerSelections: options.providers,
+      });
 
   if (plan.cancelled) {
     console.log('Installation cancelled.');
@@ -257,15 +264,19 @@ export async function runAddModule(argv = process.argv.slice(2)) {
     printModuleAdded(currentResult.preset.id, currentResult.docsPath);
   }
 
-  const pendingRecommendedCompanions = getPendingRecommendedCompanions({
-    moduleId: options.moduleId,
-    targetRoot,
-  });
-  const selectedRecommendedCompanions = await chooseRecommendedCompanions({
-    requestedModuleId: options.moduleId,
-    companions: pendingRecommendedCompanions,
-    withRecommended: options.withRecommended,
-  });
+  const pendingRecommendedCompanions = isAllModulesInstall
+    ? []
+    : getPendingRecommendedCompanions({
+        moduleId: options.moduleId,
+        targetRoot,
+      });
+  const selectedRecommendedCompanions = isAllModulesInstall
+    ? []
+    : await chooseRecommendedCompanions({
+        requestedModuleId: options.moduleId,
+        companions: pendingRecommendedCompanions,
+        withRecommended: options.withRecommended,
+      });
 
   for (const recommendedModuleId of selectedRecommendedCompanions) {
     const recommendedPlan = await resolveModuleInstallPlan({
@@ -291,14 +302,16 @@ export async function runAddModule(argv = process.argv.slice(2)) {
   await runIntegrationFlow({
     targetRoot,
     packageRoot,
-    relatedModuleId: selectedRecommendedCompanions.length > 0 ? null : options.moduleId,
+    relatedModuleId: isAllModulesInstall || selectedRecommendedCompanions.length > 0 ? null : options.moduleId,
   });
 
-  const pendingOptionalIntegrations = getPendingOptionalIntegrations({
-    moduleId: options.moduleId,
-    targetRoot,
-  });
-  printOptionalIntegrationsWarning(pendingOptionalIntegrations);
+  if (!isAllModulesInstall) {
+    const pendingOptionalIntegrations = getPendingOptionalIntegrations({
+      moduleId: options.moduleId,
+      targetRoot,
+    });
+    printOptionalIntegrationsWarning(pendingOptionalIntegrations);
+  }
 
   const dependencyManifestStateAfter = collectDependencyManifestState(targetRoot);
   const changedDependencyManifestPaths = getChangedDependencyManifestPaths(

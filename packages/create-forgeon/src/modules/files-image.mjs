@@ -258,9 +258,10 @@ function patchFilesService(targetRoot) {
   }`,
     );
 
-    content = content.replace(
-      `  private extensionFromMime(mimeType: string): string | null {`,
-      `  protected normalizeFileName(originalName: string, extension: string, suffix?: string): string {
+    if (!content.includes('protected normalizeFileName(originalName: string, extension: string, suffix?: string): string')) {
+      content = content.replace(
+        `  private extensionFromMime(mimeType: string): string | null {`,
+        `  protected normalizeFileName(originalName: string, extension: string, suffix?: string): string {
     const parsed = path.parse(originalName);
     const safeExtension = extension.startsWith('.') ? extension : \`.\${extension}\`;
     const base = suffix ? \`\${parsed.name}-\${suffix}\` : parsed.name;
@@ -268,7 +269,8 @@ function patchFilesService(targetRoot) {
   }
 
   private extensionFromMime(mimeType: string): string | null {`,
-    );
+      );
+    }
   }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');

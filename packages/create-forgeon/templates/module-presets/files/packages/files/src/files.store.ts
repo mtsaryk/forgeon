@@ -1,17 +1,81 @@
-import {
-  FILES_PERSISTENCE_PORT,
-  type FilesBlobCreateInput,
-  type FilesBlobRef,
-  type FilesPersistencePort,
-  type FilesRecordAggregate,
-  type FilesRecordCreateInput,
-  type FilesVariantCreateInput,
-} from '@forgeon/files';
-import { PrismaService } from '@forgeon/db-prisma';
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@forgeon/db-prisma';
+import type { FileVariantKey } from './files.types';
+
+export type FilesBlobRecord = {
+  id: string;
+  hash: string;
+  size: number;
+  mimeType: string;
+  storageDriver: string;
+  storageKey: string;
+};
+
+export type FilesBlobRef = FilesBlobRecord & {
+  created: boolean;
+};
+
+export type FilesRecordVariant = {
+  variantKey: string;
+  blobId: string;
+  mimeType: string;
+  size: number;
+  status: string;
+  blob?: {
+    storageDriver: string;
+    storageKey: string;
+  };
+};
+
+export type FilesRecordAggregate = {
+  id: string;
+  publicId: string;
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  storageDriver: string;
+  ownerType: string;
+  ownerId: string | null;
+  visibility: string;
+  createdById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  variants?: FilesRecordVariant[];
+};
+
+export type FilesRecordCreateInput = {
+  publicId: string;
+  storageKey: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  storageDriver: string;
+  ownerType: string;
+  ownerId: string | null;
+  visibility: string;
+  createdById: string | null;
+};
+
+export type FilesBlobCreateInput = {
+  hash: string;
+  size: number;
+  mimeType: string;
+  storageDriver: string;
+  storageKey: string;
+};
+
+export type FilesVariantCreateInput = {
+  fileId: string;
+  variantKey: FileVariantKey;
+  blobId: string;
+  mimeType: string;
+  size: number;
+  status: string;
+};
 
 @Injectable()
-export class PrismaFilesPersistenceStore implements FilesPersistencePort {
+export class FilesStore {
   constructor(private readonly prisma: PrismaService) {}
 
   async createFileRecord(data: FilesRecordCreateInput): Promise<{ id: string; publicId: string }> {
@@ -136,7 +200,7 @@ export class PrismaFilesPersistenceStore implements FilesPersistencePort {
     };
   }
 
-  async createBlob(data: FilesBlobCreateInput) {
+  async createBlob(data: FilesBlobCreateInput): Promise<FilesBlobRecord> {
     return this.prisma.fileBlob.create({ data });
   }
 
@@ -144,7 +208,7 @@ export class PrismaFilesPersistenceStore implements FilesPersistencePort {
     await this.prisma.fileVariant.createMany({ data });
   }
 
-  async findBlobById(id: string) {
+  async findBlobById(id: string): Promise<FilesBlobRecord | null> {
     return this.prisma.fileBlob.findUnique({
       where: { id },
     });

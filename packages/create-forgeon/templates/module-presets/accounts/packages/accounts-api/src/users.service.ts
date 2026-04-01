@@ -1,20 +1,19 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { UpdateUserProfileRequest, UpdateUserSettingsRequest, UpdateUserRequest } from '@forgeon/accounts-contracts';
-import { ACCOUNTS_PERSISTENCE_PORT, type AccountsPersistencePort } from './accounts-persistence.port';
 import { USERS_MODULE_OPTIONS, type UsersModuleOptions } from './users-config';
+import { UsersStore } from './users.store';
 import { mergeObjects, normalizeObject, toUserRecordDto } from './users.types';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @Inject(ACCOUNTS_PERSISTENCE_PORT)
-    private readonly persistence: AccountsPersistencePort,
+    private readonly usersStore: UsersStore,
     @Inject(USERS_MODULE_OPTIONS)
     private readonly usersModuleOptions: UsersModuleOptions,
   ) {}
 
   async findById(userId: string) {
-    const user = await this.persistence.findUserById(userId);
+    const user = await this.usersStore.findById(userId);
     return user ? toUserRecordDto(user) : null;
   }
 
@@ -27,12 +26,12 @@ export class UsersService {
   }
 
   async update(userId: string, input: UpdateUserRequest) {
-    const current = await this.persistence.findUserById(userId);
+    const current = await this.usersStore.findById(userId);
     if (!current) {
       throw new NotFoundException('User not found');
     }
 
-    const updated = await this.persistence.updateUser({
+    const updated = await this.usersStore.updateUser({
       userId,
       data: mergeObjects(current.data ?? this.usersModuleOptions.user, input.data),
     });
@@ -40,12 +39,12 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, input: UpdateUserProfileRequest) {
-    const current = await this.persistence.findUserById(userId);
+    const current = await this.usersStore.findById(userId);
     if (!current) {
       throw new NotFoundException('User not found');
     }
 
-    const updated = await this.persistence.updateUserProfile({
+    const updated = await this.usersStore.updateUserProfile({
       userId,
       name: input.name ?? current.profile?.name ?? null,
       avatar: input.avatar ?? current.profile?.avatar ?? null,
@@ -55,12 +54,12 @@ export class UsersService {
   }
 
   async updateSettings(userId: string, input: UpdateUserSettingsRequest) {
-    const current = await this.persistence.findUserById(userId);
+    const current = await this.usersStore.findById(userId);
     if (!current) {
       throw new NotFoundException('User not found');
     }
 
-    const updated = await this.persistence.updateUserSettings({
+    const updated = await this.usersStore.updateUserSettings({
       userId,
       theme: input.theme ?? current.settings?.theme ?? null,
       locale: input.locale ?? current.settings?.locale ?? null,
@@ -70,7 +69,7 @@ export class UsersService {
   }
 
   async softDelete(userId: string): Promise<void> {
-    await this.persistence.softDeleteUser(userId, new Date());
+    await this.usersStore.softDelete(userId, new Date());
   }
 
   resolveUserData(input: unknown) {

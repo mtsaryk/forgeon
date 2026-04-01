@@ -8,6 +8,7 @@ import {
   detectInstalledModules,
   getPendingOptionalIntegrations,
   getPendingRecommendedCompanions,
+  resolveAllModulesInstallPlan,
   resolveModuleInstallPlan,
 } from './dependencies.mjs';
 
@@ -356,6 +357,63 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'queue-runtime': 'queue',
       });
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('builds a full install plan with the recommended provider for ambiguous capabilities', async () => {
+    const targetRoot = mkTmp('forgeon-deps-all-plan-');
+
+    try {
+      const result = await resolveAllModulesInstallPlan({
+        targetRoot,
+        presets: TEST_PRESETS,
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, [
+        'db-prisma',
+        'accounts',
+        'rbac',
+        'files-local',
+        'files',
+        'files-access',
+        'files-quotas',
+        'files-image',
+        'queue',
+        'scheduler',
+      ]);
+      assert.deepEqual(result.selectedProviders, {
+        'files-storage-adapter': 'files-local',
+        'db-adapter': 'db-prisma',
+        'files-runtime': 'files',
+        'queue-runtime': 'queue',
+      });
+      assert.equal(result.rootModuleIds.includes('files-s3'), false);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('builds a full install plan with an explicit provider override', async () => {
+    const targetRoot = mkTmp('forgeon-deps-all-provider-');
+
+    try {
+      const result = await resolveAllModulesInstallPlan({
+        targetRoot,
+        presets: TEST_PRESETS,
+        isInteractive: false,
+        providerSelections: {
+          'files-storage-adapter': 'files-s3',
+        },
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.equal(result.moduleSequence.includes('files-s3'), true);
+      assert.equal(result.moduleSequence.includes('files-local'), false);
+      assert.equal(result.selectedProviders['files-storage-adapter'], 'files-s3');
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

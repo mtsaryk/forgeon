@@ -170,9 +170,9 @@ function patchAppModule(targetRoot) {
     content,
     "import { filesConfig, filesEnvSchema, ForgeonFilesModule } from '@forgeon/files';",
   );
-  content = ensureImportLine(
-    content,
-    "import { ForgeonFilesDbPrismaModule } from './files/forgeon-files-db-prisma.module';",
+  content = content.replace(
+    /^import \{ ForgeonFilesDbPrismaModule \} from '\.\/files\/forgeon-files-db-prisma\.module';\r?\n/m,
+    '',
   );
 
   if (fs.existsSync(path.join(targetRoot, 'packages', 'files-local', 'package.json'))) {
@@ -188,7 +188,6 @@ function patchAppModule(targetRoot) {
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
-
 function patchApiDockerfile(targetRoot) {
   const dockerfilePath = path.join(targetRoot, 'apps', 'api', 'Dockerfile');
   if (!fs.existsSync(dockerfilePath)) {
@@ -378,7 +377,7 @@ function patchReadme(targetRoot) {
 
   const section = `## Files Module
 
-The files module adds runtime file endpoints with DB-backed metadata and storage-driver-aware behavior.
+The files module adds runtime file endpoints with Prisma-backed metadata and storage-driver-aware behavior.
 
 What it currently adds:
 - \`@forgeon/files\` package with:
@@ -425,7 +424,6 @@ Key env:
 
 export function applyFilesModule({ packageRoot, targetRoot }) {
   copyFromPreset(packageRoot, targetRoot, path.join('packages', 'files'));
-  copyFromPreset(packageRoot, targetRoot, path.join('apps', 'api', 'src', 'files'));
   const probeTargets = resolveProbeTargets({ targetRoot, moduleId: 'files' });
 
 
@@ -454,5 +452,6 @@ export function applyFilesModule({ packageRoot, targetRoot }) {
     'FILES_ALLOWED_MIME_PREFIXES=image/,application/pdf,text/',
   ]);
 }
+
 
 

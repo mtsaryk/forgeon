@@ -237,7 +237,8 @@ Accepted rules:
 
 Accepted runtime interaction rules:
 
-- required runtime dependencies use explicit port/provider boundaries
+- runtime DB code is Prisma-first while `db-prisma` is the only supported DB runtime
+- explicit runtime port/provider boundaries are reserved for real replaceable seams
 - optional runtime reactions may use internal domain events
 - integration sync remains scaffold/install-time wiring only and must not become a runtime business-flow substitute
 - internal domain events are planned as an optional add-module, not as a global scaffold flag
@@ -252,9 +253,9 @@ Current planned shape:
 
 Pattern selection summary:
 
-- base model for replaceable technology boundaries: hexagonal-style ports/adapters
+- base model for real replaceable technology boundaries: hexagonal-style ports/adapters
 - default Nest wiring mechanism: custom providers + dynamic modules
-- provider selection for auth/storage/db boundaries may use strategy-style resolution
+- provider selection for storage/email/external-provider boundaries may use strategy-style resolution
 - optional in-process runtime reactions may use domain events
 - reliable async cross-module reactions may use integration events + outbox
 - saga/process manager is reserved for genuinely complex multi-step workflows and is currently out of scope
@@ -262,7 +263,7 @@ Pattern selection summary:
 
 Preparatory refactors before `internal-event-bus`:
 
-- must-have: extract the `files` DB metadata/store boundary away from direct `PrismaService` usage
+- no DB port-extraction work is planned while Forgeon ships one canonical DB runtime
 - targeted review only where it buys a cleaner seam: narrow direct runtime imports such as `files-quotas -> files` or `scheduler -> queue`
 
 ## Agent Workflow
@@ -413,9 +414,9 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `POST /api/auth/logout`
     - `GET /api/auth/me`
     - `GET /api/health/auth`
-  - by itself it installs auth cleanly
-  - persistence is not baked into module install; DB-backed refresh storage is wired through sync integrations at the `db-adapter` boundary
-  - current persistence provider implementation: `db-prisma`
+  - installs as a DB-backed module with hard prerequisite `db-adapter`
+  - runtime is Prisma-first through `@forgeon/db-prisma`
+  - `accounts-rbac` is the only compatibility sync in this area
 
 - `rate-limit`
   - package: `@forgeon/rate-limit`
@@ -734,7 +735,7 @@ Immediate next engineering targets:
 Files follow-up should be demand-driven, not automatic. If the files family is revisited, the highest-value open questions are:
 
 - lock the long-term `FileRecord` schema/index shape
-- decide whether files persistence sync at the `db-adapter` boundary is actually needed
+- keep files on the accepted Prisma-first runtime unless a second DB runtime becomes real
 - decide whether signed URLs or deeper S3 hardening have real product demand
 - continue variants work only if the next product surface truly needs it
 

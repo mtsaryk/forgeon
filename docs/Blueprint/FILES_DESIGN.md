@@ -165,7 +165,7 @@ The preferred upload flow is:
 Important:
 
 - storage happens through a storage abstraction
-- metadata persistence happens through the app's DB layer
+- metadata persistence happens through the module's Prisma-first DB layer
 - future access and quota checks should plug in before and after storage writes without changing the overall flow
 
 ## Storage Abstraction
@@ -209,7 +209,7 @@ Reason:
 Current Forgeon implication:
 
 - `files` requires `db-adapter` capability
-- current default DB provider remains `db-prisma`
+- runtime implementation is Prisma-first through `@forgeon/db-prisma`
 - if a project has no DB module, `files` should either:
   - warn clearly and refuse install, or
   - install in a reduced mode only if that mode is explicitly supported
@@ -362,6 +362,7 @@ Proceed with:
 
 - `files v1` as a DB-backed base module
 - adapter-based storage in v1 (`files-local` first, `files-s3` optional)
+- Prisma-first runtime inside `@forgeon/files`
 - metadata-first design
 - no access-control or quota enforcement inside `files v1`
 - explicit future modules for:

@@ -117,6 +117,7 @@ describe('generateDocs', () => {
       assert.doesNotMatch(readme, /docs\/Agents\.md/);
       assert.doesNotMatch(packageJson, /"create:forgeon"/);
       assert.match(packageJson, /"forgeon:sync-integrations"/);
+      assert.match(packageJson, /"add-all": "npx create-forgeon@latest add all --project \."?/);
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }

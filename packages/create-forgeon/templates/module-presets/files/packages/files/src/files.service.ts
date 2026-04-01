@@ -5,22 +5,15 @@ import {
   BadRequestException,
   Inject,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { FilesConfigService } from './files-config.service';
-import {
-  FILES_PERSISTENCE_PORT,
-  FILES_STORAGE_ADAPTER,
-} from './files.ports';
-import type {
-  FilesBlobRecord,
-  FilesBlobRef,
-  FilesPersistencePort,
-  FilesRecordAggregate,
-  FilesStorageAdapter,
-} from './files.ports';
+import { FILES_STORAGE_ADAPTER } from './files.ports';
+import type { FilesStorageAdapter } from './files.ports';
+import { FilesStore } from './files.store';
+import type { FilesBlobRef, FilesRecordAggregate } from './files.store';
 import type { FileRecordDto, FileVariantKey, StoredFileInput } from './files.types';
 
 type PrismaLikeError = {
@@ -44,10 +37,8 @@ type PersistedVariant = {
 @Injectable()
 export class FilesService {
   constructor(
-    @Inject(FILES_PERSISTENCE_PORT)
-    private readonly persistence: FilesPersistencePort,
-    @Inject(FILES_STORAGE_ADAPTER)
-    private readonly storageAdapter: FilesStorageAdapter,
+    private readonly filesStore: FilesStore,
+    @Optional() @Inject(FILES_STORAGE_ADAPTER) private readonly storageAdapter: FilesStorageAdapter | undefined,
     private readonly filesConfigService: FilesConfigService,
   ) {}
 
@@ -69,7 +60,7 @@ export class FilesService {
         createdBlobIds.push(originalBlob.id);
       }
 
-      const record = await this.persistence.createFileRecord({
+      const record = await this.filesStore.createFileRecord({
         publicId: this.generatePublicId(),
         storageKey: originalBlob.storageKey,
         originalName: input.originalName,
@@ -110,7 +101,7 @@ export class FilesService {
         persistedVariantBlobIds.push(previewBlob.id);
       }
 
-      await this.persistence.createVariants(
+      await this.filesStore.createVariants(
         persistedVariants.map((item, index) => ({
           fileId: record.id,
           variantKey: item.variantKey,
@@ -124,7 +115,7 @@ export class FilesService {
       return this.getByPublicId(record.publicId);
     } catch (error) {
       if (recordId) {
-        await this.persistence.deleteFileRecordById(recordId).catch(() => undefined);
+        await this.filesStore.deleteFileRecordById(recordId).catch(() => undefined);
       }
       await this.cleanupCreatedBlobs(createdBlobIds);
       throw error;
@@ -144,13 +135,13 @@ export class FilesService {
   }
 
   async deleteByPublicId(publicId: string): Promise<{ deleted: boolean }> {
-    const record = await this.persistence.findFileRecordForDelete(publicId);
+    const record = await this.filesStore.findFileRecordForDelete(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
 
     const blobIds = (record.variants ?? []).map((variant) => variant.blobId);
-    await this.persistence.deleteFileRecordByPublicId(publicId);
+    await this.filesStore.deleteFileRecordByPublicId(publicId);
     await this.cleanupReferencedBlobs(blobIds);
 
     if ((record.variants ?? []).length === 0) {
@@ -161,7 +152,7 @@ export class FilesService {
   }
 
   async getByPublicId(publicId: string): Promise<FileRecordDto> {
-    const record = await this.persistence.findFileRecordWithVariantKeys(publicId);
+    const record = await this.filesStore.findFileRecordWithVariantKeys(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
@@ -169,7 +160,7 @@ export class FilesService {
   }
 
   async getOwnerUsage(ownerType: string, ownerId: string): Promise<{ filesCount: number; totalBytes: number }> {
-    return this.persistence.countOwnerUsage(ownerType, ownerId);
+    return this.filesStore.countOwnerUsage(ownerType, ownerId);
   }
 
   async openDownload(publicId: string, variant: FileVariantKey = 'original'): Promise<{
@@ -177,7 +168,7 @@ export class FilesService {
     mimeType: string;
     fileName: string;
   }> {
-    const record = await this.persistence.findFileRecordForDownload(publicId);
+    const record = await this.filesStore.findFileRecordForDownload(publicId);
     if (!record) {
       throw new NotFoundException('File not found');
     }
@@ -215,6 +206,7 @@ export class FilesService {
     supportedVariants: FileVariantKey[];
     previewGenerationEnabled: boolean;
   }> {
+    this.requireStorageAdapter();
     return {
       status: 'ok',
       feature: 'files-variants',
@@ -250,14 +242,26 @@ export class FilesService {
     }
   }
 
+  private requireStorageAdapter(): FilesStorageAdapter {
+    if (this.storageAdapter) {
+      return this.storageAdapter;
+    }
+
+    throw new ServiceUnavailableException(
+      'Files storage adapter is not configured. Install/add a files-storage-adapter provider.',
+    );
+  }
+
   private async store(buffer: Buffer, originalName: string): Promise<{ storageKey: string }> {
+    const storageAdapter = this.requireStorageAdapter();
     const extension = path.extname(originalName).toLowerCase();
     const fileName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
-    return this.storageAdapter.put(buffer, fileName);
+    return storageAdapter.put(buffer, fileName);
   }
 
   private async getOrCreateBlob(input: PreparedStoredFile, dedupe: boolean): Promise<FilesBlobRef> {
-    const storageDriver = this.storageAdapter.driver;
+    const storageAdapter = this.requireStorageAdapter();
+    const storageDriver = storageAdapter.driver;
     const hash = this.computeContentHash(input.buffer);
 
     if (dedupe) {
@@ -269,7 +273,7 @@ export class FilesService {
 
     const stored = await this.store(input.buffer, input.fileName);
     try {
-      const created = await this.persistence.createBlob({
+      const created = await this.filesStore.createBlob({
         hash,
         size: input.size,
         mimeType: input.mimeType,
@@ -321,21 +325,23 @@ export class FilesService {
   }
 
   private async openStoredContent(storageDriver: string, storageKey: string): Promise<Readable> {
-    if (storageDriver !== this.storageAdapter.driver) {
+    const storageAdapter = this.requireStorageAdapter();
+    if (storageDriver !== storageAdapter.driver) {
       throw new ServiceUnavailableException(
-        `File was stored with driver "${storageDriver}", but current adapter is "${this.storageAdapter.driver}".`,
+        `File was stored with driver "${storageDriver}", but current adapter is "${storageAdapter.driver}".`,
       );
     }
-    return this.storageAdapter.open(storageKey);
+    return storageAdapter.open(storageKey);
   }
 
   private async deleteStoredContent(storageDriver: string, storageKey: string): Promise<void> {
-    if (storageDriver !== this.storageAdapter.driver) {
+    const storageAdapter = this.requireStorageAdapter();
+    if (storageDriver !== storageAdapter.driver) {
       throw new ServiceUnavailableException(
-        `File was stored with driver "${storageDriver}", but current adapter is "${this.storageAdapter.driver}".`,
+        `File was stored with driver "${storageDriver}", but current adapter is "${storageAdapter.driver}".`,
       );
     }
-    await this.storageAdapter.delete(storageKey);
+    await storageAdapter.delete(storageKey);
   }
 
   private generatePublicId(): string {
@@ -353,12 +359,12 @@ export class FilesService {
   private async cleanupReferencedBlobs(blobIds: string[]): Promise<void> {
     const uniqueIds = [...new Set(blobIds.filter(Boolean))];
     for (const blobId of uniqueIds) {
-      const blob = await this.persistence.findBlobById(blobId);
+      const blob = await this.filesStore.findBlobById(blobId);
       if (!blob) {
         continue;
       }
 
-      const deleted = await this.persistence.deleteBlobIfUnreferenced(blob.id);
+      const deleted = await this.filesStore.deleteBlobIfUnreferenced(blob.id);
       if (!deleted) {
         continue;
       }
@@ -372,7 +378,7 @@ export class FilesService {
     mimeType: string,
     storageDriver: string,
   ): Promise<FilesBlobRef | null> {
-    const existing = await this.persistence.findBlobRef(hash, size, mimeType, storageDriver);
+    const existing = await this.filesStore.findBlobRef(hash, size, mimeType, storageDriver);
     if (!existing) {
       return null;
     }
@@ -446,3 +452,4 @@ export class FilesService {
     return `${basePath}/${publicId}/download`;
   }
 }
+

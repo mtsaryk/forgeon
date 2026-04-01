@@ -12,12 +12,9 @@ import type {
   UserRecordDto,
 } from '@forgeon/accounts-contracts';
 import { ACCOUNTS_EMAIL_PORT, type AccountsEmailPort } from './accounts-email.port';
-import {
-  ACCOUNTS_PERSISTENCE_PORT,
-  type AccountsPersistencePort,
-} from './accounts-persistence.port';
 import { AuthJwtService } from './auth-jwt.service';
 import { AuthPasswordService } from './auth-password.service';
+import { AuthStore } from './auth.store';
 import type { AuthRefreshTokenPayload } from './auth.types';
 import { UsersService } from './users.service';
 import { toUserRecordDto } from './users.types';
@@ -33,8 +30,7 @@ const AUTH_ERROR_CODES = {
 @Injectable()
 export class AuthCoreService {
   constructor(
-    @Inject(ACCOUNTS_PERSISTENCE_PORT)
-    private readonly persistence: AccountsPersistencePort,
+    private readonly authStore: AuthStore,
     @Inject(ACCOUNTS_EMAIL_PORT)
     private readonly emailPort: AccountsEmailPort,
     private readonly authJwtService: AuthJwtService,
@@ -44,7 +40,7 @@ export class AuthCoreService {
 
   async registerWithPassword(input: RegisterRequest): Promise<AuthSessionResponse> {
     const email = input.email.trim().toLowerCase();
-    const existing = await this.persistence.findPasswordAccountByEmail(email);
+    const existing = await this.authStore.findPasswordAccountByEmail(email);
     if (existing) {
       throw new ConflictException({
         message: 'Email is already registered',
@@ -53,7 +49,7 @@ export class AuthCoreService {
     }
 
     const passwordHash = await this.authPasswordService.hash(input.password);
-    const account = await this.persistence.createPasswordAccount({
+    const account = await this.authStore.createPasswordAccount({
       email,
       passwordHash,
       status: 'active',
@@ -88,7 +84,7 @@ export class AuthCoreService {
 
   async loginWithPassword(emailInput: string, password: string): Promise<AuthSessionResponse> {
     const email = emailInput.trim().toLowerCase();
-    const account = await this.persistence.findPasswordAccountByEmail(email);
+    const account = await this.authStore.findPasswordAccountByEmail(email);
     if (!account?.passwordHash) {
       throw this.invalidCredentialsError();
     }
@@ -119,7 +115,7 @@ export class AuthCoreService {
       });
     }
 
-    const record = await this.persistence.findRefreshTokenById(payload.jti);
+    const record = await this.authStore.findRefreshTokenById(payload.jti);
     if (!record || record.revokedAt || record.userId !== payload.sub || record.expiresAt <= new Date()) {
       throw new UnauthorizedException({
         message: 'Refresh token is invalid or expired',
@@ -129,14 +125,14 @@ export class AuthCoreService {
 
     const matched = await this.authPasswordService.verify(refreshToken, record.tokenHash);
     if (!matched) {
-      await this.persistence.revokeRefreshToken(record.id, new Date());
+      await this.authStore.revokeRefreshToken(record.id, new Date());
       throw new UnauthorizedException({
         message: 'Refresh token is invalid or expired',
         details: { code: AUTH_ERROR_CODES.refreshInvalid },
       });
     }
 
-    const account = await this.persistence.findAccountByUserId(payload.sub);
+    const account = await this.authStore.findAccountByUserId(payload.sub);
     if (!account) {
       throw new UnauthorizedException({
         message: 'Refresh token is invalid or expired',
@@ -145,7 +141,7 @@ export class AuthCoreService {
     }
 
     this.assertAccountActive(account);
-    await this.persistence.revokeRefreshToken(record.id, new Date());
+    await this.authStore.revokeRefreshToken(record.id, new Date());
     return this.issueSession(toUserRecordDto(account));
   }
 
@@ -158,18 +154,18 @@ export class AuthCoreService {
       });
     }
 
-    await this.persistence.revokeRefreshToken(payload.jti, new Date());
+    await this.authStore.revokeRefreshToken(payload.jti, new Date());
   }
 
   async changePassword(userId: string, newPassword: string): Promise<void> {
     const passwordHash = await this.authPasswordService.hash(newPassword);
-    await this.persistence.updatePassword(userId, passwordHash);
-    await this.persistence.revokeRefreshTokensForUser(userId, new Date());
+    await this.authStore.updatePassword(userId, passwordHash);
+    await this.authStore.revokeRefreshTokensForUser(userId, new Date());
   }
 
   async requestPasswordReset(emailInput: string) {
     const email = emailInput.trim().toLowerCase();
-    const account = await this.persistence.findPasswordAccountByEmail(email);
+    const account = await this.authStore.findPasswordAccountByEmail(email);
     if (account) {
       await this.emailPort.sendPasswordResetEmail({
         email,
@@ -218,7 +214,7 @@ export class AuthCoreService {
     return {
       status: 'ok',
       feature: 'accounts',
-      storage: 'db-adapter',
+      storage: 'db-prisma',
       emailDelivery: 'stub',
       selfServiceRoutes: [
         '/api/users/:id',
@@ -245,7 +241,7 @@ export class AuthCoreService {
     ]);
 
     const tokenHash = await this.authPasswordService.hash(refreshToken);
-    await this.persistence.createRefreshToken({
+    await this.authStore.createRefreshToken({
       id: refreshId,
       userId: user.id,
       tokenHash,
