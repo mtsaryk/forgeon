@@ -536,7 +536,7 @@ function assertFilesQuotasWiring(projectRoot) {
   assert.match(apiPackage, /@forgeon\/files-quotas/);
   assert.match(apiPackage, /pnpm --filter @forgeon\/files-quotas build/);
   assert.equal(
-    apiPackage.indexOf('pnpm --filter @forgeon/files-quotas build') <
+    apiPackage.indexOf('pnpm --filter @forgeon/files-quotas build') >
       apiPackage.indexOf('pnpm --filter @forgeon/files build'),
     true,
   );
@@ -553,7 +553,7 @@ function assertFilesQuotasWiring(projectRoot) {
   assert.match(apiDockerfile, /COPY packages\/files-quotas packages\/files-quotas/);
   assert.match(apiDockerfile, /RUN pnpm --filter @forgeon\/files-quotas build/);
   assert.equal(
-    apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files-quotas build') <
+    apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files-quotas build') >
       apiDockerfile.indexOf('RUN pnpm --filter @forgeon/files build'),
     true,
   );

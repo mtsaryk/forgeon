@@ -37,8 +37,8 @@ function patchApiPackage(targetRoot) {
   ensureBuildStepBefore(
     packageJson,
     'predev',
-    'pnpm --filter @forgeon/files-quotas build',
     'pnpm --filter @forgeon/files build',
+    'pnpm --filter @forgeon/files-quotas build',
   );
   writeJson(packagePath, packageJson);
 }
@@ -280,7 +280,7 @@ function patchApiDockerfile(targetRoot) {
     : content.includes('RUN pnpm --filter @forgeon/api prisma:generate')
       ? 'RUN pnpm --filter @forgeon/api prisma:generate'
       : 'RUN pnpm --filter @forgeon/api build';
-  content = ensureLineBefore(content, buildAnchor, 'RUN pnpm --filter @forgeon/files-quotas build');
+  content = ensureLineAfter(content, buildAnchor, 'RUN pnpm --filter @forgeon/files-quotas build');
 
   fs.writeFileSync(dockerfilePath, `${content.trimEnd()}\n`, 'utf8');
 }
