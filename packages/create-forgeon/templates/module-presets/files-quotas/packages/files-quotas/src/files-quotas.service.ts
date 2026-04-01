@@ -1,12 +1,12 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { FilesService } from '@forgeon/files';
+import { FilesStore } from '@forgeon/files';
 import { FilesQuotasConfigService } from './files-quotas-config.service';
 import type { FilesQuotaCheckInput, FilesQuotaCheckResult } from './files-quotas.types';
 
 @Injectable()
 export class FilesQuotasService {
   constructor(
-    private readonly filesService: FilesService,
+    private readonly filesStore: FilesStore,
     private readonly configService: FilesQuotasConfigService,
   ) {}
 
@@ -52,7 +52,7 @@ export class FilesQuotasService {
       };
     }
 
-    const usage = await this.filesService.getOwnerUsage(input.ownerType, input.ownerId);
+    const usage = await this.filesStore.countOwnerUsage(input.ownerType, input.ownerId);
     const next = {
       filesCount: usage.filesCount + 1,
       totalBytes: usage.totalBytes + input.fileSize,

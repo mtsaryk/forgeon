@@ -506,6 +506,16 @@ function assertFilesAccessWiring(projectRoot) {
   assert.match(filesController, /@Req\(\) req: any/);
   assert.match(filesController, /openDownload\(publicId,\s*variant\)/);
 
+  const filesModule = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files', 'src', 'forgeon-files.module.ts'),
+    'utf8',
+  );
+  assert.match(filesModule, /import \{ ForgeonFilesAccessModule \} from '@forgeon\/files-access';/);
+  assert.match(
+    filesModule,
+    /imports: \[FilesConfigModule, ForgeonFilesAccessModule, (?:ForgeonFilesImageModule, )?DbPrismaModule, \.\.\.\(options\.imports \?\? \[\]\)\],/,
+  );
+
   const healthController = fs.readFileSync(
     path.join(projectRoot, 'apps', 'api', 'src', 'health', 'health.controller.ts'),
     'utf8',
@@ -591,6 +601,22 @@ function assertFilesQuotasWiring(projectRoot) {
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Files Quotas Module/);
   assert.match(readme, /owner-based limits/i);
+
+  const filesQuotasService = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-quotas', 'src', 'files-quotas.service.ts'),
+    'utf8',
+  );
+  assert.match(filesQuotasService, /FilesStore/);
+  assert.match(filesQuotasService, /filesStore\.countOwnerUsage/);
+  assert.doesNotMatch(filesQuotasService, /FilesService/);
+
+  const filesQuotasModule = fs.readFileSync(
+    path.join(projectRoot, 'packages', 'files-quotas', 'src', 'forgeon-files-quotas.module.ts'),
+    'utf8',
+  );
+  assert.match(filesQuotasModule, /DbPrismaModule/);
+  assert.match(filesQuotasModule, /FilesStore/);
+  assert.doesNotMatch(filesQuotasModule, /ForgeonFilesModule/);
 }
 
 function assertFilesImageWiring(projectRoot) {

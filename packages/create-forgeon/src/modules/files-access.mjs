@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -49,6 +49,29 @@ function patchFilesPackage(targetRoot) {
   const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   ensureDependency(packageJson, '@forgeon/files-access', 'workspace:*');
   writeJson(packagePath, packageJson);
+}
+
+function patchFilesModule(targetRoot) {
+  const filePath = path.join(targetRoot, 'packages', 'files', 'src', 'forgeon-files.module.ts');
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  content = ensureImportLine(content, "import { ForgeonFilesAccessModule } from '@forgeon/files-access';");
+
+  if (!content.includes('imports: [FilesConfigModule, ForgeonFilesAccessModule,')) {
+    content = content.replace(
+      'imports: [FilesConfigModule, ForgeonFilesImageModule, DbPrismaModule, ...(options.imports ?? [])],',
+      'imports: [FilesConfigModule, ForgeonFilesAccessModule, ForgeonFilesImageModule, DbPrismaModule, ...(options.imports ?? [])],',
+    );
+    content = content.replace(
+      'imports: [FilesConfigModule, DbPrismaModule, ...(options.imports ?? [])],',
+      'imports: [FilesConfigModule, ForgeonFilesAccessModule, DbPrismaModule, ...(options.imports ?? [])],',
+    );
+  }
+
+  fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
 
 function patchAppModule(targetRoot) {
@@ -366,6 +389,7 @@ export function applyFilesAccessModule({ packageRoot, targetRoot }) {
 
   patchApiPackage(targetRoot);
   patchFilesPackage(targetRoot);
+  patchFilesModule(targetRoot);
   patchAppModule(targetRoot);
   patchFilesController(targetRoot);
   patchHealthController(targetRoot, probeTargets);
