@@ -616,6 +616,10 @@ function assertFilesImageWiring(projectRoot) {
     'utf8',
   );
   assert.match(filesModule, /ForgeonFilesImageModule/);
+  assert.match(
+    filesModule,
+    /imports: \[FilesConfigModule, (?:ForgeonFilesAccessModule, )?ForgeonFilesImageModule, DbPrismaModule, \.\.\.\(options\.imports \?\? \[\]\)\],/,
+  );
 
   const filesService = fs.readFileSync(
     path.join(projectRoot, 'packages', 'files', 'src', 'files.service.ts'),

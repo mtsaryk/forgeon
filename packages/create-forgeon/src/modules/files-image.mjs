@@ -123,10 +123,16 @@ function patchFilesModule(targetRoot) {
 
   let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
   content = ensureImportLine(content, "import { ForgeonFilesImageModule } from '@forgeon/files-image';");
-  content = content.replace(
-    'imports: [FilesConfigModule],',
-    'imports: [FilesConfigModule, ForgeonFilesImageModule],',
-  );
+  if (!content.includes('imports: [FilesConfigModule, ForgeonFilesImageModule,')) {
+    content = content.replace(
+      'imports: [FilesConfigModule, DbPrismaModule, ...(options.imports ?? [])],',
+      'imports: [FilesConfigModule, ForgeonFilesImageModule, DbPrismaModule, ...(options.imports ?? [])],',
+    );
+    content = content.replace(
+      'imports: [FilesConfigModule, ForgeonFilesAccessModule, DbPrismaModule, ...(options.imports ?? [])],',
+      'imports: [FilesConfigModule, ForgeonFilesAccessModule, ForgeonFilesImageModule, DbPrismaModule, ...(options.imports ?? [])],',
+    );
+  }
 
   fs.writeFileSync(filePath, `${content.trimEnd()}\n`, 'utf8');
 }
