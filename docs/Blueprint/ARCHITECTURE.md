@@ -161,7 +161,7 @@ Use the lightest pattern that matches the boundary.
   - inject `PrismaService` directly or isolate Prisma queries in small `store` classes
   - add `mapper` files only when response/domain shaping is non-trivial
   - do not introduce DB persistence ports before a second DB runtime is real
-- optional runtime reactions (`notifications`, `audit`, `analytics`, optional delivery fan-out):
+- optional runtime reactions (`audit`, `analytics`, optional delivery fan-out):
   - use internal domain events for in-process reactions
 - reliable async cross-module reactions:
   - use integration events + outbox

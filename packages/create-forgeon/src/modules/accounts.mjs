@@ -336,7 +336,7 @@ function patchReadme(targetRoot) {
     '',
     'Current boundaries:',
     '- `UsersModule.register({ user, profile, settings })` controls runtime defaults for JSON-backed extension fields',
-    '- email verification and password reset use an internal email stub through `AccountsEmailPort`',
+    '- email verification and password-reset request flows send best-effort communication intents through `CommunicationsService`',
     '- base accounts schema does not include RBAC storage',
     ACCOUNTS_RBAC_MARKERS.start,
     ACCOUNTS_DEFAULT_RBAC_BLOCK,
@@ -415,6 +415,8 @@ export function applyAccountsModule({ packageRoot, targetRoot }) {
     'AUTH_ARGON2_PARALLELISM=1',
   ]);
 }
+
+
 
 
 

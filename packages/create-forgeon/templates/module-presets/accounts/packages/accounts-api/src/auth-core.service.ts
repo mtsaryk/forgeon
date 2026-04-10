@@ -2,16 +2,16 @@ import crypto from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
-  Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import { CommunicationsService } from '@forgeon/communications';
 import type {
   AuthSessionResponse,
   RegisterRequest,
   UserRecordDto,
 } from '@forgeon/accounts-contracts';
-import { ACCOUNTS_EMAIL_PORT, type AccountsEmailPort } from './accounts-email.port';
 import { AuthJwtService } from './auth-jwt.service';
 import { AuthPasswordService } from './auth-password.service';
 import { AuthStore } from './auth.store';
@@ -29,10 +29,11 @@ const AUTH_ERROR_CODES = {
 
 @Injectable()
 export class AuthCoreService {
+  private readonly logger = new Logger(AuthCoreService.name);
+
   constructor(
     private readonly authStore: AuthStore,
-    @Inject(ACCOUNTS_EMAIL_PORT)
-    private readonly emailPort: AccountsEmailPort,
+    private readonly communicationsService: CommunicationsService,
     private readonly authJwtService: AuthJwtService,
     private readonly authPasswordService: AuthPasswordService,
     private readonly usersService: UsersService,
@@ -66,20 +67,39 @@ export class AuthCoreService {
       },
     });
 
+    const accountDto = toUserRecordDto(account);
     const verificationToken = this.createStubToken('verify', account.id);
     await Promise.all([
-      this.emailPort.sendVerificationEmail({
-        email,
-        token: verificationToken,
-        userId: account.id,
+      this.sendCommunicationSafely({
+        kind: 'email_verification_code',
+        channels: ['email'],
+        recipient: { email },
+        payload: {
+          NAME: accountDto.profile?.name ?? 'there',
+          CODE: verificationToken,
+        },
+        locale: accountDto.settings?.locale ?? undefined,
+        metadata: {
+          USER_ID: account.id,
+          SOURCE: 'accounts.register',
+        },
       }),
-      this.emailPort.sendWelcomeEmail({
-        email,
-        userId: account.id,
+      this.sendCommunicationSafely({
+        kind: 'welcome_email',
+        channels: ['email'],
+        recipient: { email },
+        payload: {
+          NAME: accountDto.profile?.name ?? 'there',
+        },
+        locale: accountDto.settings?.locale ?? undefined,
+        metadata: {
+          USER_ID: account.id,
+          SOURCE: 'accounts.register',
+        },
       }),
     ]);
 
-    return this.issueSession(toUserRecordDto(account));
+    return this.issueSession(accountDto);
   }
 
   async loginWithPassword(emailInput: string, password: string): Promise<AuthSessionResponse> {
@@ -167,16 +187,26 @@ export class AuthCoreService {
     const email = emailInput.trim().toLowerCase();
     const account = await this.authStore.findPasswordAccountByEmail(email);
     if (account) {
-      await this.emailPort.sendPasswordResetEmail({
-        email,
-        token: this.createStubToken('reset', account.id),
-        userId: account.id,
+      const user = toUserRecordDto(account);
+      await this.sendCommunicationSafely({
+        kind: 'password_reset',
+        channels: ['email'],
+        recipient: { email },
+        payload: {
+          NAME: user.profile?.name ?? 'there',
+          TOKEN: this.createStubToken('reset', account.id),
+        },
+        locale: user.settings?.locale ?? undefined,
+        metadata: {
+          USER_ID: account.id,
+          SOURCE: 'accounts.password-reset',
+        },
       });
     }
 
     return {
       status: 'accepted',
-      delivery: 'stub',
+      delivery: 'communications',
     };
   }
 
@@ -188,7 +218,7 @@ export class AuthCoreService {
     return {
       status: 'accepted',
       delivery: 'stub',
-      nextAction: 'emails-module',
+      nextAction: 'accounts-token-flow',
       passwordLength: newPassword.length,
     };
   }
@@ -201,7 +231,7 @@ export class AuthCoreService {
     return {
       status: 'accepted',
       delivery: 'stub',
-      nextAction: 'emails-module',
+      nextAction: 'accounts-token-flow',
     };
   }
 
@@ -215,7 +245,7 @@ export class AuthCoreService {
       status: 'ok',
       feature: 'accounts',
       storage: 'db-prisma',
-      emailDelivery: 'stub',
+      emailDelivery: 'communications',
       selfServiceRoutes: [
         '/api/users/:id',
         '/api/users/:id/profile',
@@ -256,6 +286,16 @@ export class AuthCoreService {
       refreshTtl: this.authJwtService.refreshTtl,
       user,
     };
+  }
+
+  private async sendCommunicationSafely(input: Parameters<CommunicationsService['send']>[0]): Promise<void> {
+    try {
+      await this.communicationsService.send(input);
+    } catch (error) {
+      this.logger.warn(
+        `accounts.communication_failed kind=${input.kind} channel=${input.channels.join(',')} reason=${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    }
   }
 
   private assertAccountActive(user: { status: string; deletedAt: Date | null }) {

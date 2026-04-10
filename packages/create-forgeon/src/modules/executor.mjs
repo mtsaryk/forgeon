@@ -11,6 +11,7 @@ import { applyFilesLocalModule } from './files-local.mjs';
 import { applyFilesS3Module } from './files-s3.mjs';
 import { applyI18nModule } from './i18n.mjs';
 import { applyAccountsModule } from './accounts.mjs';
+import { applyCommunicationsModule } from './communications.mjs';
 import { applyLoggerModule } from './logger.mjs';
 import { applyRateLimitModule } from './rate-limit.mjs';
 import { applyRbacModule } from './rbac.mjs';
@@ -44,6 +45,7 @@ const MODULE_APPLIERS = {
   'files-s3': applyFilesS3Module,
   i18n: applyI18nModule,
   accounts: applyAccountsModule,
+  communications: applyCommunicationsModule,
   logger: applyLoggerModule,
   queue: applyQueueModule,
   'rate-limit': applyRateLimitModule,
@@ -84,5 +86,7 @@ export function addModule({ moduleId, targetRoot, packageRoot, writeDocs = true 
       : `Module "${preset.id}" is planned; docs note created only.`,
   };
 }
+
+
 
 

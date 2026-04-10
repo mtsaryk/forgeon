@@ -154,6 +154,7 @@ describe('runAddModule', () => {
         'i18n',
         'logger',
         'swagger',
+        'communications',
         'accounts',
         'rate-limit',
         'rbac',
@@ -227,4 +228,7 @@ describe('runAddModule', () => {
     }
   });
 });
+
+
+
 

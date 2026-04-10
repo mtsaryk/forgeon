@@ -139,16 +139,29 @@ const MODULE_PRESETS = {
     optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
+  communications: {
+    id: 'communications',
+    label: 'Communications',
+    category: 'platform-communications',
+    implemented: true,
+    description:
+      'Canonical communication orchestration module with file-based templates, Gmail SMTP email delivery, and SMS/PUSH stubs.',
+    detectionPaths: ['packages/communications/package.json'],
+    provides: ['communications-runtime'],
+    requires: [],
+    optionalIntegrations: [],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
   accounts: {
     id: 'accounts',
     label: 'Accounts',
     category: 'auth-security',
     implemented: true,
     description:
-      'Accounts umbrella module with DB-backed users/auth runtime, argon2 passwords, JWT access+refresh rotation, and owner-scoped self-service routes.',
+      'Accounts umbrella module with DB-backed users/auth runtime, argon2 passwords, JWT access+refresh rotation, owner-scoped self-service routes, and communications integration.',
     detectionPaths: ['packages/accounts-api/package.json'],
     provides: ['accounts-runtime'],
-    requires: [{ type: 'capability', id: 'db-adapter' }],
+    requires: [{ type: 'capability', id: 'db-adapter' }, { type: 'capability', id: 'communications-runtime' }],
     optionalIntegrations: [
       {
         id: 'accounts-rbac',
@@ -303,6 +316,9 @@ export function ensureModuleExists(moduleId) {
   }
   return preset;
 }
+
+
+
 
 
 

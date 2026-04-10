@@ -796,7 +796,7 @@ function assertAccountsWiring(projectRoot) {
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Accounts Module/);
   assert.match(readme, /owner-scoped user routes/);
-  assert.match(readme, /AccountsEmailPort/);
+  assert.match(readme, /CommunicationsService/);
 
   const authServiceSource = fs.readFileSync(
     path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.service.ts'),
@@ -816,6 +816,7 @@ function assertAccountsWiring(projectRoot) {
     'utf8',
   );
   assert.match(accountsApiPackage, /@forgeon\/db-prisma/);
+  assert.match(accountsApiPackage, /@forgeon\/communications/);
 
   const authStoreSource = fs.readFileSync(
     path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.store.ts'),
@@ -2689,6 +2690,8 @@ describe('addModule', () => {
     }
   });
 });
+
+
 
 
 

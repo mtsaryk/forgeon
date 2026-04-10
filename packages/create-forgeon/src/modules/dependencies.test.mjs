@@ -27,12 +27,21 @@ const TEST_PRESETS = [
     optionalIntegrations: [],
   },
   {
+    id: 'communications',
+    label: 'Communications',
+    implemented: true,
+    detectionPaths: ['packages/communications/package.json'],
+    provides: ['communications-runtime'],
+    requires: [],
+    optionalIntegrations: [],
+  },
+  {
     id: 'accounts',
     label: 'Accounts',
     implemented: true,
     detectionPaths: ['packages/accounts-api/package.json'],
     provides: ['accounts-runtime'],
-    requires: [{ type: 'capability', id: 'db-adapter' }],
+    requires: [{ type: 'capability', id: 'db-adapter' }, { type: 'capability', id: 'communications-runtime' }],
     optionalIntegrations: [
       {
         id: 'accounts-rbac',
@@ -204,9 +213,10 @@ describe('module dependency helpers', () => {
       });
 
       assert.equal(result.cancelled, false);
-      assert.deepEqual(result.moduleSequence, ['db-prisma', 'accounts']);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'communications', 'accounts']);
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
+        'communications-runtime': 'communications',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -375,6 +385,7 @@ describe('module dependency helpers', () => {
       assert.equal(result.cancelled, false);
       assert.deepEqual(result.moduleSequence, [
         'db-prisma',
+        'communications',
         'accounts',
         'rbac',
         'files-local',
@@ -388,6 +399,7 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'files-storage-adapter': 'files-local',
         'db-adapter': 'db-prisma',
+        'communications-runtime': 'communications',
         'files-runtime': 'files',
         'queue-runtime': 'queue',
       });
@@ -499,3 +511,5 @@ describe('module dependency helpers', () => {
     }
   });
 });
+
+

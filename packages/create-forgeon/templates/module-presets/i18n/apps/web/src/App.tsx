@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from './i18n';
 import * as i18nWeb from '@forgeon/i18n-web';
 import type { I18nLocale } from '@forgeon/i18n-web';
-import { probeDefinitions, type ProbeDefinition, type ProbeResult } from './probes';
+import { probeDefinitions, type ProbeDefinition, type ProbeInputDefinition, type ProbeResult } from './probes';
 import './styles.css';
 
 type ProbeState = {
@@ -12,17 +12,42 @@ type ProbeState = {
   loading: boolean;
 };
 
+type ProbeInputState = Record<string, string>;
+
 const emptyProbeState: ProbeState = {
   result: null,
   error: null,
   loading: false,
 };
 
+function resolveBodyTemplate(value: unknown, inputs: ProbeInputState): unknown {
+  if (typeof value === 'string') {
+    const match = value.match(/^\$INPUT\.([a-zA-Z0-9_-]+)\$$/);
+    if (match) {
+      return inputs[match[1]] ?? '';
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveBodyTemplate(item, inputs));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, resolveBodyTemplate(nestedValue, inputs)]),
+    );
+  }
+
+  return value;
+}
+
 export default function App() {
   const { t } = useTranslation(['ui']);
   const { I18N_LOCALES, getInitialLocale, persistLocale, toLangQuery } = i18nWeb;
   const [locale, setLocale] = useState<I18nLocale>(getInitialLocale);
   const [probeState, setProbeState] = useState<Record<string, ProbeState>>({});
+  const [probeInputs, setProbeInputs] = useState<Record<string, ProbeInputState>>({});
 
   const changeLocale = (nextLocale: I18nLocale) => {
     setLocale(nextLocale);
@@ -30,15 +55,39 @@ export default function App() {
     void i18n.changeLanguage(nextLocale);
   };
 
-  const requestProbe = async (probe: ProbeDefinition): Promise<ProbeResult> => {
-    const response = await fetch(`/api${probe.path}${toLangQuery(locale)}`, {
-      ...(probe.request ?? {}),
-      cache: 'no-store',
-      headers: {
-        ...(probe.request?.headers ?? {}),
-        'Accept-Language': locale,
+  const getProbeInputValue = (probeId: string, input: ProbeInputDefinition): string => {
+    return probeInputs[probeId]?.[input.id] ?? input.defaultValue ?? '';
+  };
+
+  const updateProbeInput = (probeId: string, inputId: string, value: string) => {
+    setProbeInputs((current) => ({
+      ...current,
+      [probeId]: {
+        ...(current[probeId] ?? {}),
+        [inputId]: value,
       },
-    });
+    }));
+  };
+
+  const requestProbe = async (probe: ProbeDefinition): Promise<ProbeResult> => {
+    const method = probe.request?.method ?? 'GET';
+    const headers: Record<string, string> = {
+      ...(probe.request?.headers ?? {}),
+      'Accept-Language': locale,
+    };
+
+    const requestInit: RequestInit = {
+      method,
+      cache: 'no-store',
+      headers,
+    };
+
+    if (method !== 'GET' && probe.request?.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      requestInit.body = JSON.stringify(resolveBodyTemplate(probe.request.body, probeInputs[probe.id] ?? {}));
+    }
+
+    const response = await fetch(`/api${probe.path}${toLangQuery(locale)}`, requestInit);
 
     let body: unknown = null;
     try {
@@ -113,6 +162,21 @@ export default function App() {
                   {current.loading ? 'Running...' : probe.buttonLabel}
                 </button>
               </div>
+              {probe.inputs?.length ? (
+                <div className="probe-inputs">
+                  {probe.inputs.map((input) => (
+                    <label key={`${probe.id}-${input.id}`} className="probe-input">
+                      <span>{input.label}</span>
+                      <input
+                        type={input.type ?? 'text'}
+                        value={getProbeInputValue(probe.id, input)}
+                        placeholder={input.placeholder}
+                        onChange={(event) => updateProbeInput(probe.id, input.id, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
               <div className="probe-output">
                 <h3>{probe.resultTitle}</h3>
                 {current.error ? <p className="error">{current.error}</p> : null}

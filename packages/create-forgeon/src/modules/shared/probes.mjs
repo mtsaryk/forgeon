@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { readJson } from '../../utils/fs.mjs';
 
@@ -17,6 +17,7 @@ const probeOrders = {
   validation: 30,
   db: 40,
   auth: 50,
+  communications: 55,
   rbac: 60,
   'rate-limit': 70,
   files: 80,
@@ -231,5 +232,6 @@ export function readManagedWebProbeDefinitions(targetRoot) {
     return left.id.localeCompare(right.id);
   });
 }
+
 
 

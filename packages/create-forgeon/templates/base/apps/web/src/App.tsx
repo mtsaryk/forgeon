@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { probeDefinitions, type ProbeDefinition, type ProbeResult } from './probes';
+import { probeDefinitions, type ProbeDefinition, type ProbeInputDefinition, type ProbeResult } from './probes';
 import './styles.css';
 
 type ProbeState = {
@@ -8,34 +8,83 @@ type ProbeState = {
   loading: boolean;
 };
 
+type ProbeInputState = Record<string, string>;
+
 const emptyProbeState: ProbeState = {
   result: null,
   error: null,
   loading: false,
 };
 
+function resolveBodyTemplate(value: unknown, inputs: ProbeInputState): unknown {
+  if (typeof value === 'string') {
+    const match = value.match(/^\$INPUT\.([a-zA-Z0-9_-]+)\$$/);
+    if (match) {
+      return inputs[match[1]] ?? '';
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveBodyTemplate(item, inputs));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, resolveBodyTemplate(nestedValue, inputs)]),
+    );
+  }
+
+  return value;
+}
+
 export default function App() {
   const [probeState, setProbeState] = useState<Record<string, ProbeState>>({});
+  const [probeInputs, setProbeInputs] = useState<Record<string, ProbeInputState>>({});
+
+  const getProbeInputValue = (probeId: string, input: ProbeInputDefinition): string => {
+    return probeInputs[probeId]?.[input.id] ?? input.defaultValue ?? '';
+  };
+
+  const updateProbeInput = (probeId: string, inputId: string, value: string) => {
+    setProbeInputs((current) => ({
+      ...current,
+      [probeId]: {
+        ...(current[probeId] ?? {}),
+        [inputId]: value,
+      },
+    }));
+  };
 
   const requestProbe = async (probe: ProbeDefinition): Promise<ProbeResult> => {
-    const response = await fetch(`/api${probe.path}`, {
-      ...(probe.request ?? {}),
+    const method = probe.request?.method ?? 'GET';
+    const headers: Record<string, string> = {
+      ...(probe.request?.headers ?? {}),
+    };
+
+    const requestInit: RequestInit = {
+      method,
       cache: 'no-store',
-      headers: {
-        ...(probe.request?.headers ?? {}),
-      },
-    });
-    let body: unknown = null;
+      headers,
+    };
+
+    if (method !== 'GET' && probe.request?.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      requestInit.body = JSON.stringify(resolveBodyTemplate(probe.request.body, probeInputs[probe.id] ?? {}));
+    }
+
+    const response = await fetch(`/api${probe.path}`, requestInit);
+    let responseBody: unknown = null;
 
     try {
-      body = await response.json();
+      responseBody = await response.json();
     } catch {
-      body = { message: 'Non-JSON response' };
+      responseBody = { message: 'Non-JSON response' };
     }
 
     return {
       statusCode: response.status,
-      body,
+      body: responseBody,
     };
   };
 
@@ -87,6 +136,21 @@ export default function App() {
                   {current.loading ? 'Running...' : probe.buttonLabel}
                 </button>
               </div>
+              {probe.inputs?.length ? (
+                <div className="probe-inputs">
+                  {probe.inputs.map((input) => (
+                    <label key={`${probe.id}-${input.id}`} className="probe-input">
+                      <span>{input.label}</span>
+                      <input
+                        type={input.type ?? 'text'}
+                        value={getProbeInputValue(probe.id, input)}
+                        placeholder={input.placeholder}
+                        onChange={(event) => updateProbeInput(probe.id, input.id, event.target.value)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
               <div className="probe-output">
                 <h3>{probe.resultTitle}</h3>
                 {current.error ? <p className="error">{current.error}</p> : null}

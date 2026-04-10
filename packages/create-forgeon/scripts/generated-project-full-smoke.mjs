@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,7 +13,8 @@ const FULL_MODULE_SEQUENCE = [
   'i18n',
   'logger',
   'swagger',
-  'jwt-auth',
+  'communications',
+  'accounts',
   'rbac',
   'rate-limit',
   'queue',
@@ -83,32 +84,34 @@ function assertGeneratedProjectState(targetRoot) {
   }
 
   assert.equal(fs.existsSync(path.join(targetRoot, 'scripts', 'forgeon-sync-integrations.mjs')), true);
-  assert.equal(fs.existsSync(path.join(targetRoot, 'apps', 'api', 'src', 'auth', 'prisma-auth-refresh-token.store.ts')), true);
   assert.equal(
-    fs.existsSync(
-      path.join(
-        targetRoot,
-        'apps',
-        'api',
-        'prisma',
-        'migrations',
-        '0002_auth_refresh_token_hash',
-        'migration.sql',
-      ),
-    ),
+    fs.existsSync(path.join(targetRoot, 'resources', 'communications', 'email', 'communications_probe.html')),
+    true,
+  );
+  assert.equal(
+    fs.existsSync(path.join(targetRoot, 'apps', 'api', 'prisma', 'migrations', '0002_accounts_core', 'migration.sql')),
     true,
   );
 
   const appModule = read(path.join(targetRoot, 'apps', 'api', 'src', 'app.module.ts'));
-  const authContracts = read(path.join(targetRoot, 'packages', 'auth-contracts', 'src', 'index.ts'));
+  const accountsApiPackage = read(path.join(targetRoot, 'packages', 'accounts-api', 'package.json'));
+  const communicationsPackage = read(path.join(targetRoot, 'packages', 'communications', 'package.json'));
+  const probes = read(path.join(targetRoot, 'apps', 'web', 'src', 'probes.ts'));
   const readme = read(path.join(targetRoot, 'README.md'));
   const compose = read(path.join(targetRoot, 'infra', 'docker', 'compose.yml'));
 
-  assert.match(appModule, /refreshTokenStoreProvider/);
-  assert.match(appModule, /PrismaAuthRefreshTokenStore/);
-  assert.match(authContracts, /permissions\?: string\[];/);
-  assert.match(readme, /refresh token persistence: enabled through the `db-adapter` capability/);
-  assert.match(readme, /RBAC integration: demo auth tokens include `health\.rbac` permission/);
+  assert.match(appModule, /communicationsConfig/);
+  assert.match(appModule, /communicationsEnvSchema/);
+  assert.match(appModule, /ForgeonCommunicationsModule\.register\(\)/);
+  assert.match(appModule, /ForgeonAccountsModule\.register\(/);
+  assert.match(accountsApiPackage, /@forgeon\/communications/);
+  assert.match(communicationsPackage, /nodemailer/);
+  assert.match(probes, /"id": "communications"/);
+  assert.match(probes, /"buttonLabel": "Send communications probe email"/);
+  assert.match(probes, /\$INPUT\.email\$/);
+  assert.match(readme, /## Communications Module/);
+  assert.match(readme, /CommunicationsService/);
+  assert.match(readme, /## Accounts Module/);
   assert.match(compose, /^\s{2}redis:\s*$/m);
   assert.match(compose, /^\s{2}caddy:\s*$/m);
 }

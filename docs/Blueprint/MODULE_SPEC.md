@@ -118,7 +118,7 @@ Rule:
 
 Use for:
 
-- notifications
+- optional delivery fan-out
 - audit trails
 - analytics hooks
 - other fan-out reactions that are not required for the core transaction to be valid

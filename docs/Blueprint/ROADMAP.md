@@ -150,15 +150,17 @@ This is a living plan. Scope and priorities may change.
   - [x] heartbeat task template
   - [ ] optional distributed lock (Redis)
 
-- [ ] `mail`
-  - [ ] at least one provider preset (SMTP/Resend/SendGrid)
-  - [ ] templates: verify email, reset password
-  - [ ] optional outbox with queue
+- [x] `communications`
+  - [x] single public communication orchestration module
+  - [x] file-based templates under `resources/communications/*`
+  - [x] Gmail SMTP email provider baseline
+  - [x] SMS/PUSH stub channels
+  - [ ] optional outbox with queue when delivery reliability needs justify it
 
 - [ ] `internal-event-bus`
   - [ ] ship as optional add-module: `create-forgeon add internal-event-bus`
   - [ ] initial provider: backend-only, internal-only, in-process delivery
-  - [ ] future extensions: queue/outbox bridge, realtime/notifications consumers
+  - [ ] future extensions: queue/outbox bridge, realtime/communications consumers
   - [ ] use for optional runtime reactions only; required dependencies stay on port/provider boundaries
 
 - [ ] `realtime adapter`
@@ -166,11 +168,6 @@ This is a living plan. Scope and priorities may change.
   - [ ] providers: `realtime-sse`, `realtime-ws`
   - [ ] backend event publisher / channel abstraction
   - [ ] frontend transport-agnostic hooks/client
-
-- [ ] `notifications`
-  - [ ] event -> notification intent -> delivery flow
-  - [ ] in-app delivery via realtime adapter
-  - [ ] mail delivery integration
 
 - [ ] workspace `eslint/prettier` config package
 
@@ -229,16 +226,15 @@ Scope:
 - `scheduler`
 - `internal-event-bus`
 - `realtime adapter`
-- `notifications`
-- `mail`
+- `communications`
 - workspace `eslint/prettier` config package
 - frontend `http-client`
 
 Definition of Done:
 - runtime boundary cleanup needed for `internal-event-bus` is complete
 - `internal-event-bus` installs through `create-forgeon add internal-event-bus` and validates at least one optional reaction flow
-- queue/scheduler/realtime/mail basic scenarios work in local + docker
-- notifications delivery flow is validated through at least one concrete channel
+- queue/scheduler/realtime/communications basic scenarios work in local + docker
+- communications delivery flow is validated through at least one concrete channel
 - frontend http-client consumes api contracts with typed errors
 - lint/typecheck/test/build pass through CI gate preset
 - docs include migration notes and extension points
@@ -247,10 +243,10 @@ Definition of Done:
 
 - `rbac` installs independently and integrates optionally with `accounts`
 - `rate-limit` should follow Redis/queue foundation for scalable mode
-- `mail` should reuse queue foundation where possible
-- `internal-event-bus` should land after runtime boundary cleanup and before broader realtime/notifications fan-out work
+- `communications` should reuse queue foundation only when delivery reliability or async fan-out becomes a real need
+- `internal-event-bus` should land after runtime boundary cleanup and before broader realtime/communications fan-out work
 - `realtime adapter` should stay capability-driven and land before transport-specific add-ons
-- `notifications` should compose delivery channels (realtime/mail) instead of embedding transport logic directly
+- `communications` should keep transport logic behind channel adapters instead of leaking provider concerns into domain modules
 - `openapi` is most useful before/with `accounts` and `http-client`
 - `webhooks` stay post-MVP unless a concrete use-case appears
 

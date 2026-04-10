@@ -1,11 +1,20 @@
-﻿export type ProbeResult = {
+export type ProbeResult = {
   statusCode: number;
   body: unknown;
+};
+
+export type ProbeInputDefinition = {
+  id: string;
+  label: string;
+  type?: 'text' | 'email';
+  placeholder?: string;
+  defaultValue?: string;
 };
 
 export type ProbeRequest = {
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
+  body?: unknown;
 };
 
 export type ProbeDefinition = {
@@ -16,6 +25,7 @@ export type ProbeDefinition = {
   resultTitle: string;
   path: string;
   request?: ProbeRequest;
+  inputs?: ProbeInputDefinition[];
 };
 
 const baseProbeDefinitions: ProbeDefinition[] = [

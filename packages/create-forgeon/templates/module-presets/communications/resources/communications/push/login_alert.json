@@ -1,0 +1,4 @@
+{
+  "title": "Login alert",
+  "message": "A new login was detected on $DATE$"
+}

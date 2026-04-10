@@ -6,12 +6,12 @@ import {
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ForgeonCommunicationsModule } from '@forgeon/communications';
 import { DbPrismaModule } from '@forgeon/db-prisma';
 import {
   ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
   NoopAccountsAuthzClaimsResolver,
 } from './accounts-rbac.port';
-import { ACCOUNTS_EMAIL_PORT, StubAccountsEmailAdapter } from './accounts-email.port';
 import { AuthConfigModule } from './auth-config.module';
 import { AuthController } from './auth.controller';
 import { AuthCoreService } from './auth-core.service';
@@ -41,6 +41,7 @@ export class ForgeonAccountsModule {
       imports: [
         AuthConfigModule,
         DbPrismaModule,
+        ForgeonCommunicationsModule.register(),
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.register({}),
         ...(options.imports ?? []),
@@ -50,10 +51,6 @@ export class ForgeonAccountsModule {
         {
           provide: USERS_MODULE_OPTIONS,
           useValue: UsersModule.register(options.users ?? {}),
-        },
-        {
-          provide: ACCOUNTS_EMAIL_PORT,
-          useClass: StubAccountsEmailAdapter,
         },
         {
           provide: ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
@@ -80,7 +77,6 @@ export class ForgeonAccountsModule {
         UsersService,
         JwtAuthGuard,
         OwnerAccessGuard,
-        ACCOUNTS_EMAIL_PORT,
         ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
       ],
     };

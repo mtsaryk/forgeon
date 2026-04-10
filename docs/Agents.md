@@ -720,8 +720,7 @@ Immediate next engineering targets:
 2. continue only the highest-value platform additions next:
    - cache
    - realtime adapter
-   - notifications
-   - mail
+   - communications extensions only when a real channel/provider need appears
    - scheduler distributed lock when needed
 3. keep new modules feature-first, not fullstack-by-default:
    - backend-only, web-only, or fullstack are all valid

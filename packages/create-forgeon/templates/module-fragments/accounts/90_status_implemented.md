@@ -3,6 +3,6 @@
 Status: implemented.
 
 Notes:
-- `accounts` is a hard consumer of the `db-adapter` capability.
+- `accounts` is a hard consumer of the `db-adapter` and `communications-runtime` capabilities.
 - The base accounts schema does not store RBAC roles or permissions.
-- Email verification and password reset are routed through an internal email stub boundary until the public `emails` module is implemented.
+- Registration and password-reset request flows send best-effort communication intents through `CommunicationsService`.

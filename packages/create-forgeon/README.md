@@ -1,4 +1,4 @@
-# create-forgeon
+﻿# create-forgeon
 
 CLI package for generating Forgeon fullstack monorepo projects.
 
@@ -21,7 +21,8 @@ Project name stays text input; fixed-choice prompts use arrow-key selection (`Up
 ```bash
 npx create-forgeon@latest add --list
 npx create-forgeon@latest add i18n --project ./my-app
-npx create-forgeon@latest add jwt-auth --project ./my-app
+npx create-forgeon@latest add communications --project ./my-app
+npx create-forgeon@latest add accounts --project ./my-app --with-required
 npx create-forgeon@latest add files --with-required --provider db-adapter=db-prisma
 ```
 
@@ -36,7 +37,8 @@ pnpm forgeon:sync-integrations
 - DB is module-driven: `db-prisma` is default-on and can be disabled at scaffold time.
 - Reverse proxy options: `caddy` (default), `nginx`, `none`.
 - `add i18n` is implemented and applies backend/frontend i18n wiring.
-- `add jwt-auth` is implemented and auto-detects DB adapter support for refresh-token persistence.
+- `add communications` is implemented and adds the shared email/sms/push orchestration surface.
+- `add accounts` is implemented and installs the DB-backed accounts/authentication runtime.
 - Integration sync is bundled by default and runs after `add` commands (best-effort).
 - Module notes are written under `modules/<module-id>/README.md`.
 - Hard prerequisites are explicit:
