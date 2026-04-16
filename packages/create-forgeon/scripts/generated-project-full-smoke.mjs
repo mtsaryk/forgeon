@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -99,6 +99,8 @@ function assertGeneratedProjectState(targetRoot) {
   const probes = read(path.join(targetRoot, 'apps', 'web', 'src', 'probes.ts'));
   const readme = read(path.join(targetRoot, 'README.md'));
   const compose = read(path.join(targetRoot, 'infra', 'docker', 'compose.yml'));
+  const accountsModuleSource = read(path.join(targetRoot, 'packages', 'accounts-api', 'src', 'forgeon-accounts.module.ts'));
+  const communicationsEnvSource = read(path.join(targetRoot, 'packages', 'communications', 'src', 'communications-env.schema.ts'));
 
   assert.match(appModule, /communicationsConfig/);
   assert.match(appModule, /communicationsEnvSchema/);
@@ -106,6 +108,8 @@ function assertGeneratedProjectState(targetRoot) {
   assert.match(appModule, /ForgeonAccountsModule\.register\(/);
   assert.match(accountsApiPackage, /@forgeon\/communications/);
   assert.match(communicationsPackage, /nodemailer/);
+  assert.doesNotMatch(accountsModuleSource, /ForgeonCommunicationsModule/);
+  assert.match(communicationsEnvSource, /normalizeEnvBoolean/);
   assert.match(probes, /"id": "communications"/);
   assert.match(probes, /"buttonLabel": "Send communications probe email"/);
   assert.match(probes, /\$INPUT\.email\$/);
@@ -186,3 +190,5 @@ try {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 }
+
+

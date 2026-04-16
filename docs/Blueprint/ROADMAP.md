@@ -93,7 +93,7 @@ This is a living plan. Scope and priorities may change.
     - [x] add probe cleanup flow (create + cleanup)
     - [x] deliver initial DTO contracts
     - [ ] lock final long-term FileRecord schema/indexes
-  - [x] future split already delivered as separate modules:
+  - [x] provider/extension split already delivered as separate modules:
     - [x] `files-s3` (runtime baseline)
     - [x] `files-access`
     - [x] `files-quotas`
@@ -126,7 +126,6 @@ This is a living plan. Scope and priorities may change.
   - [x] `files`: keep DB metadata/store logic Prisma-first inside the module package
   - [ ] continue concrete runtime import cleanup where capability seams already exist
   - [ ] first target: `scheduler -> queue`
-  - [ ] first target: `files-quotas -> files`
 
 - [~] `testing baseline`
   - [ ] unit + e2e presets

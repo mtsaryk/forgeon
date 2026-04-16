@@ -1,4 +1,4 @@
-import {
+﻿import {
   DynamicModule,
   Module,
   ModuleMetadata,
@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ForgeonCommunicationsModule } from '@forgeon/communications';
 import { DbPrismaModule } from '@forgeon/db-prisma';
 import {
   ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
@@ -41,7 +40,6 @@ export class ForgeonAccountsModule {
       imports: [
         AuthConfigModule,
         DbPrismaModule,
-        ForgeonCommunicationsModule.register(),
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.register({}),
         ...(options.imports ?? []),

@@ -1,4 +1,4 @@
-## Scope
+﻿## Scope
 
 Implemented scope:
 
@@ -14,7 +14,10 @@ Implemented scope:
    - email channel with Gmail SMTP transport configuration
    - sms stub channel
    - push stub channel
-5. Module checks:
+5. SMTP defaults:
+   - `COMMUNICATIONS_EMAIL_SMTP_SECURE=false` uses STARTTLS mode correctly on port `587`
+   - `COMMUNICATIONS_EMAIL_FROM` falls back to the authenticated SMTP user when left empty
+6. Module checks:
    - `GET /api/health/communications`
    - `POST /api/health/communications`
    - default web probe with email input + test send

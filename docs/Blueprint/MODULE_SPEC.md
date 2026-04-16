@@ -28,6 +28,30 @@ Backend-only infrastructure or security modules may use a single runtime package
 
 Web-only modules may expose only frontend-facing packages when there is no meaningful backend/runtime counterpart.
 
+## Module Family Model
+
+When a feature grows into a family, prefer the following structure:
+
+1. root public module
+2. provider modules where a real replaceable boundary exists
+3. optional extension modules that build on the root module
+4. internal submodules only where they improve boundaries inside the family
+
+Rules:
+
+- the root public module owns the family's core runtime/orchestration boundary
+- provider modules satisfy replaceable capabilities required by the root module
+- optional extension modules should depend directly on the root public module when they are not meaningful on their own
+- internal submodules do not need to become separate public add-modules by default
+- root public modules must not depend on optional extension modules
+- if an extension is truly mandatory for the root module to function, it should usually be folded into the root module instead of modeled as a separate optional add-module
+
+Example family:
+
+- `files` as root public module
+- `files-local` / `files-s3` as storage providers
+- `files-access` / `files-quotas` / `files-image` as optional extensions of `files`
+
 ## 1) Contracts Package
 
 Single source of truth shared by backend and frontend.

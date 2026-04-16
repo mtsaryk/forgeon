@@ -54,24 +54,31 @@ The intended long-term split is:
 - storage abstraction
 - no concrete storage provider baked in
 
-2. `files-access`
+2. `files-local` / `files-s3`
+- provider modules for the `files-storage-adapter` boundary
+- selected by configuration and install-time dependency resolution
+
+3. `files-access`
 - resource-level authorization for file operations
 - ownership / visibility / group / tenant rules
 - integration with `accounts` + `rbac`
 
-3. `files-quotas`
+4. `files-quotas`
 - file count and byte usage limits
 - policy per user / group / tenant
 - upload allowance checks before storage writes
-
-4. `files-s3`
-- S3-compatible storage adapter
-- supports AWS S3, Cloudflare R2, MinIO, and similar providers via config
 
 5. `files-image`
 - optional image processing pipeline
 - thumbnails, resizing, format conversion
 - likely based on `sharp`
+
+Current family rule:
+
+- `files` is the root public module and orchestration boundary
+- `files-local` and `files-s3` are provider modules for storage
+- `files-access`, `files-quotas`, and `files-image` are optional extension modules
+- those optional extensions still require `files`
 
 ## Why This Split
 
@@ -87,7 +94,7 @@ If they are merged too early into one large module, the result becomes hard to r
 
 ## `files v1` Scope
 
-`files v1` should implement only the base layer.
+The base `files` module should implement only the base layer.
 
 Included:
 
@@ -98,12 +105,12 @@ Included:
 - stable file identifiers
 - a simple probe / demo flow
 
-Excluded from v1:
+Excluded from base `files` v1:
 
-- advanced authorization rules
-- quotas
-- S3-compatible providers
-- image processing
+- advanced authorization rules inside `files`
+- quotas inside `files`
+- storage-provider implementation baked into `files`
+- image processing baked into `files`
 - signed URLs
 - public/private CDN strategies
 
@@ -219,7 +226,7 @@ Preferred direction:
 - require a DB adapter for the canonical path
 - require a files storage adapter for the canonical path
 
-## Access Control Strategy (Future: `files-access`)
+## Access Control Strategy (`files-access`)
 
 Access control should not live inside the storage driver.
 
@@ -253,7 +260,7 @@ Important architectural rule:
 
 - "is this user allowed to access this specific file?"
 
-## Quota Strategy (Future: `files-quotas`)
+## Quota Strategy (`files-quotas`)
 
 Quotas should be a separate policy layer, not part of the storage adapter.
 
@@ -294,7 +301,7 @@ Best-practice note:
 - do not recalculate usage from raw storage on every request
 - maintain counters and provide a repair/reconcile path later
 
-## S3-Compatible Strategy (Future: `files-s3`)
+## S3-Compatible Strategy (`files-s3`)
 
 Do not create separate top-level modules for every provider unless behavior truly diverges.
 
@@ -316,7 +323,7 @@ Why:
 - fewer modules
 - less duplicated logic
 
-## Image Strategy (Future: `files-image`)
+## Image Strategy (`files-image`)
 
 Image processing should remain separate from `files`.
 
@@ -353,21 +360,22 @@ After initial runtime delivery, the following should be explicitly finalized:
 3. final upload API shape:
    - keep single-upload only, or add batch upload
    - lock public DTO shape
-4. where local files are stored in dev and Docker (volume strategy remains deferred)
-5. whether probe should remain metadata-only create, or include cleanup flow
+4. whether the current local-storage path and Docker volume strategy should remain the long-term default
+5. whether the current probe shape should stay create+cleanup or evolve further
 
 ## Current Recommendation
 
 Proceed with:
 
 - `files v1` as a DB-backed base module
-- adapter-based storage in v1 (`files-local` first, `files-s3` optional)
+- adapter-based storage in v1 (`files-local` first, `files-s3` optional provider)
 - Prisma-first runtime inside `@forgeon/files`
 - metadata-first design
-- no access-control or quota enforcement inside `files v1`
-- explicit future modules for:
+- no access-control or quota enforcement inside base `files`
+- explicit provider/extension modules around `files`:
+  - `files-local`
+  - `files-s3`
   - `files-access`
   - `files-quotas`
-  - `files-s3`
   - `files-image`
 

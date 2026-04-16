@@ -47,7 +47,7 @@ Examples:
 
 - `files` requires `db-adapter`
 - `files` requires `files-storage-adapter`
-- `files-s3` requires `files`
+- `files-access` requires `files`
 - `files-image` requires `files`
 
 Rules:
@@ -65,7 +65,6 @@ Definition:
 Examples:
 
 - `accounts` + `rbac`
-- `files` + `files-image`
 
 Rules:
 
@@ -73,6 +72,14 @@ Rules:
 - they are not auto-installed
 - they are communicated to the user as follow-up opportunities
 - they may be applied later through explicit integration tooling
+
+Important distinction:
+
+- optional extensions are not automatically optional integrations
+- a module may be an optional extension of a core module and still have a hard prerequisite on that core module
+- example:
+  - `files-image` is an optional extension of `files`
+  - but it still requires `files` to exist first
 
 ## Hard Prerequisite Resolution: Interactive (TTY)
 
@@ -139,8 +146,8 @@ Example after provider selection:
 ```text
 Install plan:
 1. db-prisma
-2. files
-3. files-image
+2. files-local
+3. files
 ```
 
 ## Hard Prerequisite Resolution: Non-Interactive (non-TTY / CI / scripts)
@@ -264,25 +271,67 @@ Accepted runtime rules:
 - `mapper` files are optional and added only when shaping logic is non-trivial
 - DB persistence ports/adapters are deferred until a second DB runtime actually exists
 
-## Required Future Refactor Direction
+## Root Modules, Providers, And Extensions
 
-Existing module metadata and sync rules must be refactored toward this model.
+Forgeon should prefer a consistent module-family model.
 
-Priority refactors:
+Accepted model:
 
-1. add capability metadata to module definitions:
+- root public module:
+  - the main installable feature module
+  - owns the core runtime/orchestration boundary for that feature family
+  - may require other core modules or provider capabilities that are necessary for real use
+- provider module:
+  - satisfies a real replaceable capability for a root module
+  - should not force a reverse hard dependency from the root module provider back to the root module if that would create a cycle
+  - example:
+    - `files-local` and `files-s3` provide `files-storage-adapter`
+- internal submodule:
+  - used to separate internal responsibilities inside one public module family
+  - not necessarily exposed as its own optional public add-module
+  - example direction:
+    - internal `accounts` auth/users splits
+- optional extension module:
+  - public add-module that extends a root public module
+  - not installed by default with the root module
+  - cannot be installed meaningfully without its root module
+  - should depend on the root module directly, not on a softer capability alias for that same family core
+
+Files-family application of this rule:
+
+- `files` is the root public module
+- `files` requires:
+  - `db-adapter`
+  - `files-storage-adapter`
+- `files-local` and `files-s3` are provider modules for `files-storage-adapter`
+- `files-access`, `files-quotas`, and `files-image` are optional extension modules for `files`
+- those extension modules require `files`
+
+## Doctrine Rollout Status
+
+Core parts of this doctrine are already implemented.
+
+Implemented baseline:
+
+1. module metadata supports:
    - `provides`
    - `requires`
    - `optionalIntegrations`
 
-2. change existing hard-coded module assumptions to capability-based rules
-
-3. update dependency resolution in `create-forgeon add` to use:
+2. `create-forgeon add` already supports dependency planning through:
    - interactive provider selection in TTY
    - `--with-required`
    - `--provider <capability>=<module>` in non-TTY
 
-4. refactor current integrations that assume concrete modules where a capability boundary should exist
+3. install-time dependency handling is already separated from optional integration sync
+
+Remaining follow-up should stay targeted:
+
+1. remove legacy concrete-module assumptions where a real provider capability boundary exists
+
+2. review sync rules that still encode provider-specific assumptions or extension-specific coupling
+
+3. apply the root-module / provider / extension model consistently when new module families are introduced
 
 ## Immediate Known Refactor Targets
 
@@ -306,7 +355,8 @@ The `files` family must be built on this doctrine from the start:
 
 - `files` requires `db-adapter`
 - `files` requires `files-storage-adapter`
-- `files-s3` requires `files`
+- `files-local` provides `files-storage-adapter`
+- `files-s3` provides `files-storage-adapter`
 - `files-access` requires `files`
 - `files-quotas` requires `files`
 - `files-image` requires `files`

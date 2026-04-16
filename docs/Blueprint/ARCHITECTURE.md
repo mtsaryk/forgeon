@@ -73,6 +73,35 @@ Reference: `docs/Blueprint/MODULE_SPEC.md`.
 
 Dependency resolution reference: `docs/Blueprint/DEPENDENCY_DOCTRINE.md`.
 
+### Root Modules And Extensions
+
+Forgeon should keep one clear public root module per feature family where possible.
+
+Accepted model:
+
+- root public module:
+  - owns the feature family's core runtime and orchestration boundary
+  - may require real prerequisites such as DB or provider capabilities
+- provider module:
+  - satisfies a replaceable capability required by a root module
+  - should not introduce reverse dependency cycles back into the root module
+- optional extension module:
+  - extends a root public module
+  - is installable separately
+  - is not installed by default with the root module
+  - still requires the root module directly
+- internal submodule:
+  - separates responsibilities inside the family boundary
+  - does not need to become its own public add-module by default
+
+Files is the current canonical example:
+
+- `files` is the root public module
+- `files-local` and `files-s3` are provider modules for storage
+- `files-access`, `files-quotas`, and `files-image` are optional public extensions of `files`
+
+This same mental model should be preferred for future module families unless there is a strong reason to diverge.
+
 ## Integration Sync Strategy
 
 - In generated projects, integration orchestration is exposed as a toolchain command:

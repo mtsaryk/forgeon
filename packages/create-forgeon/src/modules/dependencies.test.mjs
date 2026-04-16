@@ -119,7 +119,7 @@ const TEST_PRESETS = [
     implemented: true,
     detectionPaths: ['packages/files-access/package.json'],
     provides: ['files-access-runtime'],
-    requires: [{ type: 'capability', id: 'files-runtime' }],
+    requires: [{ type: 'module', id: 'files' }],
     optionalIntegrations: [],
   },
   {
@@ -128,7 +128,7 @@ const TEST_PRESETS = [
     implemented: true,
     detectionPaths: ['packages/files-quotas/package.json'],
     provides: ['files-quotas-runtime'],
-    requires: [{ type: 'capability', id: 'files-runtime' }],
+    requires: [{ type: 'module', id: 'files' }],
     optionalIntegrations: [],
   },
   {
@@ -137,7 +137,7 @@ const TEST_PRESETS = [
     implemented: true,
     detectionPaths: ['packages/files-image/package.json'],
     provides: ['files-image-runtime'],
-    requires: [{ type: 'capability', id: 'files-runtime' }],
+    requires: [{ type: 'module', id: 'files' }],
     optionalIntegrations: [],
   },
   {
@@ -269,7 +269,7 @@ describe('module dependency helpers', () => {
     }
   });
 
-  it('resolves files-access plan through files-runtime capability chain', async () => {
+  it('resolves files-access plan through files core module dependency', async () => {
     const targetRoot = mkTmp('forgeon-deps-files-access-plan-');
 
     try {
@@ -289,14 +289,13 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
         'files-storage-adapter': 'files-local',
-        'files-runtime': 'files',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
 
-  it('resolves files-quotas plan through files-runtime capability chain', async () => {
+  it('resolves files-quotas plan through files core module dependency', async () => {
     const targetRoot = mkTmp('forgeon-deps-files-quotas-plan-');
 
     try {
@@ -316,14 +315,13 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
         'files-storage-adapter': 'files-local',
-        'files-runtime': 'files',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }
   });
 
-  it('resolves files-image plan through files-runtime capability chain', async () => {
+  it('resolves files-image plan through files core module dependency', async () => {
     const targetRoot = mkTmp('forgeon-deps-files-image-plan-');
 
     try {
@@ -343,7 +341,6 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
         'files-storage-adapter': 'files-local',
-        'files-runtime': 'files',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });

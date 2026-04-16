@@ -1,4 +1,4 @@
-import { DynamicModule, Module, ModuleMetadata } from '@nestjs/common';
+﻿import { DynamicModule, Global, Module, ModuleMetadata } from '@nestjs/common';
 import {
   COMMUNICATIONS_EMAIL_PROVIDER,
   COMMUNICATIONS_PUSH_PROVIDER,
@@ -20,6 +20,7 @@ export interface ForgeonCommunicationsModuleOptions {
   imports?: ModuleMetadata['imports'];
 }
 
+@Global()
 @Module({})
 export class ForgeonCommunicationsModule {
   static register(options: ForgeonCommunicationsModuleOptions = {}): DynamicModule {

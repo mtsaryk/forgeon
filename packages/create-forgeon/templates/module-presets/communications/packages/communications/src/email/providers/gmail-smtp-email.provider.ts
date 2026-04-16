@@ -6,6 +6,7 @@ import type { EmailProvider, EmailProviderSendInput, EmailProviderSendResult } f
 
 const EMAIL_ERROR_CODES = {
   providerNotConfigured: 'COMMUNICATIONS_EMAIL_PROVIDER_NOT_CONFIGURED',
+  providerSendFailed: 'COMMUNICATIONS_EMAIL_PROVIDER_SEND_FAILED',
 } as const;
 
 @Injectable()
@@ -30,20 +31,33 @@ export class GmailSmtpEmailProvider implements EmailProvider {
       });
     }
 
-    const response = await this.getTransporter().sendMail({
-      from: this.configService.emailFrom,
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      replyTo: input.replyTo ?? this.configService.emailReplyTo ?? undefined,
-    });
+    try {
+      const response = await this.getTransporter().sendMail({
+        from: this.configService.emailFrom,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        replyTo: input.replyTo ?? this.configService.emailReplyTo ?? undefined,
+      });
 
-    this.logger.log(`email.sent provider=${this.providerId} to=${input.to} messageId=${response.messageId ?? 'n/a'}`);
+      this.logger.log(`email.sent provider=${this.providerId} to=${input.to} messageId=${response.messageId ?? 'n/a'}`);
 
-    return {
-      status: 'sent',
-      messageId: response.messageId ?? null,
-    };
+      return {
+        status: 'sent',
+        messageId: response.messageId ?? null,
+      };
+    } catch (error) {
+      const details = this.extractErrorDetails(error);
+      this.logger.error(`email.failed provider=${this.providerId} to=${input.to} details=${JSON.stringify(details)}`);
+      throw new ServiceUnavailableException({
+        message: 'Email delivery failed',
+        details: {
+          code: EMAIL_ERROR_CODES.providerSendFailed,
+          provider: this.providerId,
+          ...details,
+        },
+      });
+    }
   }
 
   private getTransporter(): Transporter {
@@ -60,5 +74,31 @@ export class GmailSmtpEmailProvider implements EmailProvider {
     }
 
     return this.transporter;
+  }
+
+  private extractErrorDetails(error: unknown): Record<string, unknown> {
+    if (!error || typeof error !== 'object') {
+      return { raw: String(error) };
+    }
+
+    const candidate = error as {
+      code?: unknown;
+      command?: unknown;
+      response?: unknown;
+      responseCode?: unknown;
+      errno?: unknown;
+      syscall?: unknown;
+      message?: unknown;
+    };
+
+    return {
+      message: typeof candidate.message === 'string' ? candidate.message : String(error),
+      code: candidate.code ?? null,
+      command: candidate.command ?? null,
+      responseCode: candidate.responseCode ?? null,
+      response: candidate.response ?? null,
+      errno: candidate.errno ?? null,
+      syscall: candidate.syscall ?? null,
+    };
   }
 }

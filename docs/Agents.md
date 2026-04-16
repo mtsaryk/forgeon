@@ -73,6 +73,7 @@ This means:
 - prefer modular env validation: core validates core env, each add-module validates only its own env
 - keep generated projects buildable in both local dev and Docker
 - use package entrypoints only; never import sibling packages through `/src/*`
+- if a requested task conflicts with accepted docs, doctrine, patterns, or architecture, surface the conflict explicitly and resolve it before changing code or documentation
 
 ## Repo-Local Skills
 
@@ -225,6 +226,7 @@ Accepted rules:
 - only two dependency classes exist:
   - hard prerequisite
   - optional integration
+- optional extension modules may still depend directly on their root module when they are not meaningful on their own
 - hard prerequisites:
   - in TTY: use explicit interactive resolution
   - in non-TTY: fail unless `--with-required` is provided
@@ -288,9 +290,10 @@ For feature implementation, refactors, and non-trivial bugfixes, the canonical w
    - good-to-have in v1
    - explicitly deferred scope
 7. if something is ambiguous, ask direct clarifying questions instead of guessing
-8. if the task would benefit from an additional skill not yet available, recommend creating or installing it before coding
-9. present a concrete implementation plan and wait for explicit approval before writing code
-10. after implementation, run a documentation consistency sweep
+8. if the task conflicts with accepted docs, doctrine, patterns, or architecture, call out the conflict explicitly and resolve whether the task or the docs should change before implementation
+9. if the task would benefit from an additional skill not yet available, recommend creating or installing it before coding
+10. present a concrete implementation plan and wait for explicit approval before writing code
+11. after implementation, run a documentation consistency sweep
 
 For implementation updates during execution, keep progress visible and short.
 
@@ -473,21 +476,21 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
 
 - `files-access`
   - package: `@forgeon/files-access`
-  - requires `files-runtime` capability
+  - requires `files`
   - enforces resource-level checks for file metadata/download/delete
   - probe:
     - `GET /api/health/files-access`
 
 - `files-quotas`
   - package: `@forgeon/files-quotas`
-  - requires `files-runtime` capability
+  - requires `files`
   - enforces owner-level upload quotas before write
   - probe:
     - `GET /api/health/files-quotas`
 
 - `files-image`
   - package: `@forgeon/files-image`
-  - requires `files-runtime` capability
+  - requires `files`
   - enforces image magic-bytes validation + sanitize/re-encode before storage
   - default:
     - metadata stripping enabled
@@ -606,13 +609,20 @@ The current split is intentional:
   - delete
   - probe endpoints
 - `files-local` and `files-s3` are provider modules for `files-storage-adapter`
-- `files-access`, `files-quotas`, and `files-image` stay separate add-modules on top of the base runtime
+- `files-access`, `files-quotas`, and `files-image` stay separate add-modules as optional extensions of `files`
 
 This means:
 
 - files is not a monolithic "do everything" module
 - access-control, quota policy, image hardening, and provider-specific behavior remain opt-in layers
 - future work should be justified by concrete product need, not by completeness-for-its-own-sake
+
+Accepted family rule:
+
+- `files` is the root public module for the family
+- storage adapters are provider modules required by `files`
+- `files-access`, `files-quotas`, and `files-image` are optional public extensions that still require `files`
+- this root-module plus provider plus optional-extension pattern should be preferred for future families too unless there is a strong reason to diverge
 
 ### Core `files` Design Rules
 

@@ -159,7 +159,7 @@ Requirements:
 - add upload endpoint(s) and initial DTO contracts
 - implement local runtime adapter first (`files-local`)
 - add probe hooks only after route surface is stable
-- keep access control and quotas out of v1 core (separate modules later)
+- keep access control and quotas out of base `files` core (handled by separate extension modules)
 ```
 
 ## Keep Files On Prisma-First Runtime
@@ -194,6 +194,11 @@ Requirements:
   - add optional `VITE_I18N_FALLBACK_LANG` for web;
   - validate it against `I18N_LOCALES`;
   - behavior: throw in `dev`, warn+fallback in `build/prod`.
+- env ergonomics refactor (deferred):
+  - revisit the split between `apps/api/.env*` and `infra/docker/.env*`;
+  - stop treating `.env.example` as an active runtime input;
+  - decide whether local and docker env should stay separate live files or gain an explicit shared/defaults layer;
+  - keep the future design clear for backend-only vars, future web vars, and generated-project UX.
 
 
 

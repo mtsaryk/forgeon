@@ -31,12 +31,13 @@ export const communicationsConfig = registerAs(
   COMMUNICATIONS_CONFIG_NAMESPACE,
   (): CommunicationsConfigValues => {
     const env = parseCommunicationsEnv(process.env as unknown as Record<string, unknown>);
+    const derivedFrom = env.COMMUNICATIONS_EMAIL_FROM || env.COMMUNICATIONS_EMAIL_SMTP_USER;
 
     return {
       templatesRoot: path.resolve(process.cwd(), env.COMMUNICATIONS_TEMPLATES_ROOT),
       email: {
         provider: env.COMMUNICATIONS_EMAIL_PROVIDER,
-        from: env.COMMUNICATIONS_EMAIL_FROM,
+        from: derivedFrom,
         replyTo: env.COMMUNICATIONS_EMAIL_REPLY_TO || null,
         subjectPrefix: env.COMMUNICATIONS_EMAIL_SUBJECT_PREFIX || null,
         smtp: {

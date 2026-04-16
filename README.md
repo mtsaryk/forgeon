@@ -59,7 +59,7 @@ Published CLI examples:
 
 ```bash
 npx create-forgeon@latest my-app --i18n true --db-prisma true --proxy caddy
-npx create-forgeon@latest add jwt-auth --project ./my-app
+npx create-forgeon@latest add accounts --project ./my-app --with-required
 ```
 
 Generated projects have their own command surface. For example, `pnpm forgeon:sync-integrations` is a generated-project command provided by scaffolded project templates, not a root script of this development repo.

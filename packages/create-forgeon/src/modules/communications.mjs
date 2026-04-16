@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 import { copyRecursive, writeJson } from '../utils/fs.mjs';
 import {
@@ -165,6 +165,7 @@ function patchReadme(targetRoot) {
     'Example env keys:',
     '- `COMMUNICATIONS_EMAIL_PROVIDER=gmail-smtp`',
     '- `COMMUNICATIONS_EMAIL_SMTP_HOST=smtp.gmail.com`',
+    '- `COMMUNICATIONS_EMAIL_FROM=` (falls back to the SMTP user when left empty)',
     '- `COMMUNICATIONS_EMAIL_SMTP_USER=`',
     '- `COMMUNICATIONS_EMAIL_SMTP_PASS=`',
   ].join('\n');
@@ -203,7 +204,7 @@ export function applyCommunicationsModule({ packageRoot, targetRoot }) {
   upsertEnvLines(path.join(targetRoot, 'apps', 'api', '.env.example'), [
     'COMMUNICATIONS_TEMPLATES_ROOT=resources/communications',
     'COMMUNICATIONS_EMAIL_PROVIDER=gmail-smtp',
-    'COMMUNICATIONS_EMAIL_FROM=Forgeon <no-reply@example.com>',
+    'COMMUNICATIONS_EMAIL_FROM=',
     'COMMUNICATIONS_EMAIL_REPLY_TO=',
     'COMMUNICATIONS_EMAIL_SUBJECT_PREFIX=[Forgeon]',
     'COMMUNICATIONS_EMAIL_SMTP_HOST=smtp.gmail.com',
@@ -218,7 +219,7 @@ export function applyCommunicationsModule({ packageRoot, targetRoot }) {
   upsertEnvLines(path.join(targetRoot, 'infra', 'docker', '.env.example'), [
     'COMMUNICATIONS_TEMPLATES_ROOT=resources/communications',
     'COMMUNICATIONS_EMAIL_PROVIDER=gmail-smtp',
-    'COMMUNICATIONS_EMAIL_FROM=Forgeon <no-reply@example.com>',
+    'COMMUNICATIONS_EMAIL_FROM=',
     'COMMUNICATIONS_EMAIL_REPLY_TO=',
     'COMMUNICATIONS_EMAIL_SUBJECT_PREFIX=[Forgeon]',
     'COMMUNICATIONS_EMAIL_SMTP_HOST=smtp.gmail.com',

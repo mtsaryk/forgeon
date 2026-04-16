@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+﻿import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -2228,6 +2228,89 @@ describe('addModule', () => {
     }
   });
 
+  it('applies communications on top of scaffold and wires SMTP-backed probe flow', () => {
+    const targetRoot = mkTmp('forgeon-module-communications-');
+    const projectRoot = path.join(targetRoot, 'demo-communications');
+    const templateRoot = path.join(packageRoot, 'templates', 'base');
+
+    try {
+      scaffoldProject({
+        templateRoot,
+        packageRoot,
+        targetRoot: projectRoot,
+        projectName: 'demo-communications',
+        frontend: 'react',
+        db: 'prisma',
+        dbPrismaEnabled: true,
+        i18nEnabled: true,
+        proxy: 'caddy',
+      });
+
+      const result = addModule({
+        moduleId: 'communications',
+        targetRoot: projectRoot,
+        packageRoot,
+      });
+
+      assert.equal(result.applied, true);
+
+      const appModule = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'src', 'app.module.ts'), 'utf8');
+      assert.match(appModule, /communicationsConfig/);
+      assert.match(appModule, /communicationsEnvSchema/);
+      assert.match(appModule, /ForgeonCommunicationsModule\.register\(\)/);
+
+      const apiPackage = fs.readFileSync(path.join(projectRoot, 'apps', 'api', 'package.json'), 'utf8');
+      assert.match(apiPackage, /@forgeon\/communications/);
+      assert.match(apiPackage, /pnpm --filter @forgeon\/communications build/);
+
+      const communicationsEnv = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'communications', 'src', 'communications-env.schema.ts'),
+        'utf8',
+      );
+      assert.match(communicationsEnv, /normalizeEnvBoolean/);
+      assert.doesNotMatch(communicationsEnv, /COMMUNICATIONS_EMAIL_SMTP_SECURE: z\.coerce\.boolean/);
+
+      const communicationsConfig = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'communications', 'src', 'communications-config.loader.ts'),
+        'utf8',
+      );
+      assert.match(communicationsConfig, /const derivedFrom = env\.COMMUNICATIONS_EMAIL_FROM \|\| env\.COMMUNICATIONS_EMAIL_SMTP_USER/);
+
+      const providerSource = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'communications', 'src', 'email', 'providers', 'gmail-smtp-email.provider.ts'),
+        'utf8',
+      );
+      assert.match(providerSource, /COMMUNICATIONS_EMAIL_PROVIDER_SEND_FAILED/);
+      assert.match(providerSource, /extractErrorDetails/);
+
+      const communicationsModuleSource = fs.readFileSync(
+        path.join(projectRoot, 'packages', 'communications', 'src', 'forgeon-communications.module.ts'),
+        'utf8',
+      );
+      assert.match(communicationsModuleSource, /@Global\(\)/);
+
+      const apiEnv = fs.readFileSync(path.join(projectRoot, 'apps', 'api', '.env.example'), 'utf8');
+      assert.match(apiEnv, /COMMUNICATIONS_EMAIL_SMTP_SECURE=false/);
+      assert.match(apiEnv, /^COMMUNICATIONS_EMAIL_FROM=$/m);
+
+      const dockerEnv = fs.readFileSync(path.join(projectRoot, 'infra', 'docker', '.env.example'), 'utf8');
+      assert.match(dockerEnv, /^COMMUNICATIONS_EMAIL_FROM=$/m);
+
+      const probesTs = readWebProbes(projectRoot);
+      assert.match(probesTs, /"id": "communications"/);
+      assert.match(probesTs, /\$INPUT\.email\$/);
+
+      const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+      assert.match(readme, /## Communications Module/);
+      assert.match(readme, /falls back to the SMTP user when left empty/);
+
+      const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');
+      assert.match(moduleDoc, /Status: implemented/);
+      assert.match(moduleDoc, /STARTTLS/);
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
   it('applies accounts with db-prisma and wires the DB-backed runtime immediately', () => {
     const targetRoot = mkTmp('forgeon-module-accounts-db-');
     const projectRoot = path.join(targetRoot, 'demo-accounts-db');
@@ -2690,6 +2773,11 @@ describe('addModule', () => {
     }
   });
 });
+
+
+
+
+
 
 
 
