@@ -1,8 +1,9 @@
-﻿import {
+import {
   DynamicModule,
   Module,
   ModuleMetadata,
   Provider,
+  Type,
 } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -11,14 +12,22 @@ import {
   ACCOUNTS_AUTHZ_CLAIMS_RESOLVER,
   NoopAccountsAuthzClaimsResolver,
 } from './accounts-rbac.port';
+import { JwtAuthGuard } from './access-token.guard';
 import { AuthConfigModule } from './auth-config.module';
 import { AuthController } from './auth.controller';
 import { AuthCoreService } from './auth-core.service';
+import {
+  CHANGE_PASSWORD_HANDLER,
+  DefaultChangePasswordHandler,
+  DefaultRegisterHandler,
+  REGISTER_HANDLER,
+  type ChangePasswordHandler,
+  type RegisterHandler,
+} from './auth.handlers';
 import { AuthJwtService } from './auth-jwt.service';
 import { AuthPasswordService } from './auth-password.service';
 import { AuthService } from './auth.service';
 import { AuthStore } from './auth.store';
-import { JwtAuthGuard } from './access-token.guard';
 import { JwtStrategy } from './jwt.strategy';
 import { OwnerAccessGuard } from './owner-access.guard';
 import { UsersController } from './users.controller';
@@ -29,7 +38,12 @@ import { UsersStore } from './users.store';
 export interface ForgeonAccountsModuleOptions {
   imports?: ModuleMetadata['imports'];
   providers?: Provider[];
+  controllers?: Type<unknown>[];
   users?: UsersModuleOptions;
+  handlers?: {
+    register?: Type<RegisterHandler>;
+    changePassword?: Type<ChangePasswordHandler>;
+  };
 }
 
 @Module({})
@@ -44,7 +58,7 @@ export class ForgeonAccountsModule {
         JwtModule.register({}),
         ...(options.imports ?? []),
       ],
-      controllers: [AuthController, UsersController],
+      controllers: [AuthController, UsersController, ...(options.controllers ?? [])],
       providers: [
         {
           provide: USERS_MODULE_OPTIONS,
@@ -57,6 +71,16 @@ export class ForgeonAccountsModule {
         AuthStore,
         UsersStore,
         AuthCoreService,
+        DefaultRegisterHandler,
+        DefaultChangePasswordHandler,
+        {
+          provide: REGISTER_HANDLER,
+          useExisting: options.handlers?.register ?? DefaultRegisterHandler,
+        },
+        {
+          provide: CHANGE_PASSWORD_HANDLER,
+          useExisting: options.handlers?.changePassword ?? DefaultChangePasswordHandler,
+        },
         AuthJwtService,
         AuthPasswordService,
         AuthService,
@@ -69,6 +93,8 @@ export class ForgeonAccountsModule {
       exports: [
         AuthConfigModule,
         AuthCoreService,
+        REGISTER_HANDLER,
+        CHANGE_PASSWORD_HANDLER,
         AuthJwtService,
         AuthPasswordService,
         AuthService,

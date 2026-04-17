@@ -58,6 +58,15 @@ This is a living plan. Scope and priorities may change.
     - [x] hard prerequisite on `db-adapter`
     - [x] Prisma-first runtime through `@forgeon/db-prisma`
     - [x] `accounts-rbac` remains the only compatibility sync in this area
+  - [x] standalone auth core:
+    - [x] base runtime no longer hard-requires `communications`
+    - [x] handler-based composition point in `ForgeonAccountsModule.register(...)`
+    - [x] pending-operation records owned by `accounts`
+  - [x] optional `accounts-communications` extension:
+    - [x] pending-verification register mode
+    - [x] communications-backed password reset flows
+    - [x] confirmable password changes
+    - [x] change-email request/confirm routes
   - [ ] web package split (`auth-web`) on next iteration
 
 - [x] `rbac / permissions`

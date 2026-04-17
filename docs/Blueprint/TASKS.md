@@ -145,6 +145,31 @@ Requirements:
 - do not reintroduce provider-strategy auth persistence into base accounts
 ```
 
+## Refactor Accounts Communications Boundary
+
+```text
+Refactor `accounts` into a standalone auth core and move messaging-based auth/account flows into a new optional `accounts-communications` extension.
+Requirements:
+- keep `/api/auth/*` namespace stable
+- keep `accounts` standalone on `db-adapter` only
+- add handler-based composition for:
+  - `register`
+  - `change-password`
+- keep base handlers inside `accounts`
+- let `accounts-communications` rebind active handlers at install-time through `ForgeonAccountsModule.register(...)`
+- add one extension controller for:
+  - `verify-email`
+  - `password-reset/request`
+  - `password-reset/confirm`
+  - `change-password/confirm`
+  - `change-email/request`
+  - `change-email/confirm`
+- keep account/auth truth and pending-operation records in `accounts`
+- keep `communications` as the outbound orchestration module only
+- avoid runtime feature-flag branching in core auth logic
+- update registry, generator wiring, docs, and tests together
+```
+
 ## Implement Files Runtime V1 On Adapter Foundations
 
 ```text

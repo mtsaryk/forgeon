@@ -41,7 +41,7 @@ const TEST_PRESETS = [
     implemented: true,
     detectionPaths: ['packages/accounts-api/package.json'],
     provides: ['accounts-runtime'],
-    requires: [{ type: 'capability', id: 'db-adapter' }, { type: 'capability', id: 'communications-runtime' }],
+    requires: [{ type: 'capability', id: 'db-adapter' }],
     optionalIntegrations: [
       {
         id: 'accounts-rbac',
@@ -55,6 +55,15 @@ const TEST_PRESETS = [
         ],
       },
     ],
+  },
+  {
+    id: 'accounts-communications',
+    label: 'Accounts Communications',
+    implemented: true,
+    detectionPaths: ['packages/accounts-communications/package.json'],
+    provides: ['accounts-communications-runtime'],
+    requires: [{ type: 'module', id: 'accounts' }, { type: 'module', id: 'communications' }],
+    optionalIntegrations: [],
   },
   {
     id: 'rbac',
@@ -213,10 +222,9 @@ describe('module dependency helpers', () => {
       });
 
       assert.equal(result.cancelled, false);
-      assert.deepEqual(result.moduleSequence, ['db-prisma', 'communications', 'accounts']);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'accounts']);
       assert.deepEqual(result.selectedProviders, {
         'db-adapter': 'db-prisma',
-        'communications-runtime': 'communications',
       });
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
@@ -384,6 +392,7 @@ describe('module dependency helpers', () => {
         'db-prisma',
         'communications',
         'accounts',
+        'accounts-communications',
         'rbac',
         'files-local',
         'files',
@@ -396,8 +405,6 @@ describe('module dependency helpers', () => {
       assert.deepEqual(result.selectedProviders, {
         'files-storage-adapter': 'files-local',
         'db-adapter': 'db-prisma',
-        'communications-runtime': 'communications',
-        'files-runtime': 'files',
         'queue-runtime': 'queue',
       });
       assert.equal(result.rootModuleIds.includes('files-s3'), false);
@@ -443,6 +450,25 @@ describe('module dependency helpers', () => {
       assert.equal(pending.length, 1);
       assert.equal(pending[0].id, 'accounts-rbac');
       assert.equal(pending[0].missing[0].id, 'rbac');
+    } finally {
+      fs.rmSync(targetRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('builds a concrete install plan for accounts-communications with required parent modules', async () => {
+    const targetRoot = mkTmp('forgeon-deps-accounts-comms-');
+
+    try {
+      const result = await resolveModuleInstallPlan({
+        moduleId: 'accounts-communications',
+        targetRoot,
+        presets: TEST_PRESETS,
+        withRequired: true,
+        isInteractive: false,
+      });
+
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(result.moduleSequence, ['db-prisma', 'accounts', 'communications', 'accounts-communications']);
     } finally {
       fs.rmSync(targetRoot, { recursive: true, force: true });
     }

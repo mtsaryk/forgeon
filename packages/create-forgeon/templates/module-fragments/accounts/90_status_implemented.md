@@ -3,6 +3,6 @@
 Status: implemented.
 
 Notes:
-- `accounts` is a hard consumer of the `db-adapter` and `communications-runtime` capabilities.
+- `accounts` is a hard consumer of the `db-adapter` capability only.
 - The base accounts schema does not store RBAC roles or permissions.
-- Registration and password-reset request flows send best-effort communication intents through `CommunicationsService`.
+- Delivery-assisted auth/account flows belong to the optional `accounts-communications` extension.

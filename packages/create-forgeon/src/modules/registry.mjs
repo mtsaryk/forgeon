@@ -158,10 +158,10 @@ const MODULE_PRESETS = {
     category: 'auth-security',
     implemented: true,
     description:
-      'Accounts umbrella module with DB-backed users/auth runtime, argon2 passwords, JWT access+refresh rotation, owner-scoped self-service routes, and communications integration.',
+      'Accounts umbrella module with standalone DB-backed users/auth runtime, argon2 passwords, JWT access+refresh rotation, owner-scoped self-service routes, and handler-based extension seams.',
     detectionPaths: ['packages/accounts-api/package.json'],
     provides: ['accounts-runtime'],
-    requires: [{ type: 'capability', id: 'db-adapter' }, { type: 'capability', id: 'communications-runtime' }],
+    requires: [{ type: 'capability', id: 'db-adapter' }],
     optionalIntegrations: [
       {
         id: 'accounts-rbac',
@@ -178,6 +178,22 @@ const MODULE_PRESETS = {
         ],
       },
     ],
+    docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
+  },
+  'accounts-communications': {
+    id: 'accounts-communications',
+    label: 'Accounts Communications',
+    category: 'auth-security',
+    implemented: true,
+    description:
+      'Optional bridge module that extends accounts with communications-backed registration verification, password reset, password change confirmation, and email change confirmation flows.',
+    detectionPaths: ['packages/accounts-communications/package.json'],
+    provides: ['accounts-communications-runtime'],
+    requires: [
+      { type: 'module', id: 'accounts' },
+      { type: 'module', id: 'communications' },
+    ],
+    optionalIntegrations: [],
     docFragments: ['00_title', '10_overview', '20_scope', '90_status_implemented'],
   },
   'rate-limit': {

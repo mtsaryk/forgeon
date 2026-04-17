@@ -9,12 +9,9 @@ import {
 import { AuthService } from './auth.service';
 import {
   ChangePasswordDto,
-  ConfirmPasswordResetDto,
   LoginDto,
   RefreshDto,
   RegisterDto,
-  RequestPasswordResetDto,
-  VerifyEmailDto,
 } from './dto';
 import { JwtAuthGuard } from './access-token.guard';
 import type { AuthAccessTokenPayload } from './auth.types';
@@ -57,25 +54,9 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
-  async changePassword(@Body() body: ChangePasswordDto, @Req() request: RequestWithUser) {
+  changePassword(@Body() body: ChangePasswordDto, @Req() request: RequestWithUser) {
     const user = this.getRequestUser(request);
-    await this.authService.changePassword(user.sub, body.newPassword);
-    return { status: 'ok' };
-  }
-
-  @Post('verify-email')
-  verifyEmail(@Body() body: VerifyEmailDto) {
-    return this.authService.verifyEmail(body.token);
-  }
-
-  @Post('password-reset/request')
-  requestPasswordReset(@Body() body: RequestPasswordResetDto) {
-    return this.authService.requestPasswordReset(body.email);
-  }
-
-  @Post('password-reset/confirm')
-  confirmPasswordReset(@Body() body: ConfirmPasswordResetDto) {
-    return this.authService.resetPassword(body.token, body.newPassword);
+    return this.authService.changePassword(user.sub, body);
   }
 
   private getRequestUser(request: RequestWithUser): AuthAccessTokenPayload {

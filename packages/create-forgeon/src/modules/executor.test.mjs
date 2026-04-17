@@ -796,13 +796,14 @@ function assertAccountsWiring(projectRoot) {
   const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
   assert.match(readme, /## Accounts Module/);
   assert.match(readme, /owner-scoped user routes/);
-  assert.match(readme, /CommunicationsService/);
+  assert.match(readme, /works without `communications`/);
 
   const authServiceSource = fs.readFileSync(
     path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.service.ts'),
     'utf8',
   );
-  assert.match(authServiceSource, /import type \{ RegisterRequest \} from '@forgeon\/accounts-contracts';/);
+  assert.match(authServiceSource, /RegisterRequest/);
+  assert.match(authServiceSource, /REGISTER_HANDLER/);
 
   const authCoreSource = fs.readFileSync(
     path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth-core.service.ts'),
@@ -816,7 +817,7 @@ function assertAccountsWiring(projectRoot) {
     'utf8',
   );
   assert.match(accountsApiPackage, /@forgeon\/db-prisma/);
-  assert.match(accountsApiPackage, /@forgeon\/communications/);
+  assert.doesNotMatch(accountsApiPackage, /@forgeon\/communications/);
 
   const authStoreSource = fs.readFileSync(
     path.join(projectRoot, 'packages', 'accounts-api', 'src', 'auth.store.ts'),
@@ -2364,7 +2365,7 @@ describe('addModule', () => {
 
       const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
       assert.match(readme, /POST \/api\/auth\/register/);
-      assert.match(readme, /POST \/api\/auth\/password-reset\/request/);
+      assert.doesNotMatch(readme, /POST \/api\/auth\/password-reset\/request/);
       assert.match(readme, /\/api\/users\/:id\/settings/);
 
       const moduleDoc = fs.readFileSync(result.docsPath, 'utf8');

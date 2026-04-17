@@ -5,9 +5,12 @@ export const AUTH_API_ROUTES = {
   logout: '/api/auth/logout',
   me: '/api/auth/me',
   changePassword: '/api/auth/change-password',
+  changePasswordConfirm: '/api/auth/change-password/confirm',
   verifyEmail: '/api/auth/verify-email',
   passwordResetRequest: '/api/auth/password-reset/request',
   passwordResetConfirm: '/api/auth/password-reset/confirm',
+  changeEmailRequest: '/api/auth/change-email/request',
+  changeEmailConfirm: '/api/auth/change-email/confirm',
 } as const;
 
 export const USERS_API_ROUTES = {
@@ -99,6 +102,18 @@ export interface VerifyEmailRequest {
   token: string;
 }
 
+export interface ConfirmChangePasswordRequest {
+  token: string;
+}
+
+export interface RequestChangeEmailRequest {
+  email: string;
+}
+
+export interface ConfirmChangeEmailRequest {
+  token: string;
+}
+
 export interface UpdateUserRequest {
   data?: JsonObject;
 }
@@ -117,3 +132,24 @@ export interface TokenPair {
 export interface AuthSessionResponse extends TokenPair {
   user: UserRecordDto;
 }
+
+export interface PendingVerificationResponse {
+  status: 'pending_verification';
+  message: string;
+}
+
+export interface CompletedChangePasswordResponse {
+  status: 'completed';
+  message?: string;
+}
+
+export interface PendingConfirmationChangePasswordResponse {
+  status: 'pending_confirmation';
+  message: string;
+}
+
+export type RegisterResult = AuthSessionResponse | PendingVerificationResponse;
+export type VerifyEmailResult = AuthSessionResponse;
+export type ChangePasswordResult =
+  | CompletedChangePasswordResponse
+  | PendingConfirmationChangePasswordResponse;

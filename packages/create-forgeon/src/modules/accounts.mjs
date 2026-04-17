@@ -57,10 +57,11 @@ function patchPrismaSchema(targetRoot) {
   }
 
   let content = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
-  const userModel = `model User {
+const userModel = `model User {
   id               String             @id @default(cuid())
   status           String             @default("active")
   data             Json?
+  emailVerifiedAt  DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   deletedAt        DateTime?
@@ -69,6 +70,7 @@ function patchPrismaSchema(targetRoot) {
   authIdentities   AuthIdentity[]
   authCredential   AuthCredential?
   authRefreshTokens AuthRefreshToken[]
+  authPendingOperations AuthPendingOperation[]
 }`;
 
   if (/model User \{[\s\S]*?\n\}/m.test(content)) {
@@ -119,6 +121,19 @@ function patchPrismaSchema(targetRoot) {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}`,
+    `model AuthPendingOperation {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String
+  tokenHash  String
+  metadata   Json?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
 }`,
   ];
 
@@ -336,7 +351,7 @@ function patchReadme(targetRoot) {
     '',
     'Current boundaries:',
     '- `UsersModule.register({ user, profile, settings })` controls runtime defaults for JSON-backed extension fields',
-    '- email verification and password-reset request flows send best-effort communication intents through `CommunicationsService`',
+    '- base accounts runtime works without `communications`; delivery-assisted auth/account flows belong to the optional `accounts-communications` extension',
     '- base accounts schema does not include RBAC storage',
     ACCOUNTS_RBAC_MARKERS.start,
     ACCOUNTS_DEFAULT_RBAC_BLOCK,
@@ -349,9 +364,6 @@ function patchReadme(targetRoot) {
     '- `POST /api/auth/logout`',
     '- `GET /api/auth/me`',
     '- `POST /api/auth/change-password`',
-    '- `POST /api/auth/verify-email` (stub)',
-    '- `POST /api/auth/password-reset/request` (stub)',
-    '- `POST /api/auth/password-reset/confirm` (stub)',
   ].join('\n');
 
   let content = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n');

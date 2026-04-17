@@ -1,6 +1,6 @@
 {
   "name": "forgeon",
-  "version": "0.3.25",
+  "version": "0.3.26",
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {

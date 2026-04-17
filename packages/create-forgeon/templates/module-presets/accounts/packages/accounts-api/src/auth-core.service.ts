@@ -3,18 +3,22 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CommunicationsService } from '@forgeon/communications';
 import type {
   AuthSessionResponse,
+  JsonObject,
   RegisterRequest,
   UserRecordDto,
 } from '@forgeon/accounts-contracts';
 import { AuthJwtService } from './auth-jwt.service';
 import { AuthPasswordService } from './auth-password.service';
-import { AuthStore } from './auth.store';
+import {
+  AuthStore,
+  type PasswordAccountRecord,
+  type PendingOperationRecord,
+} from './auth.store';
 import type { AuthRefreshTokenPayload } from './auth.types';
 import { UsersService } from './users.service';
 import { toUserRecordDto } from './users.types';
@@ -25,21 +29,27 @@ const AUTH_ERROR_CODES = {
   tokenExpired: 'AUTH_TOKEN_EXPIRED',
   emailTaken: 'AUTH_EMAIL_TAKEN',
   accountDisabled: 'AUTH_ACCOUNT_DISABLED',
+  pendingOperationInvalid: 'AUTH_PENDING_OPERATION_INVALID',
 } as const;
+
+const DEFAULT_PENDING_OPERATION_TTL_MS = 1000 * 60 * 30;
 
 @Injectable()
 export class AuthCoreService {
-  private readonly logger = new Logger(AuthCoreService.name);
-
   constructor(
     private readonly authStore: AuthStore,
-    private readonly communicationsService: CommunicationsService,
     private readonly authJwtService: AuthJwtService,
     private readonly authPasswordService: AuthPasswordService,
     private readonly usersService: UsersService,
   ) {}
 
-  async registerWithPassword(input: RegisterRequest): Promise<AuthSessionResponse> {
+  async createPasswordAccount(
+    input: RegisterRequest,
+    options: {
+      status: string;
+      emailVerifiedAt: Date | null;
+    },
+  ): Promise<PasswordAccountRecord> {
     const email = input.email.trim().toLowerCase();
     const existing = await this.authStore.findPasswordAccountByEmail(email);
     if (existing) {
@@ -50,10 +60,11 @@ export class AuthCoreService {
     }
 
     const passwordHash = await this.authPasswordService.hash(input.password);
-    const account = await this.authStore.createPasswordAccount({
+    return this.authStore.createPasswordAccount({
       email,
       passwordHash,
-      status: 'active',
+      status: options.status,
+      emailVerifiedAt: options.emailVerifiedAt,
       userData: this.usersService.resolveUserData(input.user),
       profile: {
         name: this.readNullableString(input.profile, 'name'),
@@ -66,40 +77,6 @@ export class AuthCoreService {
         data: this.usersService.resolveSettingsData(this.readNestedObject(input.settings, 'data')),
       },
     });
-
-    const accountDto = toUserRecordDto(account);
-    const verificationToken = this.createStubToken('verify', account.id);
-    await Promise.all([
-      this.sendCommunicationSafely({
-        kind: 'email_verification_code',
-        channels: ['email'],
-        recipient: { email },
-        payload: {
-          NAME: accountDto.profile?.name ?? 'there',
-          CODE: verificationToken,
-        },
-        locale: accountDto.settings?.locale ?? undefined,
-        metadata: {
-          USER_ID: account.id,
-          SOURCE: 'accounts.register',
-        },
-      }),
-      this.sendCommunicationSafely({
-        kind: 'welcome_email',
-        channels: ['email'],
-        recipient: { email },
-        payload: {
-          NAME: accountDto.profile?.name ?? 'there',
-        },
-        locale: accountDto.settings?.locale ?? undefined,
-        metadata: {
-          USER_ID: account.id,
-          SOURCE: 'accounts.register',
-        },
-      }),
-    ]);
-
-    return this.issueSession(accountDto);
   }
 
   async loginWithPassword(emailInput: string, password: string): Promise<AuthSessionResponse> {
@@ -116,7 +93,7 @@ export class AuthCoreService {
       throw this.invalidCredentialsError();
     }
 
-    return this.issueSession(toUserRecordDto(account));
+    return this.issueSessionForAccount(account);
   }
 
   async refreshTokens(refreshToken: string): Promise<AuthSessionResponse> {
@@ -152,17 +129,10 @@ export class AuthCoreService {
       });
     }
 
-    const account = await this.authStore.findAccountByUserId(payload.sub);
-    if (!account) {
-      throw new UnauthorizedException({
-        message: 'Refresh token is invalid or expired',
-        details: { code: AUTH_ERROR_CODES.refreshInvalid },
-      });
-    }
-
+    const account = await this.findAccountByUserIdOrThrow(payload.sub);
     this.assertAccountActive(account);
     await this.authStore.revokeRefreshToken(record.id, new Date());
-    return this.issueSession(toUserRecordDto(account));
+    return this.issueSessionForAccount(account);
   }
 
   async logout(userId: string, refreshToken: string): Promise<void> {
@@ -177,62 +147,104 @@ export class AuthCoreService {
     await this.authStore.revokeRefreshToken(payload.jti, new Date());
   }
 
-  async changePassword(userId: string, newPassword: string): Promise<void> {
+  async changePasswordNow(userId: string, newPassword: string): Promise<void> {
     const passwordHash = await this.authPasswordService.hash(newPassword);
+    await this.applyPasswordHash(userId, passwordHash);
+  }
+
+  async applyPasswordHash(userId: string, passwordHash: string): Promise<void> {
     await this.authStore.updatePassword(userId, passwordHash);
     await this.authStore.revokeRefreshTokensForUser(userId, new Date());
   }
 
-  async requestPasswordReset(emailInput: string) {
+  async markEmailVerified(userId: string): Promise<PasswordAccountRecord> {
+    await this.authStore.markEmailVerified(userId, new Date());
+    return this.findAccountByUserIdOrThrow(userId);
+  }
+
+  async updatePrimaryEmail(userId: string, emailInput: string): Promise<PasswordAccountRecord> {
     const email = emailInput.trim().toLowerCase();
-    const account = await this.authStore.findPasswordAccountByEmail(email);
-    if (account) {
-      const user = toUserRecordDto(account);
-      await this.sendCommunicationSafely({
-        kind: 'password_reset',
-        channels: ['email'],
-        recipient: { email },
-        payload: {
-          NAME: user.profile?.name ?? 'there',
-          TOKEN: this.createStubToken('reset', account.id),
-        },
-        locale: user.settings?.locale ?? undefined,
-        metadata: {
-          USER_ID: account.id,
-          SOURCE: 'accounts.password-reset',
-        },
+    const existing = await this.authStore.findPasswordAccountByEmail(email);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException({
+        message: 'Email is already registered',
+        details: { code: AUTH_ERROR_CODES.emailTaken },
       });
     }
 
+    await this.authStore.updatePrimaryEmail(userId, email, new Date());
+    return this.findAccountByUserIdOrThrow(userId);
+  }
+
+  async issuePendingOperation(input: {
+    userId: string;
+    type: string;
+    metadata?: JsonObject | null;
+    ttlMs?: number;
+  }): Promise<{ token: string; id: string; expiresAt: Date }> {
+    const id = crypto.randomUUID();
+    const secret = crypto.randomBytes(24).toString('hex');
+    const tokenHash = await this.authPasswordService.hash(secret);
+    const expiresAt = new Date(Date.now() + (input.ttlMs ?? DEFAULT_PENDING_OPERATION_TTL_MS));
+
+    await this.authStore.createPendingOperation({
+      id,
+      userId: input.userId,
+      type: input.type,
+      tokenHash,
+      metadata: input.metadata ?? null,
+      expiresAt,
+    });
+
     return {
-      status: 'accepted',
-      delivery: 'communications',
+      id,
+      token: `${id}.${secret}`,
+      expiresAt,
     };
   }
 
-  async resetPassword(token: string, newPassword: string) {
-    if (token.trim().length < 8) {
-      throw new BadRequestException('Reset token is invalid');
+  async readPendingOperation(token: string, expectedType: string): Promise<PendingOperationRecord> {
+    const [id, secret] = token.trim().split('.');
+    if (!id || !secret) {
+      throw new BadRequestException({
+        message: 'Pending operation token is invalid',
+        details: { code: AUTH_ERROR_CODES.pendingOperationInvalid },
+      });
     }
 
-    return {
-      status: 'accepted',
-      delivery: 'stub',
-      nextAction: 'accounts-token-flow',
-      passwordLength: newPassword.length,
-    };
+    const operation = await this.authStore.findPendingOperationById(id);
+    if (!operation || operation.type !== expectedType || operation.consumedAt || operation.expiresAt <= new Date()) {
+      throw new BadRequestException({
+        message: 'Pending operation token is invalid',
+        details: { code: AUTH_ERROR_CODES.pendingOperationInvalid },
+      });
+    }
+
+    const matched = await this.authPasswordService.verify(secret, operation.tokenHash);
+    if (!matched) {
+      throw new BadRequestException({
+        message: 'Pending operation token is invalid',
+        details: { code: AUTH_ERROR_CODES.pendingOperationInvalid },
+      });
+    }
+
+    return operation;
   }
 
-  async verifyEmail(token: string) {
-    if (token.trim().length < 8) {
-      throw new BadRequestException('Verification token is invalid');
-    }
+  async consumePendingOperation(operationId: string): Promise<void> {
+    await this.authStore.consumePendingOperation(operationId, new Date());
+  }
 
-    return {
-      status: 'accepted',
-      delivery: 'stub',
-      nextAction: 'accounts-token-flow',
-    };
+  async findPasswordAccountByEmail(emailInput: string): Promise<PasswordAccountRecord | null> {
+    return this.authStore.findPasswordAccountByEmail(emailInput.trim().toLowerCase());
+  }
+
+  async findAccountByUserIdOrThrow(userId: string): Promise<PasswordAccountRecord> {
+    const account = await this.authStore.findAccountByUserId(userId);
+    if (!account) {
+      throw new NotFoundException('Account was not found');
+    }
+    return account;
   }
 
   async me(userId: string): Promise<{ user: UserRecordDto }> {
@@ -240,12 +252,16 @@ export class AuthCoreService {
     return { user };
   }
 
+  async issueSessionForAccount(account: PasswordAccountRecord): Promise<AuthSessionResponse> {
+    return this.issueSession(toUserRecordDto(account));
+  }
+
   getProbeStatus() {
     return {
       status: 'ok',
       feature: 'accounts',
       storage: 'db-prisma',
-      emailDelivery: 'communications',
+      messagingExtension: 'accounts-communications (optional)',
       selfServiceRoutes: [
         '/api/users/:id',
         '/api/users/:id/profile',
@@ -288,16 +304,6 @@ export class AuthCoreService {
     };
   }
 
-  private async sendCommunicationSafely(input: Parameters<CommunicationsService['send']>[0]): Promise<void> {
-    try {
-      await this.communicationsService.send(input);
-    } catch (error) {
-      this.logger.warn(
-        `accounts.communication_failed kind=${input.kind} channel=${input.channels.join(',')} reason=${error instanceof Error ? error.message : 'unknown'}`,
-      );
-    }
-  }
-
   private assertAccountActive(user: { status: string; deletedAt: Date | null }) {
     if (user.deletedAt || user.status !== 'active') {
       throw new UnauthorizedException({
@@ -312,10 +318,6 @@ export class AuthCoreService {
       message: 'Invalid credentials',
       details: { code: AUTH_ERROR_CODES.invalidCredentials },
     });
-  }
-
-  private createStubToken(kind: string, userId: string): string {
-    return `stub-${kind}-${userId}-${Date.now()}`;
   }
 
   private readNullableString(input: unknown, key: string): string | null {
@@ -338,17 +340,20 @@ export class AuthCoreService {
   }
 
   private toExpiresAt(ttl: string): Date {
-    const now = Date.now();
-    const match = ttl.trim().match(/^(\d+)([smhd])$/i);
-    if (!match) {
-      const seconds = Number.parseInt(ttl, 10);
-      return new Date(now + (Number.isFinite(seconds) ? seconds : 7 * 24 * 60 * 60) * 1000);
+    const value = ttl.trim();
+    const matched = value.match(/^(\d+)([smhd])$/);
+    if (!matched) {
+      return new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
     }
 
-    const amount = Number.parseInt(match[1], 10);
-    const unit = match[2].toLowerCase();
-    const multiplier =
-      unit === 's' ? 1000 : unit === 'm' ? 60_000 : unit === 'h' ? 3_600_000 : 86_400_000;
-    return new Date(now + amount * multiplier);
+    const amount = Number(matched[1]);
+    const unit = matched[2];
+    const multipliers = {
+      s: 1000,
+      m: 1000 * 60,
+      h: 1000 * 60 * 60,
+      d: 1000 * 60 * 60 * 24,
+    } as const;
+    return new Date(Date.now() + amount * multipliers[unit]);
   }
 }

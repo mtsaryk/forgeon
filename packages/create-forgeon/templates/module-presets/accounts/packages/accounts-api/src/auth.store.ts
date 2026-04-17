@@ -19,10 +19,22 @@ export type RefreshTokenRecord = {
   createdAt: Date;
 };
 
+export type PendingOperationRecord = {
+  id: string;
+  userId: string;
+  type: string;
+  tokenHash: string;
+  metadata: JsonObject | null;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  createdAt: Date;
+};
+
 export interface CreatePasswordAccountInput {
   email: string;
   passwordHash: string;
   status: string;
+  emailVerifiedAt: Date | null;
   userData: JsonObject | null;
   profile: {
     name: string | null;
@@ -45,6 +57,7 @@ export class AuthStore {
       const user = await tx.user.create({
         data: {
           status: input.status,
+          emailVerifiedAt: input.emailVerifiedAt,
           data: toPrismaJsonInput(input.userData),
           profile: {
             create: {
@@ -143,6 +156,79 @@ export class AuthStore {
     });
   }
 
+  async markEmailVerified(userId: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: 'active',
+        emailVerifiedAt: verifiedAt,
+      },
+    });
+  }
+
+  async updatePrimaryEmail(userId: string, email: string, verifiedAt: Date): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.authIdentity.updateMany({
+        where: { userId, provider: 'email' },
+        data: { providerId: email },
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          emailVerifiedAt: verifiedAt,
+        },
+      }),
+    ]);
+  }
+
+  async createPendingOperation(input: {
+    id: string;
+    userId: string;
+    type: string;
+    tokenHash: string;
+    metadata: JsonObject | null;
+    expiresAt: Date;
+  }): Promise<void> {
+    await this.prisma.authPendingOperation.create({
+      data: {
+        id: input.id,
+        userId: input.userId,
+        type: input.type,
+        tokenHash: input.tokenHash,
+        metadata: toPrismaJsonInput(input.metadata),
+        expiresAt: input.expiresAt,
+      },
+    });
+  }
+
+  async findPendingOperationById(id: string): Promise<PendingOperationRecord | null> {
+    const operation = await this.prisma.authPendingOperation.findUnique({
+      where: { id },
+    });
+
+    if (!operation) {
+      return null;
+    }
+
+    return {
+      id: operation.id,
+      userId: operation.userId,
+      type: operation.type,
+      tokenHash: operation.tokenHash,
+      metadata: operation.metadata as JsonObject | null,
+      expiresAt: operation.expiresAt,
+      consumedAt: operation.consumedAt,
+      createdAt: operation.createdAt,
+    };
+  }
+
+  async consumePendingOperation(id: string, consumedAt: Date): Promise<void> {
+    await this.prisma.authPendingOperation.updateMany({
+      where: { id, consumedAt: null },
+      data: { consumedAt },
+    });
+  }
+
   async createRefreshToken(input: {
     id: string;
     userId: string;
@@ -190,6 +276,7 @@ export class AuthStore {
   private mapPasswordAccount(user: {
     id: string;
     status: string;
+    emailVerifiedAt: Date | null;
     data: unknown;
     createdAt: Date;
     updatedAt: Date;

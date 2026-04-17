@@ -412,14 +412,32 @@ Implemented add-modules in `packages/create-forgeon/src/modules/registry.mjs`:
     - `@forgeon/accounts-contracts`
     - `@forgeon/accounts-api`
   - baseline routes:
+    - `POST /api/auth/register`
     - `POST /api/auth/login`
     - `POST /api/auth/refresh`
     - `POST /api/auth/logout`
     - `GET /api/auth/me`
+    - `POST /api/auth/change-password`
     - `GET /api/health/auth`
   - installs as a DB-backed module with hard prerequisite `db-adapter`
   - runtime is Prisma-first through `@forgeon/db-prisma`
+  - delivery-assisted auth/account flows belong to optional `accounts-communications`
   - `accounts-rbac` is the only compatibility sync in this area
+
+- `accounts-communications`
+  - package:
+    - `@forgeon/accounts-communications`
+  - requires:
+    - `accounts`
+    - `communications`
+  - adds:
+    - `POST /api/auth/verify-email`
+    - `POST /api/auth/password-reset/request`
+    - `POST /api/auth/password-reset/confirm`
+    - `POST /api/auth/change-password/confirm`
+    - `POST /api/auth/change-email/request`
+    - `POST /api/auth/change-email/confirm`
+  - rebinds `register` and `change-password` handlers through `ForgeonAccountsModule.register(...)`
 
 - `rate-limit`
   - package: `@forgeon/rate-limit`
